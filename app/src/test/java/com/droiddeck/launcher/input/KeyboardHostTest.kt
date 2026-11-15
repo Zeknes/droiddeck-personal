@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Looper
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -49,6 +50,20 @@ class KeyboardHostTest {
         idle()
         assertFalse(shadowOf(imm).isSoftInputVisible)
         assertFalse(host.shown)
+    }
+
+    @Test fun showAndHideNotifyTheBridgeOnce() {
+        var shown = 0
+        var hidden = 0
+        host.onShown = { shown++ }
+        host.onHidden = { hidden++ }
+        host.show()
+        host.show()
+        host.hide()
+        host.hide()
+        idle()
+        assertEquals(1, shown)
+        assertEquals(1, hidden)
     }
 
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()

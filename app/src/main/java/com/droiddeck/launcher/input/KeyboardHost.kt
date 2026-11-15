@@ -28,6 +28,8 @@ class KeyboardHost(
     var imeShowing = false
         private set
     var onImeChanged: ((Boolean) -> Unit)? = null
+    var onShown: (() -> Unit)? = null
+    var onHidden: (() -> Unit)? = null
 
     init {
         isFocusable = false
@@ -75,20 +77,24 @@ class KeyboardHost(
         rootWindowInsets?.isVisible(WindowInsets.Type.ime()) != false
 
     fun show() {
+        val was = shown
         shown = true
         isFocusable = true
         isFocusableInTouchMode = true
         requestFocus()
         imm.restartInput(this)
         imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+        if (!was) onShown?.invoke()
     }
 
     fun hide() {
+        val was = shown
         shown = false
         imm.hideSoftInputFromWindow(windowToken, 0)
         isFocusable = false
         isFocusableInTouchMode = false
         clearFocus()
+        if (was) onHidden?.invoke()
     }
 
     fun type(text: CharSequence?) {

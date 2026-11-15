@@ -797,6 +797,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             preeditText = { text, cursor -> gnomeIme?.preedit(text, cursor) == true },
         ).also { host ->
             host.onImeChanged = { updateDesktopKeyboardButton() }
+            host.onShown = { gnomeIme?.focus() }
+            host.onHidden = { gnomeIme?.blur() }
             root.addView(host)
         }
         if (SessionState.mode == SessionService.MODE_DESKTOP) startGnomeIme()
@@ -4716,11 +4718,17 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         if (!BuildConfig.DESKTOP_GNOME || SessionState.mode != SessionService.MODE_DESKTOP || gnomeIme != null) return
         val socket = java.io.File(filesDir, ".wayland-rt/droiddeck-ime.sock")
         gnomeIme = com.droiddeck.launcher.session.GnomeImeClient(socket) { state ->
-            AgentGuest.desktopFieldChanged(state != null && state.inner && state.shell && !state.sensitive)
+            val ready = state != null && state.inner && state.shell && !state.sensitive
+            AgentGuest.desktopFieldChanged(ready)
+            if (keyboard?.shown == true) {
+                if (ready) gnomeIme?.focus()
+                else if (state == null || !state.inner) gnomeIme?.blur()
+            }
         }.also { it.start() }
     }
 
     private fun stopGnomeIme() {
+        gnomeIme?.blur()
         gnomeIme?.close()
         gnomeIme = null
         AgentGuest.desktopFieldChanged(false)
