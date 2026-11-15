@@ -430,7 +430,7 @@ internal fun SetupPanel(
                             }
                             TabsSettingsGroup(host, s, a)
                             SettingsGroup("Credits and source") {
-                                Note("DroidDeck Personal is based on DroidDeck (GPL-3.0). Source: https://github.com/Zeknes/droiddeck-personal\nFusionHUD by The412Banner: https://github.com/The412Banner/FusionHUD")
+                                Note("DroidDeck KDE is based on DroidDeck (GPL-3.0). Source: https://github.com/Zeknes/droiddeck-personal\nFusionHUD by The412Banner: https://github.com/The412Banner/FusionHUD")
                             }
                         }
                         val device: @Composable () -> Unit = {
