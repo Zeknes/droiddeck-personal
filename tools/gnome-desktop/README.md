@@ -174,10 +174,10 @@ A test release APK built from this tree carries:
 
 Its GNOME catalog entry ignores the runtime's pre-existing KDE
 `desktop-pack.json` and always installs the embedded GNOME pack. The test APK
-was produced with `-x verifyRuntimeInputs` because the full
-`tools/build_local.sh` runtime-input staging (gaming preloads, gamescope and
-the release manifest) is not present in the isolated build tree; a normal
-release build runs that task.
+is built with the standard `tools/build_local.sh` runtime-input preparation,
+`assembleRelease`, `check_session_assets.py`, `runtime_inputs.py apk`,
+`check_android_libraries.py` and the audio-bundle check; it is signed
+v1+v2+v3 with the project's personal key.
 
 ## Unprivileged start
 
