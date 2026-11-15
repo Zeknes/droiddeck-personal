@@ -442,6 +442,9 @@ internal fun SetupPanel(
                                 if (s.soundtracksEnabled) ToggleRow(host, "soundtracks-ingame", stringResource(R.string.setup_soundtracks_ingame), stringResource(R.string.setup_soundtracks_ingame_hint), s.soundtracksIngame, onChange = a.onSoundtracksIngame)
                             }
                             TabsSettingsGroup(host, s, a)
+                            SettingsGroup("Credits and source") {
+                                Note("DroidDeck Personal is based on DroidDeck (GPL-3.0). Source: https://github.com/Zeknes/droiddeck-personal\nFusionHUD by The412Banner: https://github.com/The412Banner/FusionHUD")
+                            }
                         }
                         val device: @Composable () -> Unit = {
                             SettingsGroup(stringResource(R.string.setup_group_device)) {
