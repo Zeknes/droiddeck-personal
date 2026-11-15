@@ -35,6 +35,15 @@ class DesktopCatalogTest {
         assertFalse(DesktopCatalog.desktopInstalled(root))
     }
 
+    @Test fun anInstalledGnomeDesktopIsRecognised() {
+        val root = temporary.root
+        File(root, "usr/bin/gnome-shell").apply { parentFile.mkdirs(); writeText("fixture") }
+        File(root, "usr/local/bin/droiddeck-gnome-desktop").apply { parentFile.mkdirs(); writeText("fixture") }
+        assertTrue(DesktopCatalog.desktopInstalled(root))
+        File(root, "usr/local/bin/droiddeck-gnome-desktop").delete()
+        assertFalse(DesktopCatalog.desktopInstalled(root))
+    }
+
     @Test fun anInterruptedInstallIsFoundAgainWithEverythingNeededToFinishIt() {
         val root = temporary.root
         val entry = DesktopCatalog.Entry(
