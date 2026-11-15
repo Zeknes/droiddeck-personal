@@ -112,6 +112,7 @@ class InputSettingsTest {
     }
 
     @Test fun bindingEditorPersistsDisabledWithoutChangingTouchControls() {
+        val secondaryBefore = InputProfiles.read(context, InputProfile.DESKTOP).action(InputRole.SECONDARY, InputControl.A)
         var changed = false
         compose.setContent { DroidDeckTheme { InputSettingsPage({}, { changed = true }) } }
         compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
@@ -124,7 +125,7 @@ class InputSettingsTest {
             assertTrue(changed)
             val profile = InputProfiles.read(context, InputProfile.DESKTOP)
             assertEquals(InputAction.Disabled, profile.action(InputRole.PHYSICAL, InputControl.A))
-            assertEquals(InputLibraries.read(context).compile(InputProfile.DESKTOP).action(InputRole.SECONDARY, InputControl.A), profile.action(InputRole.SECONDARY, InputControl.A))
+            assertEquals(secondaryBefore, profile.action(InputRole.SECONDARY, InputControl.A))
         }
     }
 
