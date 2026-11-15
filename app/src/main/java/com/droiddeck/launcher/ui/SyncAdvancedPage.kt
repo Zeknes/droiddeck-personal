@@ -33,7 +33,6 @@ internal fun SyncAdvancedPage(host: MenuHost, onBack: () -> Unit) {
     val ctx = LocalContext.current
     var runMode by remember { mutableStateOf(SyncPrefs.runMode(ctx)) }
     var wifiOnly by remember { mutableStateOf(SyncPrefs.wifiOnly(ctx)) }
-    var pauseInGames by remember { mutableStateOf(SyncPrefs.pauseInGames(ctx)) }
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     if (confirmReset) ResetDialog(onDismiss = { confirmReset = false }) { Syncthing.reset(ctx) }
     val ports = Syncthing.ports
@@ -55,9 +54,6 @@ internal fun SyncAdvancedPage(host: MenuHost, onBack: () -> Unit) {
                     ) { SyncPrefs.setRunMode(ctx, it); runMode = it; Syncthing.settingsChanged() }
                     ToggleRow(host, "sync-wifi", stringResource(R.string.sync_wifi_only), null, wifiOnly) {
                         SyncPrefs.setWifiOnly(ctx, it); wifiOnly = it; Syncthing.settingsChanged()
-                    }
-                    ToggleRow(host, "sync-games", stringResource(R.string.sync_pause_games), null, pauseInGames) {
-                        SyncPrefs.setPauseInGames(ctx, it); pauseInGames = it; Syncthing.settingsChanged()
                     }
                     ActionRow(stringResource(R.string.sync_logs), stringResource(R.string.sync_logs_hint), stringResource(R.string.sync_logs_share), onClick = { shareLog(ctx) })
                 }

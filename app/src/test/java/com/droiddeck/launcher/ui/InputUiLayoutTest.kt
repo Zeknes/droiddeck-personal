@@ -77,7 +77,7 @@ class InputUiLayoutTest {
     @Test @Config(qualifiers = "w960dp-h600dp")
     fun largeScreenShowsTheProfileLibraryInTheExistingTheme() {
         compose.setContent { root = LocalView.current; DroidDeckTheme { Surface { InputSettingsPage({}) } } }
-        compose.onNodeWithTag("input-profile-game").assertIsDisplayed()
+        compose.onNodeWithTag("input-profile-desktop").assertIsDisplayed()
         screenshot("profiles")
     }
 
@@ -108,10 +108,10 @@ class InputUiLayoutTest {
             }
         }
         compose.onNodeWithText(context.getString(R.string.setup_tab_controller)).performClick()
-        compose.onNodeWithTag("input-profile-game").assertIsDisplayed()
+        compose.onNodeWithTag("input-profile-desktop").assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.ctrl_layout)).assertDoesNotExist()
         screenshot("controller-tab")
-        compose.onNodeWithTag("input-profile-game").performClick()
+        compose.onNodeWithTag("input-profile-desktop").performClick()
         compose.onNodeWithTag("input-part-physical").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.setup_tab_launcher)).assertIsDisplayed()
         screenshot("controller-physical")

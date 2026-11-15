@@ -31,7 +31,6 @@ object AppUiPrefs {
     const val HOME_PAGE_APPS = "android-apps"
 
     val homePageOptions = listOf(
-        HOME_PAGE_STEAM to R.string.rail_steam,
         HOME_PAGE_APPS to R.string.content_android_apps,
     )
 
@@ -39,7 +38,7 @@ object AppUiPrefs {
         context.getSharedPreferences("app-ui", Context.MODE_PRIVATE)
             .getString("home-page", null)
             .takeIf { value -> homePageOptions.any { it.first == value } }
-            ?: HOME_PAGE_STEAM
+            ?: HOME_PAGE_APPS
 
     fun setHomePage(context: Context, value: String) {
         require(homePageOptions.any { it.first == value })

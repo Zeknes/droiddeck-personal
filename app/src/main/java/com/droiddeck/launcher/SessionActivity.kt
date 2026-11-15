@@ -773,16 +773,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         refreshInputProfile()
         bridge.setOnChordInput(backQamInput::onChordInput)
         SessionState.padBridge = bridge
-        if (Build.VERSION.SDK_INT >= 31) {
-            val vr = com.droiddeck.launcher.input.JoyConVr(this, File(filesDir, ".wayland-rt/${com.droiddeck.launcher.input.JoyConVr.FILE}")) { taken, released ->
-                if (joyConVr == null) return@JoyConVr
-                taken.forEach(bridge::onDeviceRemoved)
-                if (released.isNotEmpty()) bridge.syncConnectedControllers()
-                updateHandCamera()
-            }
-            bridge.setExcluded(vr::owns)
-            joyConVr = vr
-        }
         SteamControllerBle.listener = { uiHandler.post { updatePadMotion(); refreshControls() } }
         steamController = SteamControllerBle(this, inputRouter).also { it.start() }
         padMotion = com.droiddeck.launcher.input.PadMotion(this) {

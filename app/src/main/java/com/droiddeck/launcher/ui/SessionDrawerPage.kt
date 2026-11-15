@@ -17,7 +17,8 @@ internal fun sessionDrawerPages(
     hasSecondScreen: Boolean, hasGlasses: Boolean = false, hasAgent: Boolean = com.droiddeck.launcher.agent.AgentHost.installed && com.droiddeck.launcher.agent.AgentTab.shown,
 ): List<SessionDrawerPage> =
     SessionDrawerPage.entries.filter {
-        (hasSecondScreen || it != SessionDrawerPage.SECOND_SCREEN) && (hasGlasses || it != SessionDrawerPage.GLASSES) &&
+        it != SessionDrawerPage.VR && it != SessionDrawerPage.GAMES &&
+            (hasSecondScreen || it != SessionDrawerPage.SECOND_SCREEN) && (hasGlasses || it != SessionDrawerPage.GLASSES) &&
             (hasAgent || it != SessionDrawerPage.AGENT)
     }
 

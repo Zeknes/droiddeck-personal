@@ -37,7 +37,7 @@ internal fun InputQuickSettings(host: MenuHost, desktop: Boolean, onChanged: (In
     val mixed = selection.parts.isNotEmpty()
     val active = library.profile(library.activeId(desktop))
     val profiles = listOf(InputProfiles.AUTO to stringResource(R.string.input_quick_auto, if (desktop) library.profile(library.desktop).name else library.profile(library.steam).name)) +
-        library.profiles.map { it.id to it.name } + if (mixed) listOf("mixed" to stringResource(R.string.input_quick_mixed, active.name)) else emptyList()
+        library.profiles.filter { it.id != InputProfile.GAME }.map { it.id to it.name } + if (mixed) listOf("mixed" to stringResource(R.string.input_quick_mixed, active.name)) else emptyList()
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).focusRow { expanded = !expanded }.padding(14.dp).testTag("input-profile-expand"),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
