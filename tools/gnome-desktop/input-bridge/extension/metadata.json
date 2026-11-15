@@ -1,0 +1,7 @@
+{
+  "uuid": "droiddeck-input@zeknes.com",
+  "name": "DroidDeck input focus state",
+  "description": "Exports the post-commit input focus type for the DroidDeck input bridge.",
+  "shell-version": ["50"],
+  "version": 1
+}

@@ -1,0 +1,279 @@
+#!/usr/bin/python3
+"""DroidDeck GNOME input bridge.
+
+Receives UTF-8 preedit/commit messages from the outer compositor over a Unix
+socket and forwards them to the GNOME Shell input method through the
+`com.zeknes.DroidDeck.Input` extension. The extension checks the focused
+field's content type at the commit itself, so this process only decides when
+the outer side may speak and reports the resulting state.
+"""
+import importlib.util
+import json
+import os
+import socket
+import sys
+
+import gi
+
+from gi.repository import Gio, GLib
+
+_here = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location('droiddeck_ime_state',
+                                               os.path.join(_here, 'droiddeck_ime_state.py'))
+state = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(state)
+
+SHELL_BUS = 'com.zeknes.DroidDeck.Input'
+SHELL_PATH = '/com/zeknes/DroidDeck/Input'
+SHELL_IFACE = 'com.zeknes.DroidDeck.Input'
+MAX_TEXT = 4096
+POLL_MS = 200
+
+loop = GLib.MainLoop()
+server = None
+client = None
+buffer = b''
+LOG_PATH = os.environ.get('DROIDDECK_IME_LOG')
+
+
+def log(event, **fields):
+    if not LOG_PATH:
+        return
+    fields['event'] = event
+    fields['t'] = GLib.get_monotonic_time()
+    try:
+        with open(LOG_PATH, 'a') as handle:
+            handle.write(json.dumps(fields, ensure_ascii=False) + '\n')
+    except OSError:
+        pass
+
+
+class ShellInput:
+    def __init__(self):
+        self.proxy = None
+
+    def _proxy(self):
+        if self.proxy is None:
+            try:
+                self.proxy = Gio.DBusProxy.new_for_bus_sync(
+                    Gio.BusType.SESSION,
+                    Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES | Gio.DBusProxyFlags.DO_NOT_CONNECT_SIGNALS,
+                    None, SHELL_BUS, SHELL_PATH, SHELL_IFACE, None)
+            except GLib.Error:
+                return None
+        return self.proxy
+
+    def _call(self, method, parameters=None):
+        proxy = self._proxy()
+        if proxy is None:
+            return None
+        try:
+            return proxy.call_sync(method, parameters, Gio.DBusCallFlags.NO_AUTO_START, 500, None)
+        except GLib.Error:
+            self.proxy = None
+            return None
+
+    def query(self):
+        result = self._call('GetFocusState')
+        if result is None:
+            return None
+        try:
+            epoch, purpose, hints, focused = result.unpack()
+        except (TypeError, ValueError):
+            return None
+        if not all(isinstance(v, int) for v in (epoch, purpose, hints)):
+            return None
+        return epoch, purpose, hints, bool(focused)
+
+    def commit(self, text):
+        result = self._call('Commit', GLib.Variant('(s)', (text,)))
+        return result is not None and bool(result.unpack()[0])
+
+    def preedit(self, text, cursor):
+        result = self._call('Preedit', GLib.Variant('(su)', (text, cursor)))
+        return result is not None and bool(result.unpack()[0])
+
+    def clear_preedit(self):
+        self._call('ClearPreedit')
+
+
+shell = ShellInput()
+gate = None
+last_state = None
+
+
+def clear_preedit():
+    shell.clear_preedit()
+
+
+gate = state.FocusGate(clear_preedit)
+
+
+def publish_state(force=False):
+    global last_state
+    if client is None:
+        return
+    info = {'type': 'state', 'generation': gate.generation, 'connected': gate.connected,
+            'inner': gate.inner, 'outer': gate.outer, 'sensitive': gate.sensitive,
+            'shell': gate.shell_ok, 'ready': gate.ready()}
+    current = tuple(info[key] for key in ('generation', 'connected', 'inner', 'outer',
+                                          'sensitive', 'shell', 'ready'))
+    if not force and current == last_state:
+        return
+    last_state = current
+    try:
+        client.sendall((json.dumps(info) + '\n').encode())
+    except OSError:
+        drop_client()
+
+
+def refresh():
+    result = shell.query()
+    log('shell_query', ok=result is not None, state=list(result) if result else None)
+    if result is None:
+        gate.shell_state(None)
+        return False
+    focused = bool(result[3])
+    if gate.inner != focused:
+        gate.inner_focus(focused)
+    gate.shell_state(result)
+    return focused
+
+
+def drop_client():
+    global client, buffer, last_state
+    if client is None:
+        return
+    try:
+        client.close()
+    except OSError:
+        pass
+    client = None
+    buffer = b''
+    last_state = None
+    gate.detach()
+    log('detach')
+    publish_state(force=True)
+
+
+def dispatch(message):
+    generation = message.get('generation')
+    if type(generation) is not int:
+        return
+    action = message.get('type')
+    if action == 'focus':
+        refresh()
+        gate.focus(generation)
+        log('outer_focus', generation=generation, accepted=gate.outer)
+    elif action == 'blur':
+        gate.blur(generation)
+        shell.clear_preedit()
+        log('outer_blur', generation=generation)
+    elif action in ('preedit', 'commit'):
+        if not refresh() or not gate.accepts(generation):
+            log('drop', action=action, generation=generation, current=gate.generation)
+            publish_state()
+            return
+        text = message.get('text')
+        if not isinstance(text, str) or '\0' in text or len(text.encode('utf-8')) > MAX_TEXT:
+            return
+        if action == 'preedit':
+            pos = message.get('cursor')
+            if type(pos) is not int or not 0 <= pos <= len(text):
+                return
+            if shell.preedit(text, pos):
+                gate.preedit = bool(text)
+                log('preedit', generation=generation, text=text)
+            else:
+                log('preedit_rejected', generation=generation)
+                gate.shell_state(shell.query())
+        else:
+            if shell.commit(text):
+                if gate.preedit:
+                    shell.clear_preedit()
+                    gate.preedit = False
+                log('commit', generation=generation, text=text)
+            else:
+                log('commit_rejected', generation=generation)
+                gate.shell_state(shell.query())
+    publish_state()
+
+
+def poll():
+    refresh()
+    publish_state()
+    return True
+
+
+def read_client(fd, condition):
+    global buffer
+    if condition & (GLib.IO_HUP | GLib.IO_ERR):
+        drop_client()
+        return False
+    try:
+        data = client.recv(8192)
+        if not data:
+            drop_client()
+            return False
+        buffer += data
+        if len(buffer) > 65536:
+            drop_client()
+            return False
+        while b'\n' in buffer:
+            line, buffer = buffer.split(b'\n', 1)
+            message = json.loads(line.decode('utf-8'))
+            if isinstance(message, dict):
+                dispatch(message)
+    except (OSError, ValueError, UnicodeError):
+        drop_client()
+        return False
+    return True
+
+
+def accept_client():
+    global client, buffer, last_state
+    connection, _ = server.accept()
+    connection.setblocking(False)
+    if client is not None:
+        try:
+            client.close()
+        except OSError:
+            pass
+    client = connection
+    buffer = b''
+    last_state = None
+    gate.attach()
+    refresh()
+    log('attach')
+    publish_state(force=True)
+    GLib.io_add_watch(client.fileno(), GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, read_client)
+    return True
+
+
+def open_socket():
+    global server
+    path = os.environ.get('DROIDDECK_IME_SOCKET')
+    if path:
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+        server.bind(path)
+        os.chmod(path, 0o600)
+    else:
+        server = socket.socket(fileno=int(os.environ['DROIDDECK_IME_FD']))
+    server.setblocking(False)
+    server.listen(2)
+    GLib.io_add_watch(server.fileno(), GLib.IO_IN, lambda fd, condition: accept_client())
+
+
+def main():
+    open_socket()
+    refresh()
+    GLib.timeout_add(POLL_MS, poll)
+    loop.run()
+
+
+if __name__ == '__main__':
+    main()
