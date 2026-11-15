@@ -113,20 +113,11 @@ object DesktopCatalog {
             !File(LinuxRuntime.rootDir(context), "root/.local/share/Steam/steamapps/appmanifest_4427310.acf").isFile
 
     const val DESKTOP_ID = "desktop-kde"
-    const val DESKTOP_GNOME_ID = "desktop-gnome"
     const val EMULATORS_ID = "emulators"
     private const val EMULATORS_SCRIPT = "/usr/local/bin/droiddeck-emulators"
 
     fun desktopEntry(context: Context): Entry {
         val pack = DesktopPack.info(LinuxRuntime.rootDir(context))
-        if (BuildConfig.DESKTOP_GNOME) {
-            return Entry(
-                DESKTOP_GNOME_ID, context.getString(R.string.content_linux_desktop), 1,
-                pack?.tag ?: BuildConfig.DESKTOP_GNOME_TAG, "tar",
-                pack?.url ?: BuildConfig.DESKTOP_GNOME_URL, pack?.sha256 ?: BuildConfig.DESKTOP_GNOME_SHA256,
-                pack?.size ?: BuildConfig.DESKTOP_GNOME_SIZE, "", "", "",
-            )
-        }
         return Entry(
             DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, pack?.tag ?: BuildConfig.DESKTOP_KDE_TAG, "tar",
             pack?.url ?: BuildConfig.DESKTOP_KDE_URL, pack?.sha256 ?: BuildConfig.DESKTOP_KDE_SHA256,
@@ -139,17 +130,15 @@ object DesktopCatalog {
     fun desktopFromPack(root: File): Boolean = DesktopPack.info(root) != null
 
     fun desktopInstalled(root: File): Boolean {
-        if (BuildConfig.DESKTOP_GNOME) {
-            val marker = FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_GNOME_ID"))?.trim()
-            return !File(root, DesktopRemoval.PENDING).exists() &&
-                File(root, "usr/bin/gnome-shell").isFile &&
-                File(root, "usr/local/bin/droiddeck-gnome-desktop").isFile &&
-                (marker == null || marker == (DesktopPack.info(root)?.tag ?: BuildConfig.DESKTOP_GNOME_TAG))
+        if (!File(root, DesktopRemoval.PENDING).exists()) {
+            val kde = File(root, "usr/bin/kwin_wayland").isFile &&
+                FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_ID"))?.trim() ==
+                    (DesktopPack.info(root)?.tag ?: BuildConfig.DESKTOP_KDE_TAG)
+            if (kde) return true
+            if (BuildConfig.DESKTOP_GNOME && File(root, "usr/bin/gnome-shell").isFile &&
+                File(root, "usr/local/bin/droiddeck-gnome-desktop").isFile) return true
         }
-        return !File(root, DesktopRemoval.PENDING).exists() &&
-            File(root, "usr/bin/kwin_wayland").isFile &&
-            FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_ID"))?.trim() ==
-                (DesktopPack.info(root)?.tag ?: BuildConfig.DESKTOP_KDE_TAG)
+        return false
     }
 
     fun desktopPresent(context: Context): Boolean {
