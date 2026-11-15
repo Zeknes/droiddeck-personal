@@ -122,9 +122,9 @@ object DesktopCatalog {
         if (BuildConfig.DESKTOP_GNOME && BuildConfig.DESKTOP_GNOME_URL.isNotEmpty()) {
             return Entry(
                 DESKTOP_GNOME_ID, context.getString(R.string.content_linux_desktop), 1,
-                pack?.tag ?: BuildConfig.DESKTOP_GNOME_TAG, "tar",
-                pack?.url ?: BuildConfig.DESKTOP_GNOME_URL, pack?.sha256 ?: BuildConfig.DESKTOP_GNOME_SHA256,
-                pack?.size ?: BuildConfig.DESKTOP_GNOME_SIZE, "", "", "",
+                BuildConfig.DESKTOP_GNOME_TAG, "tar",
+                BuildConfig.DESKTOP_GNOME_URL, BuildConfig.DESKTOP_GNOME_SHA256,
+                BuildConfig.DESKTOP_GNOME_SIZE, "", "", "",
             )
         }
         return Entry(
