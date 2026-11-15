@@ -301,6 +301,15 @@ if (uvcDir) {
 }
 tasks.named('preBuild').configure { dependsOn(stageRuntimeAssets) }
 
+def gnomePack = System.getenv('DROIDDECK_GNOME_PACK')
+def stageGnomePack = tasks.register('stageGnomePack', Copy) {
+    if (gnomePack) {
+        from(gnomePack) { rename { 'gnome-r1-gnome-desktop.tar.zst' } }
+        into(layout.buildDirectory.dir('gnomePack'))
+    }
+}
+android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('gnomePack'))
+tasks.named('preBuild').configure { dependsOn(stageGnomePack) }
 def stageGogNotices = tasks.register('stageGogNotices', Copy) {
     from(layout.projectDirectory.dir('src/main/rust/stores/vendor/xdelta3')) { include 'LICENSE', 'README.droiddeck.md' }
     into(layout.buildDirectory.dir('gogNotices/licenses/xdelta3'))

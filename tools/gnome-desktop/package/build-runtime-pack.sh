@@ -31,6 +31,7 @@ for d in proc sys dev; do mount --rbind "/$d" "$root/$d" || true; done
 cp /etc/resolv.conf "$root/etc/resolv.conf"
 chroot "$root" /bin/bash -c '
     export DEBIAN_FRONTEND=noninteractive
+    apt-get update
     apt-get install -y --no-install-recommends \
         /tmp/droiddeck-gnome-desktop.deb \
         gnome-terminal nautilus gnome-text-editor gnome-calculator \

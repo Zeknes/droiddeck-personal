@@ -217,6 +217,13 @@ object DesktopCatalog {
             }
         }
         try {
+            if (!downloaded(download, entry) && entry.url.startsWith("asset://")) {
+                val asset = entry.url.removePrefix("asset://")
+                download.parentFile?.mkdirs()
+                context.assets.open(asset).use { input -> download.outputStream().use { input.copyTo(it) } }
+                val actual = Hashes.sha256(download)
+                if (!entry.sha256.equals(actual, ignoreCase = true)) return context.getString(R.string.deskpkg_checksum_mismatch)
+            }
             if (!downloaded(download, entry)) {
                 val downloading = context.getString(R.string.user_apps_downloading, entry.name)
                 report.onProgress(LinuxRuntimeInstaller.Step.DOWNLOADING, downloading, 0)
