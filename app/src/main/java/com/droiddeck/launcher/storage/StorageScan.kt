@@ -288,8 +288,6 @@ object StorageScan {
         folders.forEach { (id, path) -> if (id !in live && path !in removedFolders && File(path).exists()) live[id] = File(path).name }
         val launchers = mapOf(
             com.droiddeck.launcher.runtime.BattleNet.APP_ID to com.droiddeck.launcher.stores.Store.BATTLENET.label,
-            com.droiddeck.launcher.stores.ubisoft.UbisoftConnect.APP_ID to com.droiddeck.launcher.stores.Store.UBISOFT.label,
-            com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId to Library.EPIC_LAUNCHER_NAME,
         )
         val users = HashMap<Long, MutableSet<String>>()
         fun shares(own: Long, name: String, launchOptions: String) {
@@ -329,15 +327,7 @@ object StorageScan {
         }
 
         phase("kept prefixes")
-        val storeGames = (com.droiddeck.launcher.stores.StoreInstallRoot.gameFolders(context).mapNotNull { folder ->
-            com.droiddeck.launcher.stores.StoreGameSidecar.read(folder)
-                ?.takeIf { it.isInstalled || it.state == com.droiddeck.launcher.stores.StoreGameSidecar.STATE_UPDATING }
-                ?.let { com.droiddeck.launcher.stores.InstalledStoreGame(it, folder) }
-        } + runCatching { com.droiddeck.launcher.stores.battlenet.BattleNetBackend.installedGames(context) }.getOrDefault(emptyList()))
-            .map { g ->
-                val internal = g.folder.path.startsWith(files.path + "/")
-                StoreGameUsage(g, if (internal) walker.measure(g.folder) else -1L, internal)
-            }.sortedByDescending { it.bytes }
+        val storeGames = emptyList<StoreGameUsage>()
 
         phase("store games")
         val clientRoots = listOfNotNull(steamRoot, x64Root)

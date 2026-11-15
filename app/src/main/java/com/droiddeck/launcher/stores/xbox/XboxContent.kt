@@ -73,7 +73,6 @@ internal object XboxContent {
             StoresState.post { StoresState.problems[Store.XBOX] = "The Xbox content folder contains a link outside this game." }
             return
         }
-        com.droiddeck.launcher.stores.download.SavedQueue.remember(context, item, base.folder.parentFile!!.parentFile!!)
         com.droiddeck.launcher.stores.download.DownloadQueue.enqueue(context,
             com.droiddeck.launcher.stores.download.DownloadEntry(Store.XBOX, item.id, item.title, cover = item.imageUrl, bytesTotal = item.sizeBytes)) {
             XboxInstaller(context.applicationContext, item, folder)

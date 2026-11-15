@@ -349,7 +349,6 @@ object DownloadQueue {
             }
         }
         lastPublishAt = now
-        if (!progressOnly) SavedQueue.save(items.values.map { it.entry })
         val list = items.values.map { it.entry }.sortedByDescending { it.startedAt }
         StoresState.post { StoresState.publishDownloads(list) }
     }

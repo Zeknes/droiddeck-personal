@@ -31,7 +31,7 @@ class SessionDisplayTest {
     }
 
     @Test fun heightPresetsKeepThePanelShapeWithASixteenByNineFloor() {
-        assertEquals(2400 to 1080, SessionDisplay.resolveChoice(2400 to 1080, SessionDisplay.DEFAULT_RESOLUTION))
+        assertEquals(1600 to 720, SessionDisplay.resolveChoice(2400 to 1080, "720p"))
         assertEquals(1608 to 720, SessionDisplay.resolveChoice(2412 to 1080, "720p"))
         assertEquals(1560 to 720, SessionDisplay.resolveChoice(3120 to 1440, "720p"))
         assertEquals(2340 to 1080, SessionDisplay.resolveChoice(3120 to 1440, "1080p"))

@@ -63,16 +63,29 @@ class SessionScalingPrefsTest {
         assertEquals("steam", SessionPrefs.displayMode(context, "steam", script))
     }
 
-    @Test fun freshSettingsUseTheConcreteDefaultAndCustomSizesAreNormalized() {
+    @Test fun freshSettingsMatchScreenAndPreserveExplicitSelections() {
         val context = RuntimeEnvironment.getApplication()
-        assertEquals(SessionDisplay.MATCH_SCREEN, SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
         val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
-        prefs.edit().putString("shape", SessionPrefs.SHAPE_WIDE).commit()
+        for (mode in listOf("steam", "lxqt")) {
+            val choice = SessionPrefs.resolutionChoice(context, mode, 2401 to 1081)
+            assertEquals(SessionDisplay.MATCH_SCREEN, choice)
+            assertEquals(2400 to 1080, SessionDisplay.resolveChoice(2401 to 1081, choice))
+            assertEquals(1080 to 2400, SessionDisplay.resolveChoice(1081 to 2401, choice, portrait = true))
+            assertTrue(!prefs.contains("displayResolution.$mode"))
+        }
+        SessionPrefs.setResolutionChoice(context, "steam", "720p")
+        SessionPrefs.setResolutionChoice(context, "lxqt", "1025×769")
+        assertEquals("720p", SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
+        assertEquals("1024x768", SessionPrefs.resolutionChoice(context, "lxqt", 2400 to 1080))
+        assertEquals(1600 to 720, SessionDisplay.resolveChoice(2400 to 1080, SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080)))
+    }
+
+    @Test fun invalidStoredChoiceFallsBackWithoutWritingPreferences() {
+        val context = RuntimeEnvironment.getApplication()
+        val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+        prefs.edit().putString("displayResolution.lxqt", "invalid").commit()
         assertEquals(SessionDisplay.MATCH_SCREEN, SessionPrefs.resolutionChoice(context, "lxqt", 2400 to 1080))
-        SessionPrefs.setResolutionChoice(context, "steam", "900p")
-        assertEquals("900p", SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
-        SessionPrefs.setResolutionChoice(context, "steam", "1025×769")
-        assertEquals("1024x768", SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
+        assertEquals("invalid", prefs.getString("displayResolution.lxqt", null))
     }
 
     @Test fun legacySavedFiltersStillResolveToAVisibleEquivalentChoice() {

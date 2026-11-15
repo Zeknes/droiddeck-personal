@@ -392,59 +392,12 @@ tar -cf - -C "${bundle_dir}" . | zstd -19 -T0 -c > "${staging_dir}/pulseaudio.tz
 mkdir -p "${repo_root}/app/build/prepared-assets"
 mv "${staging_dir}/pulseaudio.tzst" "${repo_root}/app/build/prepared-assets/pulseaudio.tzst"
 
-gradle_rust_arg=""
-if [[ "${DROIDDECK_SKIP_RUST:-0}" == 1 ]]; then
-    gradle_rust_arg="-PskipRust=true"
-else
-    export PATH="${HOME}/.cargo/bin:${PATH}"
-    for tool in rustup cargo; do
-        if ! command -v "${tool}" >/dev/null 2>&1; then
-            echo "${tool} is required for the store engines (https://rustup.rs); set DROIDDECK_SKIP_RUST=1 to build without them." >&2
-            exit 1
-        fi
-    done
-    rustup target add --toolchain stable aarch64-linux-android
-    export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${cache_dir}/stores-target}"
-    if ! command -v cargo-ndk >/dev/null 2>&1; then
-        cargo install cargo-ndk --locked
-    fi
-fi
-
 cd "${repo_root}"
 python3 tools/quest/build-driver.py "${NDK}"
-xbox_out="${linuxfs_dir}/usr/local/lib/droiddeck-xbox"
-xbox_key=$(inputs_hash "native-arm64-ubuntu24.04" tools/xbox)
-if ! restore_step xbox "${xbox_key}" "${xbox_out}"; then
-    bash tools/xbox/build-local.sh
-    save_step xbox "${xbox_key}" "${xbox_out}"
-fi
-
-comet_out="${linuxfs_dir}/usr/local/lib/droiddeck-comet"
-comet_key=$(inputs_hash "${image_id}" tools/comet)
-if ! restore_step comet "${comet_key}" "${comet_out}"; then
-    DROIDDECK_BUILD_IMAGE="${image_name}" bash tools/comet/build-local.sh
-    save_step comet "${comet_key}" "${comet_out}"
-fi
-if [[ "${DROIDDECK_SKIP_RUST:-0}" != 1 ]]; then
-    upc_out="${linuxfs_dir}/usr/local/lib/droiddeck-ubisoft"
-    upc_key=$(inputs_hash "x86_64-pc-windows-gnu" tools/ubisoft-launcher/src tools/ubisoft-launcher/Cargo.toml tools/ubisoft-launcher/Cargo.lock tools/ubisoft-launcher/build.sh)
-    if ! restore_step ubisoft "${upc_key}" "${upc_out}"; then
-        command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 || { echo "x86_64-w64-mingw32-gcc is required for the Ubisoft launcher service (droiddeck-upc.exe)." >&2; exit 1; }
-        CARGO_TARGET_DIR="${cache_dir}/ubisoft-target" bash tools/ubisoft-launcher/build.sh "${upc_out}"
-        save_step ubisoft "${upc_key}" "${upc_out}"
-    fi
-    rockstar_out="${repo_root}/app/src/main/resources/rockstar/helpers"
-    rockstar_key=$(inputs_hash "windows-gnu" tools/rockstar-launcher/src tools/rockstar-launcher/Cargo.toml tools/rockstar-launcher/Cargo.lock tools/rockstar-launcher/build.sh)
-    if ! restore_step rockstar "${rockstar_key}" "${rockstar_out}"; then
-        command -v i686-w64-mingw32-gcc >/dev/null 2>&1 || { echo "i686-w64-mingw32-gcc is required for the Rockstar launcher service." >&2; exit 1; }
-        CARGO_TARGET_DIR="${cache_dir}/rockstar-target" bash tools/rockstar-launcher/build.sh "${rockstar_out}"
-        save_step rockstar "${rockstar_key}" "${rockstar_out}"
-    fi
-fi
 python3 tools/powervr/fetch.py
 bash tools/packs/build.sh app/build/packs
 python3 tools/release/runtime_inputs.py record
-./gradlew "${gradle_task}" --console=plain -PndkVersion="${ndk_version}" ${gradle_rust_arg}
+./gradlew "${gradle_task}" --console=plain -PndkVersion="${ndk_version}"
 python3 tools/release/check_session_assets.py "app/build/outputs/apk/${build_variant}/app-${build_variant}.apk"
 python3 tools/release/runtime_inputs.py apk "app/build/outputs/apk/${build_variant}/app-${build_variant}.apk"
 
@@ -464,8 +417,7 @@ done
 
 readelf_path=$(find "${NDK}/toolchains/llvm/prebuilt" -name llvm-readelf | head -1)
 [[ -x "${readelf_path}" ]] || { echo "NDK llvm-readelf is missing" >&2; exit 1; }
-stores_check=()
-[[ "${DROIDDECK_SKIP_RUST:-0}" != 1 ]] || stores_check+=(--without-stores)
+stores_check=(--without-stores)
 python3 tools/release/check_android_libraries.py "${apk}" --readelf "${readelf_path}" "${stores_check[@]}"
 git diff --exit-code -- app/src/main/rust/stores/Cargo.lock
 
@@ -477,8 +429,8 @@ fi
 
 "${build_tools}/zipalign" -p -f 4 "${apk}" "${apk}.aligned"
 "${build_tools}/apksigner" sign \
-    --ks "${repo_root}/keystore/testkey.p12" --ks-type PKCS12 --ks-pass pass:android \
-    --ks-key-alias testkey --key-pass pass:android \
+    --ks "${HOME}/.local/share/droiddeck-personal-signing/personal.p12" --ks-type PKCS12 --ks-pass "file:${HOME}/.local/share/droiddeck-personal-signing/password" \
+    --ks-key-alias personal \
     --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
     --out "${apk}" "${apk}.aligned"
 rm -f "${apk}.aligned" "${apk}.idsig"
@@ -498,29 +450,10 @@ for scheme in \
         exit 1
     }
 done
-grep -qi 'CN=Android, OU=Android, O=Android' <<<"${signature_output}" || {
-    echo "APK signature check failed: the signer is not the AOSP testkey." >&2
+grep -qi 'CN=DroidDeck Personal' <<<"${signature_output}" || {
+    echo "APK signature check failed: the signer is not DroidDeck Personal." >&2
     exit 1
 }
-
-signing_env=${DROIDDECK_SIGNING_ENV:-}
-if [[ -z "${signing_env}" ]]; then
-    for candidate in "${repo_root}/.signing.env" \
-            "$(dirname "$(git -C "${repo_root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo .)")/.signing.env"; do
-        [[ -f "${candidate}" ]] && { signing_env=${candidate}; break; }
-    done
-fi
-if [[ -n "${signing_env}" ]]; then
-    echo "Signing with DroidDeck's key (${signing_env})"
-    (
-        set -a
-        cd "$(dirname "${signing_env}")"
-        . "${signing_env}"
-        set +a
-        BUILD_TOOLS="${build_tools}" "${repo_root}/tools/release/sign-apk.sh" "${apk}" standard "${apk}.release"
-    )
-    mv "${apk}.release" "${apk}"
-fi
 
 printf 'APK: %s\n' "${apk}"
 printf 'SHA-256: '

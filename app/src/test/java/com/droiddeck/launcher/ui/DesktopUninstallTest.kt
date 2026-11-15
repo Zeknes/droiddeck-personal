@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -27,9 +28,19 @@ import org.robolectric.annotation.Config
 class DesktopUninstallTest {
     @get:Rule val compose = createRobolectricComposeRule()
     private var removals = 0
+    private var desktopOpens = 0
+    private var selectedPage: String? = null
     private var runtimeBlocked by mutableStateOf(false)
 
     @After fun closeConfirmation() { Steps.drop() }
+
+    @Test fun desktopAndFlathubEntriesRemainAvailable() {
+        show()
+        compose.onNodeWithText("Open desktop").performClick()
+        assertEquals(1, desktopOpens)
+        compose.onNodeWithContentDescription("Flathub").performClick()
+        assertEquals("store", selectedPage)
+    }
 
     @Test fun uninstallIsAvailableOnTheDesktopPageAndRequiresConfirmation() {
         show()
@@ -83,13 +94,13 @@ class DesktopUninstallTest {
                                 offlineAccount = null, offline = false, frameGenLabel = "", romsDir = null, logsEnabled = false,
                                 steamGames = emptyList(), emulators = emptyList(), running = null,
                             ), FrontEndActions(
-                                onPlay = {}, onPlayDesktopUi = {}, onSteamGame = {}, onDesktop = {}, onEmulator = {}, onRom = {}, onResume = {},
+                                onPlay = {}, onPlayDesktopUi = {}, onSteamGame = {}, onDesktop = { desktopOpens++ }, onEmulator = {}, onRom = {}, onResume = {},
                                 onSteamSettings = {}, onDesktopSettings = {}, onInstallPackage = {}, onRemovePackage = {},
                                 onRuntime = {}, onFrameGenPick = {}, onImportLossless = {}, onProtons = {}, onComponents = {},
                                 onPerformance = {}, onRoms = {}, onFiles = {}, onLogs = {}, onOffline = {},
                                 onWirelessAdbPair = { _, _, _, _ -> }, onWirelessAdbApply = { _, _, _, _ -> },
                                 onSetPhantomProcessLimit = { _, _ -> }, onRemoveDesktop = { removals++ },
-                            ), Modifier.fillMaxSize(), onSelect = {})
+                            ), Modifier.fillMaxSize(), onSelect = { selectedPage = it })
                             StepsLayer(Offset.Zero)
                         }
                     }

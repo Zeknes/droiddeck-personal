@@ -469,13 +469,12 @@ fun FrontEndScreen(s: FrontEndState, a: FrontEndActions, page: (@Composable () -
 @Composable
 private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Composable () -> Unit)?, frontFocus: FrontFocus) {
     var selected by rememberSaveable {
-        mutableStateOf(if (s.shortcutPicker) "games" else if (NavTabs.place(s, "steam") == TabPlace.HIDDEN) navigationKeys(s).first { it != "components" } else "steam")
+        mutableStateOf("desktop")
     }
-    LaunchedEffect(s.shortcutPicker) { if (s.shortcutPicker) selected = "games" }
+
     LaunchedEffect(s.navigate) {
         val target = s.navigate ?: return@LaunchedEffect
         when (target) {
-            "stores:downloads" -> { com.droiddeck.launcher.stores.StoresState.openDownloads = true; selected = "stores" }
             "components" -> a.onComponents(true)
             "setup:launcher" -> { SetupTabs.openLauncher = true; selected = "setup" }
             com.droiddeck.launcher.sync.SyncthingService.NAV -> com.droiddeck.launcher.sync.Syncthing.requestOpen()
@@ -491,9 +490,6 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
             else -> selected = target
         }
         a.onNavigated()
-    }
-    LaunchedEffect(com.droiddeck.launcher.stores.StoresState.openGameRequest) {
-        if (com.droiddeck.launcher.stores.StoresState.openGameRequest != null) selected = "stores"
     }
     var showWirelessAdbFix by rememberSaveable { mutableStateOf(false) }
     var showDeveloperDisplayChoice by rememberSaveable { mutableStateOf(false) }
@@ -582,15 +578,6 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
         selected = NavTabs.MORE
     }
     LaunchedEffect(s.isHomeApp) { if (!s.isHomeApp && selected == "android-apps") selected = "steam" }
-    LaunchedEffect(s.soundtracksEnabled) {
-        if (!s.soundtracksEnabled && (selected == "soundtracks" || selected.startsWith("sound:"))) selected = "games"
-    }
-    LaunchedEffect(s.steamGames.isEmpty(), s.soundtracks, s.soundtracksLoaded) {
-        if (s.steamGames.isEmpty() && selected.startsWith("app:")) {
-            val id = GameRef.parse(selected).appId
-            if (id != null && s.soundtracks.none { it.appId == id } && s.soundtracksLoaded) selected = "games"
-        }
-    }
     remember { Motion.refresh(ctx); true }
 
     val openTab = when {
@@ -771,11 +758,6 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
 
         }
         FlightsLayer(screenAt)
-        GamesDialogs(a, s.steamGames)
-        StoreTheme(com.droiddeck.launcher.stores.Store.XBOX) { XboxStoreDialogs() }
-        com.droiddeck.launcher.stores.StoresState.pendingInstall?.let { item -> StoreTheme(item.store) { InstallWhere(item) } }
-        com.droiddeck.launcher.stores.StoresState.itchPicking?.let { item -> StoreTheme(item.store) { ItchBuildPicker(item) { com.droiddeck.launcher.stores.StoresState.itchPicking = null } } }
-        com.droiddeck.launcher.stores.StoresState.gameJoltPicking?.let { item -> StoreTheme(item.store) { GameJoltBuildPicker(item) { com.droiddeck.launcher.stores.StoresState.gameJoltPicking = null } } }
         StepsLayer(screenAt)
 
         appToChooseDisplay?.let { app ->

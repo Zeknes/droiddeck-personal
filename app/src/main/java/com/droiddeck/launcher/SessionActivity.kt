@@ -50,11 +50,7 @@ import com.droiddeck.launcher.frontend.Library
 import com.droiddeck.launcher.agent.AgentGuest
 import com.droiddeck.launcher.frontend.LibraryCache
 import com.droiddeck.launcher.stores.Store
-import com.droiddeck.launcher.stores.StoreAchievements
 import com.droiddeck.launcher.stores.StoreGameSidecar
-import com.droiddeck.launcher.stores.StoreLaunchRequests
-import com.droiddeck.launcher.stores.epic.EpicClient
-import com.droiddeck.launcher.ui.SessionAchievements
 import com.droiddeck.launcher.ui.screenIsOff
 import com.droiddeck.launcher.gpu.Cardboard
 import com.droiddeck.launcher.gpu.FrameGen
@@ -494,7 +490,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var lastMouseY = Float.NaN
     private var padType by mutableStateOf(SessionPrefs.CONTROLLER_DECK)
     private var pcKeyboardOpen by mutableStateOf(false)
-    private var achievementsInFront by mutableStateOf<AchievementsInFront?>(null)
     private var achievementsOpen by mutableStateOf(false)
     private var hudOn by mutableStateOf(true)
     private var hudConfig by mutableStateOf<Map<String, String>>(emptyMap())
@@ -1200,15 +1195,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                         kotlinx.coroutines.delay(3000)
                     }
                 }
-                LaunchedEffect(drawerOpen, achievementsOpen, AgentGuest.focusRevision, StoreAchievements.revision) {
-                    if (!drawerOpen && !achievementsOpen) return@LaunchedEffect
-                    val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        runCatching { resolveAchievementsInFront() }
-                            .onFailure { Log.w(TAG, "achievements in front: ${it.javaClass.simpleName}") }.getOrNull()
-                    }
-                    achievementsInFront = found
-                    if (found == null) achievementsOpen = false
-                }
                 androidx.compose.runtime.LaunchedEffect(pcKeyboardOpen) { if (pcKeyboardOpen) releasePads(); updateOnScreenControls() }
                 LaunchedEffect(pcKeyboardOpen, drawerOpen, achievementsOpen) {
                     if (pcKeyboardOpen || drawerOpen || achievementsOpen) padMouse.reset()
@@ -1226,10 +1212,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                         sessionOverlay.requestFocus()
                     }
                 }
-                achievementsInFront?.takeIf { achievementsOpen }?.let { inFront ->
-                    SessionAchievements(inFront.game, inFront.title, onClose = ::closeAchievements)
-                }
-                com.droiddeck.launcher.ui.AchievementNotificationOverlay()
                 val autoResume = suspendPolicy == SessionPrefs.SUSPEND_AUTO || suspendPolicy == SessionPrefs.SUSPEND_NATIVE
                 LaunchedEffect(SessionState.manualPause, SessionState.suspended) {
                     if (!SessionState.manualPause && !SessionState.suspended) pauseAnimated = false
@@ -1403,8 +1385,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             onRumble = { on -> updateControllerPrefs { ControllerPrefs.setRumble(this@SessionActivity, on) } },
             onSteamMenu = if (SessionState.mode == SessionService.MODE_STEAM) ({ sendSteamGuide() }) else null,
             onQam = if (SessionState.mode == SessionService.MODE_STEAM) ({ triggerSteamQam() }) else null,
-            onAchievements = achievementsInFront?.let { { drawerOpen = false; achievementsOpen = true } },
-            achievementsProgress = achievementsInFront?.progress,
+            onAchievements = null,
+            achievementsProgress = null,
             padType = if (SessionState.mode == SessionService.MODE_STEAM && SessionState.deckPad) padType else null,
             onPadType = { id ->
                 SessionPrefs.setSteamController(this@SessionActivity, id)
@@ -1644,25 +1626,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     private fun closeAchievements() { achievementsOpen = false }
-
-    private fun resolveAchievementsInFront(): AchievementsInFront? {
-        if (!SessionState.running || SessionState.mode != SessionService.MODE_STEAM) return null
-        val snapshot = AgentGuest.focus(this) ?: return null
-        val games = LibraryCache.load(this)
-        val byKey = games.mapNotNull { g -> g.profileKey.toLongOrNull()?.let { it to g } }.toMap()
-        val windows = snapshot.optJSONArray("focusableApps")?.let { list -> List(list.length()) { list.optLong(it) } }.orEmpty()
-        val focusedId = snapshot.optLong("focusedApp").takeUnless { snapshot.isNull("focusedApp") }
-        val appId = com.droiddeck.launcher.session.SessionAchievementGame.activeAppId(focusedId, windows, byKey.keys) ?: return null
-        val focused = byKey[appId] ?: return null
-        val store = Store.byId(focused.source) ?: return null
-        val id = focused.storeId ?: return null
-        val source = StoreAchievements.forSource(store.id) ?: return null
-        val sidecar = StoreGameSidecar.find(this, store, id) ?: return null
-        val game = StoreAchievements.Game.of(sidecar)
-        val list = source.cached(this, game) ?: (source.fetch(this, game) as? StoreAchievements.Result.Found)?.list ?: return null
-        if (list.isEmpty()) return null
-        return AchievementsInFront(game, sidecar.title, list.count { it.unlocked } to list.size)
-    }
 
     private fun togglePcKeyboard() {
         drawerOpen = false
@@ -3445,7 +3408,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
         if (now - padMouseCheckedAt < PAD_MOUSE_CHECK_MS) return padMouseOn
         padMouseCheckedAt = now
-        val on = !pointerLocked && EpicClient.launcherFocused(this) && !EpicClient.playing(this)
+        val on = false
         if (padMouseOn && !on) padMouse.reset()
         if (!padMouseOn && on) padBridge?.releaseAll()
         padMouseOn = on
@@ -5853,5 +5816,3 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         )
     }
 }
-
-private class AchievementsInFront(val game: StoreAchievements.Game, val title: String, val progress: Pair<Int, Int>?)

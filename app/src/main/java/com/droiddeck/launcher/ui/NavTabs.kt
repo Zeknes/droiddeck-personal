@@ -13,7 +13,7 @@ internal enum class TabPlace { BAR, MORE, HIDDEN }
 internal object NavTabs {
     const val MORE = "more"
     val FEATURES = setOf("stores", "soundtracks", "agent")
-    val ALL = listOf("steam", "games", "soundtracks", "stores", "desktop", "agent", "components", "android-apps", "setup", "updates")
+    val ALL = listOf("desktop", "setup")
 
     var order by mutableStateOf(ALL)
         private set
@@ -25,7 +25,7 @@ internal object NavTabs {
     fun load(context: Context) {
         order = arrange(SessionPrefs.navTabOrder(context))
         shelved = SessionPrefs.navTabShelved(context).intersect(ALL.toSet())
-        hidden = SessionPrefs.navTabHidden(context).intersect(ALL.toSet()) - FEATURES - "setup"
+        hidden = SessionPrefs.navTabHidden(context).intersect(ALL.toSet()) - FEATURES - "setup" - "desktop"
     }
 
     fun arrange(saved: List<String>): List<String> {
@@ -45,7 +45,7 @@ internal object NavTabs {
         else -> true
     }
 
-    fun hideable(key: String) = key != "setup"
+    fun hideable(key: String) = key != "setup" && key != "desktop"
 
     fun place(s: FrontEndState, key: String): TabPlace = when {
         featureOff(s, key) || key in hidden -> TabPlace.HIDDEN

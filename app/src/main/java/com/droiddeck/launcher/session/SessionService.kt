@@ -355,7 +355,7 @@ class SessionService : Service() {
             stopSession(0)
             return START_NOT_STICKY
         }
-        SessionState.mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_STEAM
+        SessionState.mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_DESKTOP
         SessionState.fpsLimit = 0
         suspendPolicy = SessionPrefs.suspendPolicy(this, SessionState.mode)
         steamDownloadsInBackground = SessionPrefs.steamDownloadsInBackground(this)
@@ -393,7 +393,6 @@ class SessionService : Service() {
         SessionState.gameId = intent?.getStringExtra(EXTRA_GAME_ID)
         SessionState.steamUi = intent?.getStringExtra(EXTRA_STEAM_UI)
         SessionState.steamUrl = intent?.getStringExtra(EXTRA_STEAM_URL)
-        com.droiddeck.launcher.stores.battlenet.BattleNetClient.clearRequests(LinuxRuntime.sessionRoot(this))
         val gen = synchronized(stopLock) {
             SessionState.steamClientArch = null
             SessionState.running = true
@@ -549,8 +548,6 @@ class SessionService : Service() {
         SessionArtifacts.finishAbandoned(this, beforeGuestStart = true)
         VacDiagnostics.arm(this)
         com.droiddeck.launcher.agent.AgentGuest.reset(this)
-        com.droiddeck.launcher.stores.gog.GogComet.begin()
-        com.droiddeck.launcher.stores.StoreLaunchRequests.start(this)
 
         val sessionDir = openSessionFolder()
         try {
@@ -588,7 +585,6 @@ class SessionService : Service() {
             stopSession(-1, gen)
             return
         }
-        if (steamHere) guest.add("BL_EPIC_APP_ID=" + com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId)
         val fastPathAt = guest.size
 
         val pulse = startAudio(guest, sessionDir, directAudioPack)
@@ -643,12 +639,6 @@ class SessionService : Service() {
         }
         val noSteamGame = noSteamGame()
         if (noSteamGame) guest.add("BL_PIN_CORES=0")
-        if ((steamHere || SessionState.program == NoSteamLaunch.EPIC) && com.droiddeck.launcher.stores.epic.EpicClient.read(this).installed) {
-            runCatching { com.droiddeck.launcher.stores.epic.EpicClientLibrary.sync(this) }
-                .onFailure { Log.w(TAG, "Epic library sync failed", it) }
-            runCatching { com.droiddeck.launcher.stores.epic.EpicClient.prepareInstallDir(this) }
-                .onFailure { Log.w(TAG, "Epic install directory setup failed", it) }
-        }
         if (steamHere || noSteamGame) {
             val added = com.droiddeck.launcher.frontend.AddedGames.scan(this)
             val listing = com.droiddeck.launcher.frontend.AddedGames.writeListing(this, added)
@@ -1260,13 +1250,6 @@ class SessionService : Service() {
                 Log.w(TAG, "added games: ${root.host} is not a readable folder this session")
             }
         }
-        for ((host, guest) in com.droiddeck.launcher.stores.StoreInstallRoot.externalRootsForXodus(this)) {
-            if (host.isDirectory && host.canRead()) {
-                File(LinuxRuntime.rootDir(this), guest.removePrefix("/")).mkdirs()
-                binds.add(host.path + ":" + guest)
-                Log.i(TAG, "store games: $host -> $guest")
-            }
-        }
         binds.addAll(com.droiddeck.launcher.runtime.UserApps.binds(this))
         val roms = SessionPrefs.romsDir(this).takeIf { it.isNotEmpty() }?.let { File(it) }
         if (roms != null && roms.isDirectory && roms.canRead()) {
@@ -1681,8 +1664,7 @@ class SessionService : Service() {
         launchWatcher?.stopWatching()
         listOf("steam-sleep", "steam-sleep-state", "steam-sleep-ready", "steam-wake", "steam-wake.tmp",
             "steam-native-sleep", "steam-native-sleep.tmp", "steam-native-ready", "steam-native-ready.tmp",
-            RUN_STATUS, "$RUN_STATUS.tmp", "epic-game", "epic-game.tmp", com.droiddeck.launcher.stores.epic.EpicClient.PLAYING,
-            com.droiddeck.launcher.stores.epic.EpicClient.OPEN, com.droiddeck.launcher.stores.epic.EpicClient.FOCUSED_APP
+            RUN_STATUS, "$RUN_STATUS.tmp"
         ).forEach { File(dir, it).delete() }
         val gen = sessionGen
         @Suppress("DEPRECATION")
@@ -1730,29 +1712,6 @@ class SessionService : Service() {
                     importForDesktop(dir, text)
                     return
                 }
-                if (path != "steam-launch") return
-                val file = File(dir, path)
-                val text = try { file.readText() } catch (e: Exception) { return }
-                file.delete()
-                var ui = "desktop"
-                var url = ""
-                var session = MODE_STEAM
-                text.lineSequence().forEach { line ->
-                    when {
-                        line.startsWith("ui=") -> ui = line.removePrefix("ui=").trim()
-                        line.startsWith("url=") -> url = line.removePrefix("url=").trim()
-                        line.startsWith("session=") && line.removePrefix("session=").trim() == "desktop" -> session = MODE_DESKTOP
-                    }
-                }
-                Log.i(TAG, "launch request from the session: " + (if (session == MODE_DESKTOP) "the desktop with " else "") +
-                    "Steam $ui" + (if (url.isNotEmpty()) " $url" else ""))
-                val next = Intent(this@SessionService, com.droiddeck.launcher.SessionActivity::class.java)
-                    .putExtra(EXTRA_MODE, session)
-                    .putExtra(EXTRA_STEAM_UI, ui)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (url.isNotEmpty()) next.putExtra(EXTRA_STEAM_URL, url)
-                SessionState.queueRelaunch(next)
-                android.os.Handler(android.os.Looper.getMainLooper()).post { stopSession(0, relaunch = true) }
             }
         }
         watcher.startWatching()
@@ -2015,8 +1974,6 @@ class SessionService : Service() {
                 pipTask = false
                 SessionState.guestPid = -1
                 com.droiddeck.launcher.agent.AgentGuest.stop()
-                com.droiddeck.launcher.stores.StoreLaunchRequests.stop()
-                Thread({ com.droiddeck.launcher.stores.CloudSaves.uploadAllDirty(applicationContext, "session-end", running = false) }, "cloud-session-end").start()
                 runCatching { com.droiddeck.launcher.agent.AgentEnv.endSession(this) }
                     .onFailure { Log.w(TAG, "clearing the agent's session environment", it) }
                 releaseLocks()
@@ -2136,33 +2093,21 @@ class SessionService : Service() {
             if (prootPid > 1 || auxiliary.isNotEmpty()) {
                 Thread({
                     if (prootPid > 1 && steamClientMayRun) askSteamToExit(prootPid)
-                    com.droiddeck.launcher.stores.gog.GogComet.end(stoppedSession)
                     auxiliary.forEach { (pid, started) -> teardown(pid, started) }
                     if (prootPid > 1) teardown(prootPid)
                     killGuestLeftovers()
                     pruneSystemVulkanRuntime()
                     finishSessionStop(status, stoppedGen, collectEnded)
-                    if (launcherEnded) importLauncherGames()
                 }, "session-teardown").start()
             } else {
                 Thread({ pruneSystemVulkanRuntime() }, "system-vulkan-prune").start()
                 Thread({
-                    com.droiddeck.launcher.stores.gog.GogComet.end(stoppedSession)
                     finishSessionStop(status, stoppedGen, collectEnded)
-                    if (launcherEnded) importLauncherGames()
                 }, "gog-session-stop").start()
             }
         }
         if (prootPid > 1) acquireLocks()
         if (controller != null) controller.closeAndResume(finishAfterTeardown) else finishAfterTeardown()
-    }
-
-    private fun importLauncherGames() {
-        runCatching { com.droiddeck.launcher.stores.epic.EpicClientLibrary.importClientGames(this) }
-            .onFailure { Log.w(TAG, "client library scan failed: ${it.javaClass.simpleName}") }
-        runCatching { com.droiddeck.launcher.stores.battlenet.BattleNetClient.syncAccount(this) }
-            .onFailure { Log.w(TAG, "Battle.net sign-in check failed: ${it.javaClass.simpleName}") }
-        com.droiddeck.launcher.stores.StoresState.notifyLibraryChanged(this)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

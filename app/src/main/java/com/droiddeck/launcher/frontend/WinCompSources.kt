@@ -119,12 +119,6 @@ object WinCompSources {
                 if (parts.isEmpty()) out += Finding(null, original, Origin.AMAZON, false)
                 parts.forEach { out += Finding(it, original, Origin.AMAZON, true) }
             }
-            store == Store.UBISOFT -> ubisoftInstallRuns(sidecar?.extra?.get(com.droiddeck.launcher.stores.ubisoft.UbisoftLaunch.SETUP)).forEach { exe ->
-                val parts = installer(exe)
-                val original = exe.substringAfterLast('/')
-                if (parts.isEmpty()) out += Finding(null, original, Origin.UBISOFT, false)
-                parts.forEach { out += Finding(it, original, Origin.UBISOFT, true) }
-            }
             else -> {}
         }
         if (game.library == Library.ADDED && folder != null) SteamMatch.get(context, folder.path)?.let { match ->

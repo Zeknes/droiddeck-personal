@@ -447,7 +447,6 @@ object AddedGames {
             val autoName = sidecar?.title ?: identifiedName(folder, found) ?: folder.name
             val crc = CRC32().apply { update(("\"${foundGuest.replaceFirst(Regex("^$LIBRARY/"), "$LEGACY_LIBRARY/")}\"" + autoName).toByteArray()) }.value
             val appId = SessionPrefs.addedGameAppId(context, folder.path, crc or 0x80000000L)
-            if (sidecar?.store == Store.ROCKSTAR) com.droiddeck.launcher.stores.rockstar.RockstarLaunch.applyDefaults(context, sidecar.id, appId)
             val config = accountConfig(SessionPrefs.activeSteamRoot(context))
             val record = config?.let { shortcutRecord(it, appId) }
             val rev = record?.optInt("rev", 0) ?: 0
@@ -474,7 +473,6 @@ object AddedGames {
                 exeUncertain = sidecar == null && chosen == null && adopted == null && ranking.uncertain,
                 launchOptions = when {
                     sidecar == null -> SessionPrefs.addedGameLaunch(context, folder.path)
-                    sidecar.store == Store.UBISOFT -> com.droiddeck.launcher.stores.ubisoft.UbisoftConnect.launchOptions(context)
                     else -> ""
                 },
                 single = single != null))
@@ -554,7 +552,7 @@ object AddedGames {
     }.getOrNull()
 
     fun writeListing(context: Context, games: List<Game>,
-        extra: List<JSONObject> = listOfNotNull(com.droiddeck.launcher.stores.epic.EpicClient.steamListing(context))): File {
+        extra: List<JSONObject> = emptyList()): File {
         val file = File(context.filesDir, "session/added-games.json").apply { parentFile?.mkdirs() }
         val json = StringBuilder("[")
         games.forEachIndexed { i, g ->

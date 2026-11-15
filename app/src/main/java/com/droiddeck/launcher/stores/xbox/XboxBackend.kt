@@ -113,7 +113,6 @@ object XboxBackend : StoreBackend {
         val pending = packageChoice ?: return
         packageChoice = null
         val item = pending.item.copy(extra = pending.item.extra + ("contentId" to choice.getString("contentId")))
-        com.droiddeck.launcher.stores.download.SavedQueue.remember(context, item, pending.root)
         enqueue(context.applicationContext, item, pending.root)
     }
 
@@ -129,7 +128,6 @@ object XboxBackend : StoreBackend {
                 check(choices.isNotEmpty()) { "This offer has no supported PC package." }
                 if (plan.getString("status") == "ready" && choices.size == 1) {
                     val selected = item.copy(extra = item.extra + ("contentId" to choices.single().getString("contentId")))
-                    com.droiddeck.launcher.stores.download.SavedQueue.remember(app, selected, root)
                     enqueue(app, selected, root)
                 } else StoresState.post { packageChoice = PackageChoice(item, root, choices) }
             } catch (e: Exception) {
@@ -144,7 +142,6 @@ object XboxBackend : StoreBackend {
         val item = CatalogItem(store, sidecar.id, sidecar.title, sidecar.hero, tallImageUrl = sidecar.cover,
             owned = sidecar.extra["access"] == "owned", subscription = sidecar.extra["access"] == "gamepass", extra = sidecar.extra)
         val root = game.folder.parentFile!!.parentFile!!
-        com.droiddeck.launcher.stores.download.SavedQueue.remember(context, item, root)
         enqueue(context, item, root)
     }
 

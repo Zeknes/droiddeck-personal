@@ -54,6 +54,7 @@ class BottomScreenTypingTest {
         assertEquals(second, DualScreenPanel.typing)
         DualScreenPanel.stopTyping(second)
         assertNull(DualScreenPanel.typing)
+        assertEquals(false, DualScreenPanel.typingShown)
     }
 
     @Test fun triggersStepThroughSections() {

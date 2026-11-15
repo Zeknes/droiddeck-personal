@@ -40,96 +40,15 @@ class NavTabsTest {
         com.droiddeck.launcher.agent.AgentTab.load(ctx)
     }
 
-    @Test fun musicStartsInMore() {
-        assertEquals(listOf("steam", "games", "stores", "desktop", "components", "setup", "updates", NavTabs.MORE), navigationKeys(state()))
-        assertEquals(listOf("soundtracks"), NavTabs.more(state()))
-        assertEquals(setOf("soundtracks", "agent"), NavTabs.shelved)
-        assertTrue(com.droiddeck.launcher.agent.AgentTab.shown)
+    @Test fun personalNavigationContainsOnlyDesktopAndSetup() {
+        assertEquals(listOf("desktop", "setup"), navigationKeys(state()))
+        assertEquals(emptyList<String>(), NavTabs.more(state()))
+        assertFalse(NavTabs.hideable("desktop"))
+        assertFalse(NavTabs.hideable("setup"))
     }
 
-    @Test fun showingMusicOnceKeepsItShownAfterReload() {
-        place("soundtracks", TabPlace.BAR)
-        NavTabs.load(ctx)
-        assertEquals(listOf("steam", "games", "soundtracks", "stores", "desktop", "components", "setup", "updates"), navigationKeys(state()))
-    }
-
-    @Test fun shelvedTabsLeaveTheBarAndAddMoreAtTheEnd() {
-        place("stores", TabPlace.MORE)
-        place("components", TabPlace.MORE)
-        val s = state()
-        assertEquals(listOf("components", "soundtracks", "stores"), NavTabs.more(s))
-        assertEquals(NavTabs.MORE, navigationKeys(s).last())
-        assertFalse("stores" in navigationKeys(s))
-    }
-
-    @Test fun hiddenTabsAreNowhereAndSetupCannotBeHidden() {
-        place("updates", TabPlace.HIDDEN)
-        place("setup", TabPlace.HIDDEN)
-        val s = state()
-        assertFalse("updates" in navigationKeys(s))
-        assertFalse("updates" in NavTabs.more(s))
-        assertTrue("setup" in navigationKeys(s))
-    }
-
-    @Test fun disabledStoresFeatureReadsAsHidden() {
-        assertEquals(TabPlace.HIDDEN, NavTabs.place(state(storesOn = false), "stores"))
-    }
-
-    @Test fun movingSwapsWithTheNextVisibleTabAndPersists() {
-        place("soundtracks", TabPlace.BAR)
-        moveTab("stores", -1)
-        assertEquals(listOf("steam", "games", "stores", "soundtracks"), navigationKeys(state()).take(4))
-        NavTabs.load(ctx)
-        assertEquals(listOf("steam", "games", "stores", "soundtracks"), navigationKeys(state()).take(4))
-    }
-
-    @Test fun tabsMissingFromASavedOrderSlotInAfterTheirDefaultNeighbour() {
-        assertEquals(listOf("updates", "steam", "games", "soundtracks", "stores", "desktop", "agent", "components", "android-apps", "setup"),
-            NavTabs.arrange(listOf("updates", "steam")))
-        assertEquals(listOf("games", "soundtracks", "steam", "setup", "stores", "desktop", "agent", "components", "android-apps", "updates"),
-            NavTabs.arrange(listOf("games", "steam", "setup", "stores", "desktop", "components", "android-apps", "updates", "bogus")))
-    }
-
-    @Test fun moreCarriesTheDownloadCountAndBadgesOfShelvedTabs() {
-        place("stores", TabPlace.MORE)
-        place("setup", TabPlace.MORE)
-        val s = state(downloads = 3, setupReady = false)
-        assertEquals(3, railCount(s, NavTabs.MORE))
-        assertTrue(railBadge(s, NavTabs.MORE))
-        place("stores", TabPlace.BAR)
-        assertEquals(0, railCount(s, NavTabs.MORE))
-        assertEquals(3, railCount(s, "stores"))
-    }
-
-    @Test fun sideRailShowsTheDownloadCountOnMoreWhenStoresIsShelved() {
-        place("stores", TabPlace.MORE)
-        val s = state(downloads = 2)
-        compose.setContent {
-            DroidDeckTheme {
-                CompositionLocalProvider(LocalFrontFocus provides FrontFocus()) {
-                    Box(Modifier.height(752.dp)) { SideRail(s, "steam", {}, {}, actions(), Modifier) }
-                }
-            }
-        }
-        compose.onNodeWithTag("rail-stores").assertDoesNotExist()
-        compose.onNode(hasTestTag("rail-more")).assertIsDisplayed()
-        compose.onNode(hasText("2") and hasParentTag("rail-more"), useUnmergedTree = true).assertIsDisplayed()
-    }
-
-    @Test fun morePageListsShelvedTabsWithTheirCount() {
-        place("stores", TabPlace.MORE)
-        place("components", TabPlace.MORE)
-        val s = state(downloads = 4)
-        compose.setContent {
-            DroidDeckTheme {
-                CompositionLocalProvider(LocalFrontFocus provides FrontFocus()) {
-                    FocusGlideHost { Box(Modifier.fillMaxSize()) { MorePage(s, actions(), {}, Modifier.fillMaxSize()) } }
-                }
-            }
-        }
-        compose.onNodeWithTag("more-stores").assertIsDisplayed()
-        compose.onNodeWithTag("more-components").assertIsDisplayed()
-        compose.onNode(hasText("4") and hasParentTag("more-stores"), useUnmergedTree = true).assertIsDisplayed()
+    @Test fun savedOrderNeverRestoresGameDestinations() {
+        assertEquals(listOf("desktop", "setup"), NavTabs.arrange(listOf("games", "setup", "steam")))
     }
 
     @Test fun backFromAShelvedTabReturnsToMore() {
@@ -151,37 +70,13 @@ class NavTabsTest {
         compose.onNodeWithTag("more-desktop").assertIsDisplayed()
     }
 
-    @Test fun startupWithSteamHiddenNeverLandsOnABareComponentsSelection() {
-        place("steam", TabPlace.HIDDEN)
-        repeat(NavTabs.ALL.size) { moveTab("components", -1) }
-        assertEquals("components", navigationKeys(state()).first())
+    @Test fun startupSelectsDesktop() {
         compose.mainClock.autoAdvance = false
         compose.setContent { DroidDeckTheme { FrontEndScreen(state(), actions(), page = null) } }
         compose.mainClock.advanceTimeBy(2_000)
-        compose.onNode(hasText(ctx.getString(com.droiddeck.launcher.R.string.content_page_gone))).assertDoesNotExist()
-        compose.onNode(hasTestTag("rail-games") and androidx.compose.ui.test.isSelected()).assertExists()
-    }
-
-    @Test fun setupListMovesATabAcrossTheMoreLineWithTheControllerAndHidesWithItsSwitch() {
-        compose.setContent {
-            DroidDeckTheme {
-                CompositionLocalProvider(LocalFrontFocus provides FrontFocus()) {
-                    androidx.compose.foundation.layout.Column(Modifier.height(752.dp).verticalScroll(rememberScrollState())) {
-                        TabsSettingsGroup(MenuHost(), state(), actions())
-                    }
-                }
-            }
-        }
-        val last = navigationKeys(state()).last { it != NavTabs.MORE }
-        compose.onNodeWithTag("tab-row-$last").requestFocus()
-        compose.onNodeWithTag("tab-row-$last").performKeyPress(pad(android.view.KeyEvent.KEYCODE_BUTTON_Y))
-        compose.onNodeWithTag("tab-row-$last").performKeyPress(pad(android.view.KeyEvent.KEYCODE_DPAD_DOWN))
-        compose.onNodeWithTag("tab-row-$last").performKeyPress(pad(android.view.KeyEvent.KEYCODE_BUTTON_Y))
-        compose.runOnIdle { assertEquals(last, NavTabs.more(state()).first()) }
-        compose.onNodeWithTag("tab-shown-desktop").performClick()
-        compose.runOnIdle { assertFalse("desktop" in navigationKeys(state())) }
-        compose.onNodeWithTag("tab-shown-setup").performClick()
-        compose.runOnIdle { assertTrue("setup" in navigationKeys(state())) }
+        compose.onNode(hasTestTag("rail-desktop") and androidx.compose.ui.test.isSelected()).assertExists()
+        compose.onNodeWithTag("rail-games").assertDoesNotExist()
+        compose.onNodeWithTag("rail-steam").assertDoesNotExist()
     }
 
     private fun pad(code: Int) = androidx.compose.ui.input.key.KeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, code))

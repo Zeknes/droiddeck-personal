@@ -4,7 +4,6 @@ import android.content.Context
 import com.droiddeck.launcher.core.GameEnvironment
 import com.droiddeck.launcher.frontend.AddedGames
 import com.droiddeck.launcher.frontend.Library
-import com.droiddeck.launcher.stores.epic.EpicClient
 
 object NoSteamLaunch {
     const val PROTON_RUN = "/usr/local/bin/droiddeck-proton-run"
@@ -14,7 +13,6 @@ object NoSteamLaunch {
     class Command(val program: String, val args: List<String>, val name: String)
 
     fun scope(game: Library.SteamGame): String? = when {
-        game.library == Library.EPIC_LAUNCHER -> EpicClient.shortcutAppId.toString()
         game.library == Library.BATTLENET_LAUNCHER -> com.droiddeck.launcher.runtime.BattleNet.APP_ID.toString()
         game.library == Library.ADDED || game.appId > 0 -> game.profileKey
         else -> null
@@ -31,7 +29,6 @@ object NoSteamLaunch {
     }.getOrDefault(false)
 
     fun scopeOf(program: String?, args: List<String>, battleNetTitle: (String) -> String? = { null }): String? = when (program) {
-        EPIC -> EpicClient.shortcutAppId.toString()
         BATTLENET -> args.getOrNull(args.indexOf("launch") + 1)?.takeIf { args.contains("launch") }?.let(battleNetTitle)
             ?: com.droiddeck.launcher.runtime.BattleNet.APP_ID.toString()
         PROTON_RUN -> args.getOrNull(args.indexOf("--app") + 1)?.takeIf { args.contains("--app") }
