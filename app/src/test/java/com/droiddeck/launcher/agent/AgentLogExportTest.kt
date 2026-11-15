@@ -34,9 +34,21 @@ class AgentLogExportTest {
         resetSecureSourceOpener()
     }
 
+    @Test fun rejectsUnexpectedFrameContent() {
+        val session = File(context.cacheDir, "unsafe-agent-session").apply { mkdirs() }
+        try {
+            File(session, "wayland.log.mobile-frames.log").writeText("12.123456789 1 create\npassword=secret\n")
+            SessionState.logDirectory = session
+            val provider = Robolectric.buildContentProvider(AgentBridgeProvider::class.java).create().get()
+            val response = JSONObject(provider.call("logs", null, Bundle()).getString("json")!!)
+            assertEquals(false, response.optBoolean("ok"))
+        } finally { session.deleteRecursively() }
+    }
+
     @Test fun independentLogRequestsKeepBothExportDirectories() {
         val session = File(context.cacheDir, "agent-session").apply { mkdirs() }
-        File(session, "session.log").writeText("booted\n")
+        File(session, "session.log").writeText("secret-must-not-export\n")
+        File(session, "wayland.log.mobile-frames.log").writeText("12.123456789 1 create\n")
         SessionState.logDirectory = session
         val provider = Robolectric.buildContentProvider(AgentBridgeProvider::class.java).create().get()
         var firstDir: File? = null
@@ -56,6 +68,10 @@ class AgentLogExportTest {
             assertEquals(secondDir, secondZip.parentFile)
             assertTrue(firstZip.isFile)
             assertTrue(secondZip.isFile)
+            java.util.zip.ZipFile(firstZip).use { zip ->
+                assertEquals(listOf("mobile-frames.log"), zip.entries().toList().map { it.name })
+                assertEquals("12.123456789 1 create\n", zip.getInputStream(zip.entries().nextElement()).bufferedReader().readText())
+            }
         } finally {
             firstDir?.deleteRecursively()
             secondDir?.deleteRecursively()

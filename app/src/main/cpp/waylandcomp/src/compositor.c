@@ -261,6 +261,29 @@ struct surface {
     uint32_t hdr_fmt_logged;
 };
 
+static void mobile_probe(struct surface *s, const char *event) {
+    static FILE *file;
+    static unsigned count;
+    static char previous[4096];
+    char path[4096];
+    const char *log = getenv("BL_WAYLAND_LOG");
+    if (!log ||
+        snprintf(path, sizeof(path), "%s.mobile-frames.log", log) >= (int)sizeof(path)) return;
+    if (strcmp(path, previous)) {
+        if (file) fclose(file);
+        snprintf(previous, sizeof(previous), "%s", path);
+        file = fopen(path, "w");
+        count = 0;
+    }
+    if (!file || count >= (s ? 4095u : 4096u)) return;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    fprintf(file, "%lld.%09ld %u %s\n", (long long)ts.tv_sec, ts.tv_nsec,
+            s ? wl_resource_get_id(s->resource) : 0, event);
+    fflush(file);
+    count++;
+}
+
 static struct wl_list g_surfaces;
 static struct wl_list g_toplevels;
 static struct surface *g_desktop;
@@ -1081,6 +1104,7 @@ static void presentation_feedback(struct wl_client *c, struct wl_resource *r,
     if (!fb) { wl_client_post_no_memory(c); return; }
     wl_resource_set_implementation(fb, NULL, NULL, feedback_resource_destroy);
     if (!s) { wp_presentation_feedback_send_discarded(fb); wl_resource_destroy(fb); return; }
+    mobile_probe(s, "feedback-request");
     wl_list_insert(s->pending_feedback.prev, wl_resource_get_link(fb));
 }
 static const struct wp_presentation_interface presentation_impl = {
@@ -1098,6 +1122,7 @@ static void surface_frame(struct wl_client *c, struct wl_resource *r, uint32_t c
     struct wl_resource *callback = wl_resource_create(c, &wl_callback_interface, 1, cb);
     if (!callback) { wl_client_post_no_memory(c); return; }
     wl_resource_set_implementation(callback, NULL, NULL, frame_callback_destroy);
+    mobile_probe(s, "frame-request");
     wl_list_insert(s->pending_frames.prev, wl_resource_get_link(callback));
 }
 struct region { int set, exact; int x, y, w, h; };
@@ -1205,6 +1230,7 @@ static void surface_drop_idle(struct surface *s) {
 static void surface_commit(struct wl_client *c, struct wl_resource *r) {
     struct surface *s = wl_resource_get_user_data(r);
     struct surface *child;
+    mobile_probe(s, "commit");
 
     if (s->xdg_toplevel && !s->toplevel_committed) {
         s->toplevel_committed = 1;
@@ -1235,6 +1261,7 @@ static void surface_commit(struct wl_client *c, struct wl_resource *r) {
         struct wl_shm_buffer *shm = buffer && !db ? wl_shm_buffer_get(buffer) : NULL;
         uint8_t pixel[4];
 
+        if (!wl_list_empty(&s->feedback)) mobile_probe(s, "discarded-replaced");
         g_pace.replaced += feedback_discard_all(&s->feedback);
         if (!buffer) g_pace.null_attaches++;
         else if (!db) s->last_dmabuf = NULL;
@@ -1345,6 +1372,8 @@ static void surface_resource_destroy(struct wl_resource *r) {
     if (g_hud_shm == s) g_hud_shm = NULL;
     constraints_surface_gone(s);
 
+    if (!wl_list_empty(&s->pending_feedback) || !wl_list_empty(&s->feedback)) mobile_probe(s, "discarded-destroy");
+    mobile_probe(s, "destroy");
     unmap_toplevel(s);
     detach_from_parent(s);
     wl_list_for_each_safe(child, tmp, &s->children, child_link) {
@@ -1419,6 +1448,7 @@ static void compositor_create_surface(struct wl_client *c, struct wl_resource *r
     wl_list_init(&s->idle_buffer_destroy.link);
     wl_list_insert(&g_surfaces, &s->link);
     wl_resource_set_implementation(s->resource, &surface_impl, s, surface_resource_destroy);
+    mobile_probe(s, "create");
 }
 static void compositor_create_region(struct wl_client *c, struct wl_resource *r, uint32_t id) {
     struct wl_resource *reg = wl_resource_create(c, &wl_region_interface, 1, id);
@@ -1655,6 +1685,7 @@ static void xdg_surface_get_toplevel(struct wl_client *c, struct wl_resource *r,
     wl_resource_set_implementation(tl, &xdg_toplevel_impl, s, xdg_toplevel_resource_destroy);
     if (!s) return;
     s->role = ROLE_TOPLEVEL;
+    mobile_probe(s, "toplevel");
     s->xdg_toplevel = tl;
     send_toplevel_configure(s);
 }
@@ -1912,12 +1943,17 @@ static void scene_size(int *w, int *h) {
 
 static void fire_all_frames(void) {
     struct surface *s;
-    wl_list_for_each(s, &g_surfaces, link) fire_frames(&s->frames);
+    wl_list_for_each(s, &g_surfaces, link) {
+        if (!wl_list_empty(&s->frames)) mobile_probe(s, "frame-done");
+        fire_frames(&s->frames);
+    }
 }
 
 static void pace_without_output(void) {
     struct surface *s;
     wl_list_for_each(s, &g_surfaces, link) {
+        if (!wl_list_empty(&s->frames)) mobile_probe(s, "frame-done-no-output");
+        if (!wl_list_empty(&s->feedback)) mobile_probe(s, "discarded-no-output");
         fire_frames(&s->frames);
         feedback_discard_all(&s->feedback);
     }
@@ -2394,6 +2430,7 @@ static void render_scene(void) {
             hud_frame_shown(t);
         }
         wl_list_for_each(s, &g_surfaces, link) {
+            if (!wl_list_empty(&s->feedback)) mobile_probe(s, s->drawn ? "presented" : "discarded-undrawn");
             if (s->drawn) feedback_present_all(&s->feedback, t);
             else g_pace.undrawn += feedback_discard_all(&s->feedback);
         }
@@ -3961,6 +3998,7 @@ int droiddeck_wayland_run(void) {
 
     g_output_announced_refresh_mhz = atomic_load(&g_output_refresh_mhz);
     wl_display_run(display);
+    mobile_probe(NULL, "exit");
 
     wl_display_destroy(display);
     return 0;

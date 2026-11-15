@@ -26,7 +26,7 @@ object SessionLogShare {
         if (progress != null) return
         progress = 0f
         Thread({
-            val zip = runCatching { folder()?.let { dir -> zipFolder(context, dir) { p -> main.post { if (progress != null) progress = p } } } }
+            val zip = runCatching { folder()?.let { dir -> zipProbe(context, dir) } }
                 .onFailure { Log.w("SessionLogShare", "could not package session logs", it) }
                 .getOrNull()
             main.post { progress = null; done(zip) }
@@ -63,11 +63,7 @@ object SessionLogShare {
         progress = 0f
         Thread({
             val zips = runCatching {
-                folder()?.let { dir ->
-                    EnhancedSessionLogShare.create(context, dir, onProgress = { p ->
-                        main.post { if (progress != null) progress = p }
-                    })
-                }.orEmpty()
+                folder()?.let { dir -> listOfNotNull(zipProbe(context, dir)) }.orEmpty()
             }.onFailure { Log.w("SessionLogShare", "could not package enhanced diagnostics", it) }
                 .getOrDefault(emptyList())
             main.post { progress = null; done(zips) }
@@ -75,8 +71,34 @@ object SessionLogShare {
     }
 
 
-    fun zipFolder(context: Context, folder: File, out: File = shareDir(context), onProgress: ((Float) -> Unit)? = null): File? {
-        return EnhancedSessionLogShare.createLegacy(context, folder, onProgress, out)
+    fun zipFolder(context: Context, folder: File, out: File = shareDir(context), onProgress: ((Float) -> Unit)? = null): File? =
+        EnhancedSessionLogShare.createLegacy(context, folder, onProgress, out)
+
+    internal fun zipProbe(context: Context, folder: File, out: File = shareDir(context)): File? {
+        val source = File(folder, "wayland.log.mobile-frames.log")
+        if (!source.isFile || source.length() > 512 * 1024) return null
+        val bytes = source.inputStream().use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (output.size() <= 512 * 1024) {
+                val n = input.read(buffer, 0, minOf(buffer.size, 512 * 1024 + 1 - output.size()))
+                if (n < 0) break
+                output.write(buffer, 0, n)
+            }
+            output.toByteArray()
+        }
+        if (bytes.size > 512 * 1024) return null
+        val lines = bytes.toString(Charsets.US_ASCII).lines().dropLastWhile { it.isEmpty() }
+        val valid = Regex("[0-9]+\\.[0-9]{9} [0-9]+ (create|toplevel|commit|frame-request|feedback-request|frame-done|frame-done-no-output|presented|discarded-undrawn|discarded-no-output|discarded-replaced|discarded-destroy|destroy|exit)")
+        if (lines.size > 4096 || lines.any { !valid.matches(it) }) return null
+        out.mkdirs()
+        val zip = File(out, "mobile-frames.zip")
+        java.util.zip.ZipOutputStream(zip.outputStream()).use { archive ->
+            archive.putNextEntry(java.util.zip.ZipEntry("mobile-frames.log"))
+            archive.write(lines.joinToString("\n", postfix = "\n").toByteArray(Charsets.US_ASCII))
+            archive.closeEntry()
+        }
+        return zip
     }
 
     const val STORES_DIR = "stores"

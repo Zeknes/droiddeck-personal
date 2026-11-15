@@ -235,6 +235,15 @@ object SessionFiles {
             val dir = asset.substringBeforeLast('/')
             runCatching { context.assets.list("linuxfs/$dir")?.contains(asset.substringAfterLast('/')) == true }.getOrDefault(false)
         }
+        if (DesktopCatalog.desktopInstalled(root) && !File(root, "var/lib/droiddeck/mobile-installed").isFile) {
+            val dir = File(root, "var/lib/droiddeck/mobile-debs").apply { mkdirs() }
+            context.assets.list("mobile-debs").orEmpty().forEach { name ->
+                val target = File(dir, name)
+                val staged = File(dir, "$name.staged")
+                context.assets.open("mobile-debs/$name").use { input -> staged.outputStream().use { input.copyTo(it) } }
+                check(staged.renameTo(target))
+            }
+        }
         val all = (if (DesktopCatalog.desktopInstalled(root)) files + DESKTOP_FILES else files) + optional
         val ledger = StageLedger(File(root, STAGED_LEDGER), apkIdentity(context))
         for ((asset, relative) in all) {

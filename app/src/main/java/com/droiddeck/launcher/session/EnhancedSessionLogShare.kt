@@ -961,7 +961,7 @@ internal object EnhancedSessionLogShare {
     )
     private val SAFE_SUFFIX = Regex("\\.[A-Za-z0-9]{1,8}$")
     private val CRITICAL_SESSION_FILES = listOf(
-        "session.log", "app.log", "wayland.log", "audio.log", "device.txt", "network.txt",
+        "session.log", "app.log", "wayland.log", "wayland.log.mobile-frames.log", "audio.log", "device.txt", "network.txt",
         "events.jsonl", "memory.csv", "capture.json", "crash.log",
     )
     private const val RECENT_MILLIS = 7L * 24 * 60 * 60 * 1000

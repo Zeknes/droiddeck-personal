@@ -118,11 +118,14 @@ object DesktopCatalog {
 
     fun desktopEntry(context: Context): Entry {
         val pack = DesktopPack.info(LinuxRuntime.rootDir(context))
-        return Entry(
-            DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, pack?.tag ?: BuildConfig.DESKTOP_KDE_TAG, "tar",
-            pack?.url ?: BuildConfig.DESKTOP_KDE_URL, pack?.sha256 ?: BuildConfig.DESKTOP_KDE_SHA256,
-            pack?.size ?: BuildConfig.DESKTOP_KDE_SIZE, "", "", "",
-        )
+        return if (pack != null) Entry(
+            DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, "ubuntu-r1-rc5", "tar",
+            "https://github.com/Droid-Deck/DroidDeck-Components/releases/download/ubuntu-r1-rc5/ubuntu-r1-rc5-desktop.tar.zst",
+            "e676968a8dc5f3817061731008f877be860e29cc6d017b3170d192513d584de2",
+            898306226L, "", "", "",
+        ) else Entry(DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1,
+            BuildConfig.DESKTOP_KDE_TAG, "tar", BuildConfig.DESKTOP_KDE_URL, BuildConfig.DESKTOP_KDE_SHA256,
+            BuildConfig.DESKTOP_KDE_SIZE, "", "", "")
     }
 
     fun desktopInstalled(context: Context): Boolean = desktopInstalled(LinuxRuntime.rootDir(context))

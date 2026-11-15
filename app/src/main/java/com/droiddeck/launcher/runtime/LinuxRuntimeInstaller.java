@@ -109,7 +109,9 @@ public final class LinuxRuntimeInstaller {
     }
 
     public static Release fetchRelease() {
-        return fetchRelease(catalogUrl());
+        return new Release("ubuntu-r1-rc5",
+                "https://github.com/Droid-Deck/DroidDeck-Components/releases/download/ubuntu-r1-rc5/ubuntu-r1-rc5.tar.zst",
+                "434d3d91f9c93d94deebbbdc57a1b3763443f785925393f15db19feed477e030", 291553163L);
     }
 
     public static String catalogError() { return CATALOG_ERROR.get(); }

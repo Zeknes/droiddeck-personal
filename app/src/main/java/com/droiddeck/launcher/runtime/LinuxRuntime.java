@@ -240,9 +240,6 @@ public final class LinuxRuntime {
             bind(cmd, runtimeDir.getPath() + ":" + GUEST_RUNTIME_DIR);
         }
         if (sessionRoot != null) bind(cmd, sessionRoot.getPath());
-        if (externalStorage != null && externalStorage.isDirectory()) {
-            bind(cmd, externalStorage.getPath());
-        }
         File shm = new File(liveDir(context), "shm");
         shm.mkdirs();
         bind(cmd, shm.getPath() + ":/dev/shm");
@@ -301,7 +298,15 @@ public final class LinuxRuntime {
         bindAdrenoStats(cmd, extraBinds);
         bindCpuTemps(cmd, root);
         if (extraBinds != null) {
-            for (String spec : extraBinds) bind(cmd, spec);
+            for (String spec : extraBinds) {
+                String host = spec.split(":", 2)[0];
+                try {
+                    String path = new File(host).getCanonicalPath();
+                    String files = context.getFilesDir().getCanonicalPath();
+                    String cache = context.getCacheDir().getCanonicalPath();
+                    if (path.equals(files) || path.startsWith(files + "/") || path.equals(cache) || path.startsWith(cache + "/")) bind(cmd, spec);
+                } catch (IOException ignored) { }
+            }
         }
         List<String> specs = new ArrayList<>();
         for (int i = 0; i + 1 < cmd.size(); i += 2) specs.add(cmd.get(i + 1));

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -u
+set -u -o pipefail
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE DESKTOP_SESSION=plasma
 export KDE_FULL_SESSION=true KDE_SESSION_VERSION=6 KDE_APPLICATIONS_AS_SCOPE=0
 export QT_QPA_PLATFORM="wayland;xcb" GDK_BACKEND=wayland,x11 SDL_VIDEODRIVER=wayland,x11
@@ -23,6 +23,20 @@ if [ -n "${BL_DEBUG_DIR:-}" ]; then
   mkdir -p "$BL_DEBUG_DIR" 2>/dev/null || true
   exec >>"$BL_DEBUG_DIR/desktop.log" 2>&1
   echo "== droiddeck-desktop $(date -u '+%Y-%m-%d %H:%M:%S UTC') ${BL_WIDTH:-1280}x${BL_HEIGHT:-720}"
+fi
+if [ ! -f /var/lib/droiddeck/mobile-installed ]; then
+  if ! (cd /var/lib/droiddeck/mobile-debs && sha256sum -c SHA256SUMS); then
+    echo 'Mobile package checksum failed.'
+    exit 1
+  fi
+  droiddeck-root /usr/bin/dpkg --install /var/lib/droiddeck/mobile-debs/*.deb || true
+  if ! droiddeck-root /usr/bin/dpkg --configure -a ||
+     ! command -v startplasmamobile >/dev/null ||
+     ! dpkg-query -W -f='${db:Status-Status}\n' libqcoro6qml0t64 libqt6sensors6 plasma-nano plasma-settings plasma-mobile plasma-mobile-tweaks | awk 'BEGIN { ok=1; n=0 } { n++; if ($0 != "installed") ok=0 } END { exit !(ok && n == 6) }'; then
+    echo 'Mobile package installation failed; retry the desktop session to recover.'
+    exit 1
+  fi
+  touch /var/lib/droiddeck/mobile-installed || exit 1
 fi
 find "$XDG_RUNTIME_DIR" -mindepth 1 -maxdepth 1 ! -name 'wayland-0*' ! -name 'keymap.xkb' -exec rm -rf {} + 2>/dev/null
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
@@ -110,7 +124,7 @@ if [ "$(cat /usr/share/droiddeck/kwin-compositor 2>/dev/null)" = opengl ]; then
   export PATH=/run/droiddeck/kwin:$PATH
 fi
 echo "== droiddeck-desktop: Plasma on $WAYLAND_DISPLAY"
-dbus-run-session -- startplasma-wayland
+dbus-run-session -- startplasmamobile
 rc=$?
 echo "== droiddeck-desktop: Plasma ended ($rc)"
 exit $rc

@@ -1696,7 +1696,7 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         }
         if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
         if (!SessionState.running) Thread({
-            com.droiddeck.launcher.session.LogMigration.run(this)
+            // Probe sessions must not migrate logs from shared storage.
             com.droiddeck.launcher.frontend.GamesFolderMigration.run(this)
             SessionLogShare.clear(this)
             SessionArtifacts.finishAbandoned(this)

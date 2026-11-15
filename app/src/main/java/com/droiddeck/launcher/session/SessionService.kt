@@ -1197,8 +1197,7 @@ class SessionService : Service() {
         if (controllersOn) components.add(RumbleComponent().also { it.attach(this) })
         val home = File(LinuxRuntime.rootDir(this), "root")
         File(home, "Storage").mkdirs()
-        binds.add(Environment.getExternalStorageDirectory().path + ":/root/Storage")
-        val library = GameStorage.effective(this)
+        val library: GameStorage.Option? = null
         steamLibraryMounts = emptyMap()
         var storageDiagnosticLibrary: File? = null
         if (library != null) {

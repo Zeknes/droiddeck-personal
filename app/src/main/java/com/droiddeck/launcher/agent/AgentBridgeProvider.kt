@@ -230,7 +230,7 @@ class AgentBridgeProvider : ContentProvider() {
         cleanupExpiredLogExports(exports)
         val output = File(exports, UUID.randomUUID().toString())
         val zip = try {
-            SessionLogShare.zipFolder(context, dir, output)
+            SessionLogShare.zipProbe(context, dir, output)
         } catch (error: Exception) {
             output.deleteRecursively()
             throw error
