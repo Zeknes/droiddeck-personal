@@ -318,8 +318,7 @@ android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('gogNotices'))
 def validatePersonalSigning = tasks.register('validatePersonalSigning') {
     doLast {
         def signingDir = new File(System.getProperty('user.home'), '.local/share/droiddeck-personal-signing')
-        if (!new File(signingDir, 'personal.p12').isFile() || !new File(signingDir, 'password').isFile() ||
-            android.signingConfigs.testkey.storePassword == null || android.signingConfigs.testkey.storePassword.isEmpty()) {
+        if (!new File(signingDir, 'personal.p12').isFile() || !new File(signingDir, 'password').isFile()) {
             throw new GradleException('Personal signing credentials are required to package an APK')
         }
     }

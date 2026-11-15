@@ -141,6 +141,27 @@ droiddeck-gnome-extension enable|disable|status
 unprivileged test image, runs `--check`, exercises the extension toggle and
 removes the package again.
 
+`package/build-runtime-pack.sh RUNTIME_TAR DEB OUT TAG URL` builds the desktop
+pack the app installs: it extracts a DroidDeck Ubuntu runtime, installs the
+GNOME packages and the deb, writes `desktop-pack.json`, and packs only the
+changed/added files with `tools/ubuntu/desktop-pack.py`. The app reads
+`asset://gnome-r1-gnome-desktop.tar.zst`, copies the asset into its normal
+download slot, verifies the pinned sha256 and extracts it through the same
+idempotent desktop install/remove path. Stage the pack into an APK with:
+
+```sh
+DROIDDECK_GNOME_PACK=/path/to/gnome-r1-gnome-desktop.tar.zst \
+DROIDDECK_GNOME_TAG=gnome-r1 \
+DROIDDECK_GNOME_URL=asset://gnome-r1-gnome-desktop.tar.zst \
+DROIDDECK_GNOME_SHA256=<pack sha256> \
+DROIDDECK_GNOME_SIZE=<pack size> \
+./gradlew :app:assembleDebug
+```
+
+The pack is not committed; `stageGnomePack` copies it into the APK build
+directory. Without `DROIDDECK_GNOME_PACK` the regular KDE catalog is used and
+the existing tests keep their behavior.
+
 ## Unprivileged start
 
 `droiddeck-gnome-desktop` starts the same services and then GNOME Shell in
