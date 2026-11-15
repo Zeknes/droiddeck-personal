@@ -48,6 +48,24 @@ fi
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
 export IBUS_ADDRESS="unix:path=$runtime/ibus.sock"
 export DROIDDECK_IME_SOCKET="$runtime/droiddeck-ime.sock"
+
+stage() {
+    [ -n "${BL_DEBUG_DIR:-}" ] || return 0
+    mkdir -p "$BL_DEBUG_DIR" 2>/dev/null || return 0
+    printf '{"stage":"%s","exit":"%s"}\n' "$1" "${2:-}" >>"$BL_DEBUG_DIR/gnome-stage.jsonl" 2>/dev/null || true
+}
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    session_bus="$runtime/session-bus.sock"
+    rm -f "$session_bus"
+    if ! dbus-daemon --session --address="unix:path=$session_bus" --fork --print-pid >"$runtime/session-bus.pid" 2>"$runtime/session-bus.log"; then
+        stage session-bus failed
+        echo 'The GNOME session bus did not start' >&2
+        exit 1
+    fi
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$session_bus"
+    stage session-bus ok
+fi
 if [ "$session_bus" = 0 ]; then
     export DBUS_SYSTEM_BUS_ADDRESS="unix:path=$runtime/system-bus.sock"
     if [ ! -S "$runtime/system-bus.sock" ]; then
@@ -68,7 +86,7 @@ if [ ! -S "$runtime/ibus.sock" ]; then
 fi
 
 if command -v droiddeck-gnome-extension >/dev/null 2>&1; then
-    DROIDDECK_GNOME_SHARE="$share" droiddeck-gnome-extension enable
+    DROIDDECK_GNOME_SHARE="$share" droiddeck-gnome-extension enable || stage extension failed
 else
     ext="$HOME/.local/share/gnome-shell/extensions/droiddeck-input@zeknes.com"
     mkdir -p "$ext"
@@ -81,7 +99,10 @@ if [ ! -S "$DROIDDECK_IME_SOCKET" ] || ! pgrep -f "droiddeck-ime-bridge" >/dev/n
     WAYLAND_DISPLAY=inner DROIDDECK_IME_SOCKET="$DROIDDECK_IME_SOCKET" \
         python3 "$share/droiddeck-ime-bridge" >"$runtime/droiddeck-ime.log" 2>&1 &
     for _ in {1..100}; do [ -S "$DROIDDECK_IME_SOCKET" ] && break; sleep .1; done
+    stage input-bridge ok
 fi
 
+stage shell starting
 echo "== DroidDeck GNOME on $WAYLAND_DISPLAY"
-exec gnome-shell --devkit --no-x11 --wayland-display=inner
+gnome-shell --devkit --no-x11 --wayland-display=inner
+stage shell exited "$?"

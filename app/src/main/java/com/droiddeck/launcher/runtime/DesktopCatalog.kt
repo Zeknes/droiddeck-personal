@@ -145,7 +145,10 @@ object DesktopCatalog {
                     (DesktopPack.info(root)?.tag ?: BuildConfig.DESKTOP_KDE_TAG)
             if (kde) return true
             if (BuildConfig.DESKTOP_GNOME && File(root, "usr/bin/gnome-shell").isFile &&
-                File(root, "usr/local/bin/droiddeck-gnome-desktop").isFile) return true
+                File(root, "usr/local/bin/droiddeck-gnome-desktop").isFile) {
+                val gnomeMarker = FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_GNOME_ID"))?.trim()
+                if (gnomeMarker == null || gnomeMarker == BuildConfig.DESKTOP_GNOME_TAG) return true
+            }
         }
         return false
     }

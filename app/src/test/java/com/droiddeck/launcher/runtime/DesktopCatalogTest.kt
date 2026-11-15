@@ -40,6 +40,10 @@ class DesktopCatalogTest {
         File(root, "usr/bin/gnome-shell").apply { parentFile.mkdirs(); writeText("fixture") }
         File(root, "usr/local/bin/droiddeck-gnome-desktop").apply { parentFile.mkdirs(); writeText("fixture") }
         assertTrue(DesktopCatalog.desktopInstalled(root))
+        File(root, ".droiddeck-pkg-desktop-gnome").writeText("older-gnome-pack\n")
+        assertFalse(DesktopCatalog.desktopInstalled(root))
+        File(root, ".droiddeck-pkg-desktop-gnome").writeText("${BuildConfig.DESKTOP_GNOME_TAG}\n")
+        assertTrue(DesktopCatalog.desktopInstalled(root))
         File(root, "usr/local/bin/droiddeck-gnome-desktop").delete()
         assertFalse(DesktopCatalog.desktopInstalled(root))
     }
