@@ -313,7 +313,7 @@ def stageGnomePack = tasks.register('stageGnomePack', Copy) {
         def expectedSha256 = System.getenv('DROIDDECK_GNOME_SHA256') ?: ''
         def expectedSize = System.getenv('DROIDDECK_GNOME_SIZE') ?: ''
         into(dest)
-        doFirst { project.delete(dest) }
+        doFirst { dest.get().asFile.deleteDir() }
         from(gnomePack) { rename { gnomeAsset } }
         doLast {
             def staged = new File(dest.get().asFile, gnomeAsset)
