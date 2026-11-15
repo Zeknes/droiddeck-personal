@@ -37,7 +37,6 @@ object BootMovieReport {
             return null
         }
         val folders = listOfNotNull(
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "DroidDeck"),
             context.getExternalFilesDir(null),
         )
         for (folder in folders) {

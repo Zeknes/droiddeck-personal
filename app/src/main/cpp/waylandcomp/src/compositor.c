@@ -261,27 +261,9 @@ struct surface {
     uint32_t hdr_fmt_logged;
 };
 
+#include "mobile_probe.h"
 static void mobile_probe(struct surface *s, const char *event) {
-    static FILE *file;
-    static unsigned count;
-    static char previous[4096];
-    char path[4096];
-    const char *log = getenv("BL_WAYLAND_LOG");
-    if (!log ||
-        snprintf(path, sizeof(path), "%s.mobile-frames.log", log) >= (int)sizeof(path)) return;
-    if (strcmp(path, previous)) {
-        if (file) fclose(file);
-        snprintf(previous, sizeof(previous), "%s", path);
-        file = fopen(path, "w");
-        count = 0;
-    }
-    if (!file || count >= (s ? 4095u : 4096u)) return;
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    fprintf(file, "%lld.%09ld %u %s\n", (long long)ts.tv_sec, ts.tv_nsec,
-            s ? wl_resource_get_id(s->resource) : 0, event);
-    fflush(file);
-    count++;
+    mobile_probe_write(getenv("BL_WAYLAND_LOG"), s ? wl_resource_get_id(s->resource) : 0, event, !s);
 }
 
 static struct wl_list g_surfaces;

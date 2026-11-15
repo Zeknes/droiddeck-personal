@@ -583,7 +583,7 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
     }
 
     private fun refreshFoundSteamLibraries() {
-        allFilesAccessMissing = com.droiddeck.launcher.files.AllFilesAccess.missing()
+        allFilesAccessMissing = false
         val scan = ++steamLibraryScan
         Thread({
             val found = SteamLibraries.found(this)
@@ -1686,9 +1686,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         }
 
         val wanted = ArrayList<String>()
-        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            wanted.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
         if (SessionPrefs.micEnabled(this) && !SessionPrefs.micAsked(this)
             && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             wanted.add(Manifest.permission.RECORD_AUDIO)
@@ -1696,8 +1693,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         }
         if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
         if (!SessionState.running) Thread({
-            // Probe sessions must not migrate logs from shared storage.
-            com.droiddeck.launcher.frontend.GamesFolderMigration.run(this)
             SessionLogShare.clear(this)
             SessionArtifacts.finishAbandoned(this)
             if (SessionPrefs.takeMemoryKillNotice(this)) runOnUiThread {
