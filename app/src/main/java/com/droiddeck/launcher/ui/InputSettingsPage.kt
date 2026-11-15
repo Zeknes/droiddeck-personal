@@ -86,7 +86,7 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
     var library by remember { mutableStateOf(InputLibraries.read(context)) }
     var page by remember { mutableStateOf(InputPage.HOME) }
     var bindingsTab by remember { mutableIntStateOf(0) }
-    var profileId by remember { mutableStateOf(InputProfile.GAME) }
+    var profileId by remember { mutableStateOf(InputProfile.DESKTOP) }
     var role by remember { mutableStateOf(InputRole.PHYSICAL) }
     var edit by remember { mutableStateOf<InputBindingEdit?>(null) }
     var naming by remember { mutableStateOf<InputNameRequest?>(null) }
@@ -100,7 +100,6 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
     var exporting by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val controller = rememberControllerSettings()
     var oscMode by remember { mutableStateOf(SessionPrefs.oscMode(context)) }
     fun update(change: (InputLibrary) -> InputLibrary): Boolean = runCatching { InputLibraries.update(context, change) }
         .onSuccess { library = it; onChanged() }.onFailure { error = it.message ?: context.getString(R.string.input_save_failed) }.isSuccess
@@ -144,7 +143,7 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
     }
     fun newProfile(copy: Boolean) {
         naming = InputNameRequest(if (copy) R.string.input_copy_profile else R.string.input_new_profile,
-            if (copy) profile.name else "", library.profiles.map { it.id to it.name }, profileId, offerSharing = true) { name, source, shared ->
+            if (copy) profile.name else "", library.profiles.filter { it.id != InputProfile.GAME }.map { it.id to it.name }, profileId, offerSharing = true) { name, source, shared ->
             val id = newInputId()
             if (update { it.duplicateProfile(source, name, id, sharePhysical = shared) }) { profileId = id; go(InputPage.PROFILE) }
         }
@@ -201,32 +200,21 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
                 InputPage.HOME -> {
                     SettingsGroup(stringResource(R.string.input_default_profiles)) {
                         ChoiceRow(host, "auto-desktop", stringResource(R.string.input_desktop_mode), null,
-                            library.profiles.map { it.id to it.name }, library.desktop) { id -> update { it.copy(desktop = id) } }
-                        ChoiceRow(host, "auto-game", stringResource(R.string.input_game_mode), null,
-                            library.profiles.map { it.id to it.name }, library.steam) { id -> update { it.copy(steam = id) } }
-                        for (desktop in listOf(true, false)) {
-                            val selection = library.selection(desktop)
-                            if (selection.profile != InputProfiles.AUTO || selection.parts.isNotEmpty()) InputHint(stringResource(R.string.input_quick_override_hint,
-                                stringResource(if (desktop) R.string.input_desktop_mode else R.string.input_game_mode)))
-                        }
+                            library.profiles.filter { it.id != InputProfile.GAME }.map { it.id to it.name }, library.desktop) { id -> update { it.copy(desktop = id) } }
+                        val selection = library.selection(true)
+                        if (selection.profile != InputProfiles.AUTO || selection.parts.isNotEmpty())
+                            InputHint(stringResource(R.string.input_quick_override_hint, stringResource(R.string.input_desktop_mode)))
                     }
                     if (InputLibraries.hasPendingScreenKeyMigration(context)) InputHint(stringResource(R.string.input_import_failed))
                     if (InputLibraries.hasLibraryRecovery(context)) InputHint(stringResource(R.string.input_library_recovered))
                     if (library.profiles.any { it.id.startsWith("migrated.screenkeys.") }) Text(stringResource(R.string.input_imported_keys_hint),
                         Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SettingsGroup(stringResource(R.string.input_profiles)) {
-                        for (p in library.profiles) InputNavigationRow(p.name, when {
-                            p.id == library.steam && p.id == library.desktop -> stringResource(R.string.input_default_both)
-                            p.id == library.steam -> stringResource(R.string.input_default_game)
+                        for (p in library.profiles.filter { it.id != InputProfile.GAME }) InputNavigationRow(p.name, when {
                             p.id == library.desktop -> stringResource(R.string.input_default_desktop)
                             else -> null
                         }, Modifier.testTag("input-profile-${p.id}")) { profileId = p.id; go(InputPage.PROFILE) }
                         PadTextButton(onClick = { newProfile(false) }, modifier = Modifier.padding(8.dp)) { Text(stringResource(R.string.input_new_profile)) }
-                    }
-                    SettingsGroup(stringResource(R.string.input_device_settings)) {
-                        ToggleRow(host, "controller-rumble", stringResource(R.string.ctrl_rumble), null, controller.rumble) { ControllerPrefs.setRumble(context, it); onChanged() }
-                        ChoiceRow(host, "controller-dead-zone", stringResource(R.string.ctrl_dead_zone), null, ControllerPrefs.deadZones.map { it to stringResource(R.string.ctrl_percent, it) }, controller.deadZone) { ControllerPrefs.setDeadZone(context, it); onChanged() }
-                        ToggleRow(host, "controller-joycon-vr", stringResource(R.string.ctrl_joycon_vr), stringResource(R.string.ctrl_joycon_vr_hint), controller.joyConVr) { ControllerPrefs.setJoyConVr(context, it); onChanged() }
                     }
                     SettingsGroup(stringResource(R.string.shortcuts_title)) { PhysicalShortcutRows() }
                     SettingsGroup(stringResource(R.string.input_latency)) {
@@ -261,7 +249,7 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
                         }
                         if (profileId !in listOf(InputProfile.GAME, InputProfile.DESKTOP)) SecondaryButton(stringResource(R.string.input_delete)) {
                             confirmation = InputConfirmation(context.getString(R.string.input_delete), context.getString(R.string.input_delete_profile_detail, profile.name)) {
-                                if (update { it.removeProfile(profileId) }) { profileId = InputProfile.GAME; go(InputPage.HOME) }
+                                if (update { it.removeProfile(profileId) }) { profileId = InputProfile.DESKTOP; go(InputPage.HOME) }
                             }
                         }
                     }
@@ -270,7 +258,7 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
                     if (role == InputRole.PRIMARY) SettingsGroup(stringResource(R.string.input_screen_visibility)) {
                         ChoiceRow(host, "controller-osc", stringResource(R.string.mode_osc), stringResource(R.string.input_visibility_shared),
                             listOf(SessionPrefs.OSC_AUTO to stringResource(R.string.common_auto), SessionPrefs.OSC_ALWAYS to stringResource(R.string.common_always),
-                                SessionPrefs.OSC_STEAM_TOUCH to stringResource(R.string.osc_steam_touch), SessionPrefs.OSC_STEAM_QAM to stringResource(R.string.mode_osc_qam), SessionPrefs.OSC_NEVER to stringResource(R.string.common_never)),
+                                SessionPrefs.OSC_NEVER to stringResource(R.string.common_never)),
                             oscMode) { SessionPrefs.setOscMode(context, it); oscMode = it; onChanged() }
                     }
                     if (layout != null) SettingsGroup(stringResource(R.string.ctrl_layout)) {
@@ -350,7 +338,7 @@ private fun InputSettingsContent(onBack: () -> Unit, onChanged: () -> Unit, embe
                 InputPage.REUSE -> {
                     InputHint(stringResource(R.string.input_reuse_explanation, roleLabel(role)))
                     SettingsGroup(stringResource(R.string.input_profiles)) {
-                        for (p in library.profiles.filterNot { it.id == profileId }) InputNavigationRow(p.name, library.layout(p.id, role)?.name) {
+                        for (p in library.profiles.filterNot { it.id == profileId || it.id == InputProfile.GAME }) InputNavigationRow(p.name, library.layout(p.id, role)?.name) {
                             reuse = InputReuseRequest(p.name, layoutOnly = false) { shared -> if (update { it.usePart(profileId, role, p.id, shared) }) go(InputPage.SOURCE) }
                         }
                     }

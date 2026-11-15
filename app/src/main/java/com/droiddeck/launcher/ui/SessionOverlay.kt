@@ -374,7 +374,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
     val pal = LocalPalette.current
     val host = rememberMenuHost()
     val (glasses, glassesSettings) = rememberGlasses()
-    val glassesPages = glassesTabs(glasses) + (GlassesTab.CONTROLLERS to stringResource(R.string.vr_controllers_tab))
+    val glassesPages = glassesTabs(glasses).filter { it.first != GlassesTab.VR && it.first != GlassesTab.CONTROLLERS }
     var selectedGlassesTab by rememberSaveable { mutableStateOf(GlassesTab.DISPLAY) }
     val glassesTab = selectedGlassesTab.takeIf { key -> glassesPages.any { it.first == key } } ?: GlassesTab.DISPLAY
     var androidAppsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -617,22 +617,6 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                         SessionDrawerPage.CONTROLLER -> {
                             SettingsGroup(stringResource(R.string.drawer_page_controller)) {
                                 InputQuickSettings(host, desktop = a.desktop, onChanged = a.onInputSelection, onEdit = a.onInputSettings) { key -> focus.track(page, key) }
-                            }
-                            SettingsGroup(stringResource(R.string.input_device_settings)) {
-                                a.padType?.let { type ->
-                                    ChoiceRow(host, "pad-type", stringResource(R.string.input_virtual_controller), stringResource(R.string.input_virtual_controller_hint),
-                                        listOf(SessionPrefs.CONTROLLER_DECK to stringResource(R.string.mode_controller_deck),
-                                            SessionPrefs.CONTROLLER_STEAM to stringResource(R.string.mode_controller_steam),
-                                            SessionPrefs.CONTROLLER_DS4 to stringResource(R.string.mode_controller_ds4),
-                                            SessionPrefs.CONTROLLER_DUALSENSE to stringResource(R.string.mode_controller_dualsense),
-                                            SessionPrefs.CONTROLLER_XBOX360 to stringResource(R.string.mode_controller_x360)),
-                                        type, chipModifier = focus.track(page, "pad-type"), onPick = a.onPadType)
-                                }
-                                a.controller?.let { c ->
-                                    ToggleRow(host, "rumble", stringResource(R.string.ctrl_rumble), null, c.rumble,
-                                        chipModifier = focus.track(page, "rumble"), onChange = a.onRumble)
-
-                                }
                             }
                             SettingsGroup(stringResource(R.string.input_touchscreen)) {
                                 ChoiceRow(host, "touch", stringResource(R.string.input_touchscreen), stringResource(R.string.input_touchscreen_hint),

@@ -297,18 +297,6 @@ internal fun SetupPanel(
                                     )
                                 },
                             )
-                            if (!s.adreno && s.vkBridge) CheckRow(
-                                CheckState.OK,
-                                stringResource(R.string.setup_bridge_dxvk),
-                                stringResource(if (s.bridgeProtonDxvk) R.string.setup_bridge_dxvk_proton_detail else R.string.setup_bridge_dxvk_auto_detail),
-                                divider = divider,
-                                action = {
-                                    SecondaryButton(
-                                        stringResource(if (s.bridgeProtonDxvk) R.string.setup_bridge_dxvk_proton else R.string.setup_bridge_dxvk_auto),
-                                        enabled = !s.sessionRunning, compact = true, onClick = { a.onBridgeProtonDxvk(!s.bridgeProtonDxvk) },
-                                    )
-                                },
-                            )
                         }
                         val runtimeCheck: @Composable (Boolean) -> Unit = { divider ->
                             CheckRow(
@@ -439,7 +427,6 @@ internal fun SetupPanel(
                                 remember { RailLabels.load(railContext) }
                                 ToggleRow(host, "rail-labels", stringResource(R.string.setup_rail_labels), stringResource(R.string.setup_rail_labels_hint), RailLabels.shown) { RailLabels.set(railContext, it) }
                                 LanguageRow(host, s.language, a.onLanguage)
-                                if (s.soundtracksEnabled) ToggleRow(host, "soundtracks-ingame", stringResource(R.string.setup_soundtracks_ingame), stringResource(R.string.setup_soundtracks_ingame_hint), s.soundtracksIngame, onChange = a.onSoundtracksIngame)
                             }
                             TabsSettingsGroup(host, s, a)
                             SettingsGroup("Credits and source") {
@@ -571,13 +558,6 @@ internal fun SetupPanel(
                                 host, "enhanced-diagnostics", stringResource(R.string.setup_enhanced_diagnostics),
                                 stringResource(R.string.setup_enhanced_diagnostics_hint), s.enhancedDiagnosticsArmed,
                             ) { a.onEnhancedDiagnostics() }
-                            ToggleRow(
-                                host, "game-debug-logs", stringResource(R.string.setup_game_debug_logs),
-                                stringResource(if (s.gameDebugLogsNeedsRestart) R.string.setup_game_debug_logs_restart else R.string.setup_game_debug_logs_hint),
-                                s.gameDebugLogsEnabled,
-                                enabled = s.logsEnabled,
-                            ) { a.onGameDebugLogs() }
-                            ToggleRow(host, "vacdiag", stringResource(R.string.setup_vac_diag), stringResource(R.string.setup_vac_diag_hint), s.vacDiagnostics) { a.onVacDiagnostics() }
                             ToggleRow(host, "agent-commands", stringResource(R.string.setup_agent_commands), null, s.agentCommands) { a.onAgentCommands() }
                             if (com.droiddeck.launcher.agent.AgentHost.available) {
                                 val agentContext = androidx.compose.ui.platform.LocalContext.current
@@ -590,7 +570,6 @@ internal fun SetupPanel(
                                 )
                             }
                             ToggleRow(host, "graphics-logs", stringResource(R.string.setup_graphics_logs), stringResource(R.string.setup_graphics_logs_hint), s.graphicsLogs) { a.onGraphicsLogs() }
-                            if (!s.adreno && com.droiddeck.launcher.session.SessionPrefs.steamGpuCompositingAllowed()) ToggleRow(host, "steam-gpu-drawing", stringResource(R.string.setup_steam_gpu_drawing), stringResource(R.string.setup_steam_gpu_drawing_hint), s.steamGpuDrawing) { a.onSteamGpuDrawing() }
                             ActionRow(stringResource(R.string.setup_latest_logs), stringResource(R.string.drawer_logs_hint), stringResource(R.string.drawer_share_logs), a.onShareLogs,
                                 progress = com.droiddeck.launcher.session.SessionLogShare.progress)
                             androidx.compose.material3.HorizontalDivider()

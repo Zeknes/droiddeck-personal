@@ -187,7 +187,6 @@ private fun StatusCard(snap: SyncSnapshot) {
     }
     val detail = when (Syncthing.autoPause) {
         Syncthing.AutoPause.WIFI -> stringResource(R.string.sync_paused_wifi)
-        Syncthing.AutoPause.GAME -> stringResource(R.string.sync_paused_game)
         null -> if (snap.syncing && !paused) stringResource(R.string.sync_left, Formatter.formatShortFileSize(ctx, snap.needBytes))
             else stringResource(R.string.sync_summary, snap.folders.size, snap.devices.count { it.connected }, snap.devices.size)
     }

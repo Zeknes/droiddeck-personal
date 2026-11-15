@@ -114,7 +114,7 @@ class InputSettingsTest {
     @Test fun bindingEditorPersistsDisabledWithoutChangingTouchControls() {
         var changed = false
         compose.setContent { DroidDeckTheme { InputSettingsPage({}, { changed = true }) } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-physical").performScrollTo().performClick()
         compose.onNodeWithTag("input-binding-a").performScrollTo().performClick()
         compose.onNodeWithText("Disabled", substring = false).performScrollTo().performClick()
@@ -122,9 +122,9 @@ class InputSettingsTest {
         compose.onNodeWithTag("input-action-save").performClick()
         compose.runOnIdle {
             assertTrue(changed)
-            val profile = InputProfiles.read(context, InputProfile.GAME)
+            val profile = InputProfiles.read(context, InputProfile.DESKTOP)
             assertEquals(InputAction.Disabled, profile.action(InputRole.PHYSICAL, InputControl.A))
-            assertEquals(InputAction.Native(), profile.action(InputRole.SECONDARY, InputControl.A))
+            assertEquals(InputLibraries.read(context).compile(InputProfile.DESKTOP).action(InputRole.SECONDARY, InputControl.A), profile.action(InputRole.SECONDARY, InputControl.A))
         }
     }
 
@@ -184,8 +184,8 @@ class InputSettingsTest {
         compose.runOnIdle {
             val library = InputLibraries.read(context)
             val created = library.profiles.single { it.name == "Shared controls" }
-            assertEquals(library.profile("game").binding(InputRole.PHYSICAL), created.binding(InputRole.PHYSICAL))
-            assertNotEquals(library.profile("game").binding(InputRole.SECONDARY), created.binding(InputRole.SECONDARY))
+            assertEquals(library.profile("desktop").binding(InputRole.PHYSICAL), created.binding(InputRole.PHYSICAL))
+            assertNotEquals(library.profile("desktop").binding(InputRole.SECONDARY), created.binding(InputRole.SECONDARY))
         }
     }
 
@@ -228,18 +228,18 @@ class InputSettingsTest {
     }
 
     @Test fun deckPresetOffersItsRealElementsAndTheCommonEditor() {
-        InputLibraries.update(context) { it.useLayout("game", InputRole.SECONDARY, InputLibraries.DECK, shared = true) }
+        InputLibraries.update(context) { it.useLayout("desktop", InputRole.SECONDARY, InputLibraries.DECK, shared = true) }
         compose.setContent { DroidDeckTheme { InputSettingsPage({}) } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-secondary").performScrollTo().performClick()
         compose.onNodeWithTag("input-element-legacy:l4").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("input-binding-a").assertDoesNotExist()
     }
 
     @Test fun mouseTrackpadPresetIsEditableLikeAnyOtherLayout() {
-        InputLibraries.update(context) { it.useLayout("game", InputRole.SECONDARY, InputLibraries.TRACKPAD, shared = true) }
+        InputLibraries.update(context) { it.useLayout("desktop", InputRole.SECONDARY, InputLibraries.TRACKPAD, shared = true) }
         compose.setContent { DroidDeckTheme { InputSettingsPage({}) } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-secondary").performScrollTo().performClick()
         compose.onNodeWithTag("input-element-legacy:right-pad").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("input-surface-secondary").performScrollTo().assertIsDisplayed()
@@ -248,7 +248,7 @@ class InputSettingsTest {
 
     @Test fun primaryScreenOffersItsActualElementsAndTheCommonEditor() {
         compose.setContent { DroidDeckTheme { InputSettingsPage({}) } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-primary").performScrollTo().performClick()
         compose.onNodeWithTag("input-element-legacy:a").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("input-binding-a").assertDoesNotExist()
@@ -258,11 +258,14 @@ class InputSettingsTest {
         compose.onNodeWithTag("input-layout-canvas").assertExists()
     }
 
-    @Test fun deviceSettingsAreInlineBelowProfiles() {
+    @Test fun desktopSettingsOmitGameAndVrEntries() {
         compose.setContent { DroidDeckTheme { InputSettingsPage({}) } }
-        compose.onNodeWithTag("input-more").assertDoesNotExist()
-        compose.onNodeWithText(context.getString(R.string.ctrl_dead_zone)).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("input-profile-game").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("input-profile-game").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.input_game_mode)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.ctrl_dead_zone)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.ctrl_rumble)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.ctrl_joycon_vr)).assertDoesNotExist()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun migratedPadClicksRemainEditableWithoutChangingMovement() {
@@ -452,7 +455,7 @@ class InputSettingsTest {
 
     @Test fun quickButtonTogglesHideBuiltInButtonsWithoutDeletingThem() {
         compose.setContent { DroidDeckTheme { InputSettingsPage({}) } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-primary").performScrollTo().performClick()
         val before = InputLibraries.read(context).layout("game", InputRole.PRIMARY)!!
         compose.onNodeWithTag("setting-quick-keyboard").performScrollTo().performClick()
@@ -480,17 +483,17 @@ class InputSettingsTest {
         compose.setContent { androidx.compose.runtime.CompositionLocalProvider(androidx.activity.compose.LocalActivityResultRegistryOwner provides owner) {
             DroidDeckTheme { InputSettingsPage({}) }
         } }
-        compose.onNodeWithTag("input-profile-game").performScrollTo().performClick()
+        compose.onNodeWithTag("input-profile-desktop").performScrollTo().performClick()
         compose.onNodeWithTag("input-part-primary").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.input_saved_layouts)).performScrollTo().performClick()
         compose.onNodeWithTag("layout-manage-${InputLibraries.OVERLAY}").performScrollTo().performClick()
-        compose.onNodeWithText(context.getString(R.string.screen_key_layout_export)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.screen_key_layout_export)).assertExists()
         compose.onNodeWithText(context.getString(R.string.common_close)).performClick()
         compose.onNodeWithTag("input-layout-import").performScrollTo().performClick()
-        compose.waitUntil(5_000) { InputLibraries.read(context).layout("game", InputRole.PRIMARY)!!.name == "Jump keys" }
-        val imported = InputLibraries.read(context).layout("game", InputRole.PRIMARY)!!
+        compose.waitUntil(5_000) { InputLibraries.read(context).layout("desktop", InputRole.PRIMARY)!!.name == "Jump keys" }
+        val imported = InputLibraries.read(context).layout("desktop", InputRole.PRIMARY)!!
         assertEquals(InputLayoutScreen.MAIN, imported.screen)
-        assertEquals(InputAction.Keys(listOf(57)), InputLibraries.read(context).compile("game").elementAction(InputRole.PRIMARY, imported.elements.single().id, InputControl.A))
+        assertEquals(InputAction.Keys(listOf(57)), InputLibraries.read(context).compile("desktop").elementAction(InputRole.PRIMARY, imported.elements.single().id, InputControl.A))
         compose.onNodeWithText(context.getString(R.string.input_saved_layouts)).performScrollTo().performClick()
         compose.onNodeWithTag("layout-manage-${imported.id}").performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.screen_key_layout_export)).performClick()

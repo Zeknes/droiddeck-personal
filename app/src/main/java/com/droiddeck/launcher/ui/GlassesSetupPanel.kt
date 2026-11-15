@@ -20,7 +20,7 @@ import com.droiddeck.launcher.glasses.GlassesMenuMirror
 internal fun GlassesSetupPanel() {
     val (glasses, settings) = rememberGlasses()
     val host = rememberMenuHost()
-    val tabs = glassesTabs(glasses)
+    val tabs = glassesTabs(glasses).filter { it.first != GlassesTab.VR && it.first != GlassesTab.CONTROLLERS }
     var selectedTab by rememberSaveable { mutableStateOf(GlassesTab.DISPLAY) }
     val tab = selectedTab.takeIf { selected -> tabs.any { it.first == selected } } ?: GlassesTab.DISPLAY
     LaunchedEffect(tab, glasses.present, glasses.canControl, glasses.model) { host.open = null }

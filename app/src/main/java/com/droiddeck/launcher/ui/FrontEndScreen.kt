@@ -171,7 +171,7 @@ class FrontEndState(
     val showPhantomGate: Boolean = false,
     val orientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
     val launcherOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER,
-    val homePage: String = com.droiddeck.launcher.core.AppUiPrefs.HOME_PAGE_STEAM,
+    val homePage: String = com.droiddeck.launcher.core.AppUiPrefs.HOME_PAGE_APPS,
     val launcherFullscreen: Boolean = true,
     val downloadSource: String = DownloadSource.MODE_AUTO,
     val downloadMirror: String = "",

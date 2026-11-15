@@ -17,7 +17,6 @@ import androidx.compose.runtime.setValue
 import com.droiddeck.launcher.core.HostProcess
 import com.droiddeck.launcher.runtime.LinuxRuntime
 import com.droiddeck.launcher.session.OrphanReaper
-import com.droiddeck.launcher.session.SessionState
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -28,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 object Syncthing {
     enum class Phase { OFF, STARTING, RUNNING, STOPPING, FAILED }
-    enum class AutoPause { WIFI, GAME }
+    enum class AutoPause { WIFI }
 
     const val FAILURE_MISSING = "binary-missing"
     private const val FAILURE_POLICY = "Stopped because a folder outside DroidDeck's storage could not be paused"
@@ -523,7 +522,6 @@ object Syncthing {
 
     private fun autoPauseReason(): AutoPause? = when {
         SyncPrefs.wifiOnly(app) && !onWifi -> AutoPause.WIFI
-        SyncPrefs.pauseInGames(app) && SessionState.running -> AutoPause.GAME
         else -> null
     }
 

@@ -148,12 +148,8 @@ internal fun StoragePanel(s: FrontEndState, a: FrontEndActions) {
     }
     Box(Modifier.fillMaxWidth().height(1.dp).bringIntoViewRequester(top))
     when (view) {
-        "games" -> GamesView(report, s.sessionRunning, a) { view = "overview" }
-        "data" -> GameDataView(report, s.sessionRunning) { view = "overview" }
         "components" -> ComponentsView(report, s.sessionRunning) { view = "overview" }
         "desktop" -> DesktopView(report, s.sessionRunning) { view = "overview" }
-        "stores" -> StoreGamesView(report, s.sessionRunning) { view = "overview" }
-        "tools" -> ToolsView(report, s.sessionRunning) { view = "overview" }
         else -> Overview(report, s.sessionRunning, onCleanUp = { cleanup = true }, onOpen = { view = it })
     }
 }
@@ -283,7 +279,7 @@ private fun OverviewContent(report: StorageReport, sessionRunning: Boolean, wide
     val colors = MaterialTheme.colorScheme
     val pal = LocalPalette.current
     val used = report.total - report.free
-    val safe = StorageState.safeBytes(report)
+    val safe = StorageState.bytes(report, CleanItem.LOGS)
     val low = report.free < StorageState.LOW_SPACE_BYTES
     ActionStatus()
     val summary = Modifier.fillMaxWidth().padding(top = 8.dp).clip(Shape14).background(colors.surface).border(1.dp, pal.line, Shape14)
@@ -302,7 +298,7 @@ private fun OverviewContent(report: StorageReport, sessionRunning: Boolean, wide
             )
             UsageBar(report, Modifier.padding(top = 12.dp, bottom = 10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Bucket.entries.forEach { Legend(BucketColors.getValue(it), bucketLabel(it)) }
+                listOf(Bucket.COMPONENTS, Bucket.DESKTOP, Bucket.SYSTEM, Bucket.DROIDDECK).forEach { Legend(BucketColors.getValue(it), bucketLabel(it)) }
                 Legend(OtherApps, stringResource(R.string.storage_other_apps))
             }
         } }
@@ -325,37 +321,14 @@ private fun OverviewContent(report: StorageReport, sessionRunning: Boolean, wide
         Spacer(Modifier.height(8.dp))
         Note(stringResource(R.string.storage_session_running))
     }
-    DefaultStorageGroup()
     SectionTitle(stringResource(R.string.storage_where), null)
-    val unused = report.unusedTools.sumOf { it.bytes }
     val tiles = listOf<@Composable (Modifier) -> Unit>(
-        { m ->
-            BucketCard(Bucket.GAMES, Icons.Outlined.VideogameAsset, stringResource(R.string.storage_games),
-                pluralStringResource(R.plurals.storage_games_installed, report.games.size, report.games.size) +
-                    if (report.gamesOnSd > 0) " · " + pluralStringResource(R.plurals.storage_games_on_sd, report.gamesOnSd, report.gamesOnSd) else "",
-                report.buckets.getValue(Bucket.GAMES), m) { onOpen("games") }
-        },
-        { m ->
-            BucketCard(Bucket.GAME_DATA, Icons.Outlined.SaveAlt, stringResource(R.string.storage_game_data),
-                stringResource(R.string.storage_game_data_hint, gb(report.prefixes), gb(report.workshop), gb(report.shaders)),
-                report.buckets.getValue(Bucket.GAME_DATA), m) { onOpen("data") }
-        },
-        { m ->
-            BucketCard(Bucket.TOOLS, Icons.Outlined.Layers, stringResource(R.string.storage_tools),
-                if (unused > 0) stringResource(R.string.storage_tools_unused, gb(unused)) else pluralStringResource(R.plurals.storage_tools_count, report.tools.size, report.tools.size),
-                report.buckets.getValue(Bucket.TOOLS), m, attention = unused > 0) { onOpen("tools") }
-        },
         { m ->
             val unusedComponents = report.unusedComponents.sumOf { it.bytes }
             BucketCard(Bucket.COMPONENTS, Icons.Outlined.Extension, stringResource(R.string.storage_components),
                 if (unusedComponents > 0) stringResource(R.string.storage_tools_unused, gb(unusedComponents))
                 else pluralStringResource(R.plurals.storage_components_count, report.components.size, report.components.size),
                 report.buckets.getValue(Bucket.COMPONENTS), m, attention = unusedComponents > 0) { onOpen("components") }
-        },
-        { m ->
-            BucketCard(Bucket.STORES, Icons.Outlined.ShoppingBag, stringResource(R.string.storage_stores),
-                pluralStringResource(R.plurals.storage_games_installed, report.storeGames.size, report.storeGames.size),
-                report.buckets.getValue(Bucket.STORES), m) { onOpen("stores") }
         },
         { m ->
             BucketCard(Bucket.DESKTOP, Icons.Outlined.Monitor, stringResource(R.string.storage_desktop),
@@ -471,7 +444,7 @@ private fun CleanUpDialog(report: StorageReport, sessionRunning: Boolean, onDism
     val ctx = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val pal = LocalPalette.current
-    val available = CleanItem.entries.filter { StorageState.bytes(report, it) > 0 }
+    val available = listOf(CleanItem.LOGS, CleanItem.UNUSED_COMPONENTS).filter { StorageState.bytes(report, it) > 0 }
     var picked by remember { mutableStateOf(available.filter { it in StorageState.SAFE }.toSet()) }
     val total = picked.sumOf { StorageState.bytes(report, it) }
     val first = remember { FocusRequester() }
