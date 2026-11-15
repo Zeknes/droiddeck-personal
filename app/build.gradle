@@ -128,7 +128,7 @@ android {
     ndkVersion project.findProperty('ndkVersion') ?: '27.3.13750724'
 
     defaultConfig {
-        applicationId "com.zeknes.droiddeckpersonal"
+        applicationId "com.zeknes.droiddeck.gnome"
         minSdkVersion 26
         targetSdkVersion 28
         versionCode 20
@@ -177,7 +177,7 @@ android {
             def signingDir = new File(System.getProperty('user.home'), '.local/share/droiddeck-personal-signing')
             storeFile new File(signingDir, 'personal.p12')
             storeType "PKCS12"
-            storePassword providers.fileContents(layout.file(providers.provider { new File(signingDir, 'password') })).asText.get().trim()
+            storePassword providers.fileContents(layout.file(providers.provider { new File(signingDir, 'password') })).asText.orNull?.trim()
             keyAlias "personal"
             keyPassword storePassword
             enableV1Signing = true
@@ -301,6 +301,19 @@ def stageGogNotices = tasks.register('stageGogNotices', Copy) {
     into(layout.buildDirectory.dir('gogNotices/licenses/xdelta3'))
 }
 android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('gogNotices'))
+def validatePersonalSigning = tasks.register('validatePersonalSigning') {
+    doLast {
+        def signingDir = new File(System.getProperty('user.home'), '.local/share/droiddeck-personal-signing')
+        if (!new File(signingDir, 'personal.p12').isFile() || !new File(signingDir, 'password').isFile() ||
+            android.signingConfigs.testkey.storePassword == null || android.signingConfigs.testkey.storePassword.isEmpty()) {
+            throw new GradleException('Personal signing credentials are required to package an APK')
+        }
+    }
+}
+tasks.matching { it.name == 'packageDebug' || it.name == 'packageRelease' }.configureEach {
+    dependsOn(validatePersonalSigning)
+}
+
 tasks.named('preBuild').configure { dependsOn(stageGogNotices) }
 
 if (!ciBuild) {

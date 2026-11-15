@@ -455,6 +455,9 @@ grep -qi 'CN=DroidDeck Personal' <<<"${signature_output}" || {
     exit 1
 }
 
+gnome_apk="${repo_root}/app/build/outputs/apk/${build_variant}/DroidDeck-GNOME-${build_variant}.apk"
+cp -f "${apk}" "${gnome_apk}"
+apk="${gnome_apk}"
 printf 'APK: %s\n' "${apk}"
 printf 'SHA-256: '
 shasum -a 256 "${apk}" | awk '{print $1}'

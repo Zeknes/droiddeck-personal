@@ -65,7 +65,7 @@
         android:allowBackup="false"
         android:allowAudioPlaybackCapture="true"
         android:icon="@drawable/ic_personal"
-        android:label="DroidDeck Personal"
+        android:label="DroidDeck GNOME"
         android:theme="@style/AppTheme"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
