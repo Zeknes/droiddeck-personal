@@ -261,6 +261,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
     private var gnomeIme: com.droiddeck.launcher.session.GnomeImeClient? = null
+    @Volatile private var gnomeSensitive = false
     private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopKeyboardButton? = null
     private var lastUserPressMs = 0L
     private var pressDownX = 0f
@@ -795,6 +796,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         keyboard = KeyboardHost(this, { dispatchKeyEvent(it) },
             commitText = { text -> gnomeIme?.commit(text) == true },
             preeditText = { text, cursor -> gnomeIme?.preedit(text, cursor) == true },
+            sensitive = { gnomeSensitive },
         ).also { host ->
             host.onImeChanged = { updateDesktopKeyboardButton() }
             host.onShown = { gnomeIme?.focus() }
@@ -4718,8 +4720,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         if (!BuildConfig.DESKTOP_GNOME || SessionState.mode != SessionService.MODE_DESKTOP || gnomeIme != null) return
         val socket = java.io.File(filesDir, ".wayland-rt/droiddeck-ime.sock")
         gnomeIme = com.droiddeck.launcher.session.GnomeImeClient(socket) { state ->
+            gnomeSensitive = state?.sensitive == true
             val ready = state != null && state.inner && state.shell && !state.sensitive
-            AgentGuest.desktopFieldChanged(ready)
+            AgentGuest.desktopFieldChanged(state != null && state.inner && state.shell)
             if (keyboard?.shown == true) {
                 if (ready) gnomeIme?.focus()
                 else if (state == null || !state.inner) gnomeIme?.blur()

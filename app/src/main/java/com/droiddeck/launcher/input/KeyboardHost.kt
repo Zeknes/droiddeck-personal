@@ -18,6 +18,7 @@ class KeyboardHost(
     private val sendKeyEvent: (KeyEvent) -> Boolean,
     private val commitText: ((String) -> Boolean)? = null,
     private val preeditText: ((String, Int) -> Boolean)? = null,
+    private val sensitive: () -> Boolean = { false },
 ) : View(context) {
     constructor(activity: Activity) : this(activity, { activity.dispatchKeyEvent(it) })
 
@@ -124,7 +125,7 @@ class KeyboardHost(
 
         override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
             val commit = commitText
-            if (text != null && commit != null && (composing || text.any { it.code > 0x7f })) {
+            if (!sensitive() && text != null && commit != null && (composing || text.any { it.code > 0x7f })) {
                 composing = false
                 preeditText?.invoke("", 0)
                 if (commit(text.toString())) return true
@@ -135,7 +136,7 @@ class KeyboardHost(
 
         override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
             val preedit = preeditText
-            if (preedit == null || text == null) return true
+            if (sensitive() || preedit == null || text == null) return true
             composing = text.isNotEmpty()
             preedit(text.toString(), text.length)
             return true

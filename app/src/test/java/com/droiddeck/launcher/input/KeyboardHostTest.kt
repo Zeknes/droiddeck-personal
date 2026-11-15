@@ -3,6 +3,7 @@ package com.droiddeck.launcher.input
 import android.app.Activity
 import android.content.Context
 import android.os.Looper
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import org.junit.Assert.assertEquals
@@ -50,6 +51,24 @@ class KeyboardHostTest {
         idle()
         assertFalse(shadowOf(imm).isSoftInputVisible)
         assertFalse(host.shown)
+    }
+
+    @Test fun sensitiveFieldsUseKeysAndNeverTheBridge() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        var commits = 0
+        var preedits = 0
+        var keys = 0
+        val secret = KeyboardHost(activity, sendKeyEvent = { keys++; true },
+            commitText = { commits++; true }, preeditText = { _, _ -> preedits++; true },
+            sensitive = { true })
+        secret.show()
+        val connection = secret.onCreateInputConnection(EditorInfo())!!
+        connection.setComposingText("ab", 1)
+        connection.commitText("ab", 1)
+        idle()
+        assertEquals(0, commits)
+        assertEquals(0, preedits)
+        assertTrue(keys > 0)
     }
 
     @Test fun showAndHideNotifyTheBridgeOnce() {

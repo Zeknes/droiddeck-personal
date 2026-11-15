@@ -113,11 +113,20 @@ object DesktopCatalog {
             !File(LinuxRuntime.rootDir(context), "root/.local/share/Steam/steamapps/appmanifest_4427310.acf").isFile
 
     const val DESKTOP_ID = "desktop-kde"
+    const val DESKTOP_GNOME_ID = "desktop-gnome"
     const val EMULATORS_ID = "emulators"
     private const val EMULATORS_SCRIPT = "/usr/local/bin/droiddeck-emulators"
 
     fun desktopEntry(context: Context): Entry {
         val pack = DesktopPack.info(LinuxRuntime.rootDir(context))
+        if (BuildConfig.DESKTOP_GNOME && BuildConfig.DESKTOP_GNOME_URL.isNotEmpty()) {
+            return Entry(
+                DESKTOP_GNOME_ID, context.getString(R.string.content_linux_desktop), 1,
+                pack?.tag ?: BuildConfig.DESKTOP_GNOME_TAG, "tar",
+                pack?.url ?: BuildConfig.DESKTOP_GNOME_URL, pack?.sha256 ?: BuildConfig.DESKTOP_GNOME_SHA256,
+                pack?.size ?: BuildConfig.DESKTOP_GNOME_SIZE, "", "", "",
+            )
+        }
         return Entry(
             DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, pack?.tag ?: BuildConfig.DESKTOP_KDE_TAG, "tar",
             pack?.url ?: BuildConfig.DESKTOP_KDE_URL, pack?.sha256 ?: BuildConfig.DESKTOP_KDE_SHA256,
@@ -143,16 +152,29 @@ object DesktopCatalog {
 
     fun desktopPresent(context: Context): Boolean {
         val root = LinuxRuntime.rootDir(context)
-        return File(root, DesktopRemoval.PENDING).exists() || marker(context, DESKTOP_ID).exists() ||
-            journal(root, DESKTOP_ID).exists()
+        if (File(root, DesktopRemoval.PENDING).exists() || marker(context, DESKTOP_ID).exists() ||
+            journal(root, DESKTOP_ID).exists()) return true
+        return BuildConfig.DESKTOP_GNOME &&
+            (marker(context, DESKTOP_GNOME_ID).exists() || journal(root, DESKTOP_GNOME_ID).exists())
     }
 
-    fun desktopSize(context: Context): Long = DesktopRemoval.installedSize(context)
+    fun desktopSize(context: Context): Long {
+        val root = LinuxRuntime.rootDir(context)
+        if (BuildConfig.DESKTOP_GNOME && DesktopPack.installed(root)) return DesktopPack.installedSize(root)
+        return DesktopRemoval.installedSize(context)
+    }
 
     fun cleanLegacy(context: Context, listener: LinuxRuntimeInstaller.ProgressListener? = null) =
         DesktopRemoval.cleanLegacy(context, listener)
 
     fun removeDesktop(context: Context, listener: LinuxRuntimeInstaller.ProgressListener): String? = synchronized(installLock) {
+        val root = LinuxRuntime.rootDir(context)
+        if (BuildConfig.DESKTOP_GNOME && DesktopPack.installed(root)) {
+            DesktopPack.remove(root) { percent -> listener.onProgress(LinuxRuntimeInstaller.Step.OTHER, "", percent) }
+            marker(context, DESKTOP_GNOME_ID).delete()
+            File(root, "usr/share/droiddeck/desktop-pack.json").delete()
+            return@synchronized null
+        }
         DesktopRemoval.remove(context, listener)
     }
 
@@ -230,11 +252,12 @@ object DesktopCatalog {
                     check(FileUtils.writeString(journal, entryJson(entry).toString())) { "Could not record the package installation" }
                     keepDownload = true
                     marker(context, entry.id).delete()
-                    if (entry.id == DESKTOP_ID && desktopFromPack(root)) DesktopPack.prepareInstall(root)
+                    if ((entry.id == DESKTOP_ID || entry.id == DESKTOP_GNOME_ID) && desktopFromPack(root))
+                        DesktopPack.prepareInstall(root)
                     if (!LinuxRuntimeInstaller.extract(context, download, root, report)) return context.getString(R.string.deskpkg_extract_failed)
                 }
             }
-            if (entry.id == DESKTOP_ID) {
+            if (entry.id == DESKTOP_ID || entry.id == DESKTOP_GNOME_ID) {
                 if (desktopFromPack(root)) DesktopPack.finishInstall(root) else cleanLegacy(context, report)
                 val pending = File(root, DesktopRemoval.PENDING)
                 check(!pending.exists() || pending.delete()) { "Could not finish desktop installation" }
