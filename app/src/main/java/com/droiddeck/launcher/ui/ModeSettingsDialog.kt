@@ -369,7 +369,6 @@ fun ModeSheetRows(s: ModeSettings, a: ModeSettingsActions, tab: String, extras: 
                 stringResource(R.string.mode_startup_session_hint),
                 listOf(
                     SessionPrefs.STARTUP_OFF to stringResource(R.string.common_never),
-                    SessionPrefs.STARTUP_STEAM to stringResource(R.string.rail_steam),
                     SessionPrefs.STARTUP_DESKTOP to stringResource(R.string.rail_desktop),
                 ), s.startupSession, onPick = a.onStartupSession,
             )

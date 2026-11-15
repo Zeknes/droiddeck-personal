@@ -27,9 +27,3 @@ internal object LibraryFavorites {
 }
 
 internal fun toggled(keys: Set<String>, key: String): Set<String> = if (key in keys) keys - key else keys + key
-
-internal fun inLibrarySource(source: String, entry: LibraryEntry, favorites: Set<String>): Boolean = when (source) {
-    LIBRARY_ALL -> true
-    LIBRARY_FAVORITES -> entry.favoriteKey in favorites
-    else -> entry.source == source
-}

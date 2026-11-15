@@ -222,7 +222,6 @@ object AutoComponents {
             AddedGames.single(context, folder.path)?.let { SteamMatch.resolve(context, folder.path, it.exe, it.name) }
         }
         val store = com.droiddeck.launcher.stores.Store.byId(game.source)
-        if (folder != null && (store == com.droiddeck.launcher.stores.Store.GOG || store == com.droiddeck.launcher.stores.Store.EPIC)) StoreListBackfill.fill(context, folder)
         if (knownCatalog == null && asked && online(context)) steamAppOf(context, game)?.let { SteamAppInfo.lookup(context, listOf(it)) }
         val findings = findings(context, game)
         val refreshed = if (knownCatalog == null && asked && online(context)) catalogOf(context, true) else null

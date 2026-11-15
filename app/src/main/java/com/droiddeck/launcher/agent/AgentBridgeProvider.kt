@@ -13,7 +13,6 @@ import android.os.Bundle
 import android.os.Process
 import android.util.Base64
 import com.droiddeck.launcher.BuildConfig
-import com.droiddeck.launcher.frontend.GameLaunchLink
 import com.droiddeck.launcher.runtime.LinuxRuntime
 import com.droiddeck.launcher.runtime.LinuxRuntimeInstaller
 import com.droiddeck.launcher.session.SessionArtifacts
@@ -75,7 +74,6 @@ class AgentBridgeProvider : ContentProvider() {
         "start" -> error("USE_DROIDDECKCTL", "Start sessions with tools/droiddeckctl so Android launches a visible Activity")
         "stop" -> stop(context)
         "resume" -> resume(context)
-        "launch" -> launch(context, request)
         "focus" -> guest(context, JSONObject().put("kind", "focus"), 15_000)
         "quit" -> guest(context, JSONObject().put("kind", "quit").put("appId", request.opt("appId"))
             .put("timeout", request.optDouble("timeout", 15.0)), timeoutMs(request, 15.0, 30_000))
@@ -323,17 +321,6 @@ class AgentBridgeProvider : ContentProvider() {
         }
         SessionService.resume(context)
         return JSONObject().put("ok", true).put("command", "resume")
-    }
-
-    private fun launch(context: Context, request: JSONObject): JSONObject {
-        val appId = request.optString("appId")
-        if (!GameLaunchLink.validId(appId)) throw AgentException("INVALID_APP_ID", "appId must be a decimal Steam app id")
-        if (!SessionState.running || SessionState.mode != SessionService.MODE_STEAM) {
-            throw AgentException("NO_STEAM_SESSION", "Games launch inside a running Steam session")
-        }
-        if (!SessionService.launchGame(context, appId)) throw AgentException("LAUNCH_REJECTED", "The session did not accept the launch")
-        SessionEvents.record("agent.launch_requested", mapOf("appId" to appId))
-        return JSONObject().put("ok", true).put("command", "launch").put("appId", appId)
     }
 
     private fun env(context: Context, request: JSONObject): JSONObject {

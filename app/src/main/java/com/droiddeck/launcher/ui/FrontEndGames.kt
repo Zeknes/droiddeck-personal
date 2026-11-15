@@ -74,20 +74,6 @@ internal fun UninstallEpicLauncher(s: FrontEndState, a: FrontEndActions) {
     }
 }
 
-internal fun cloudMessage(context: android.content.Context, r: com.droiddeck.launcher.stores.CloudSaves.Result): String = when (r.result) {
-    "ok" -> when {
-        r.conflicts > 0 -> context.getString(R.string.cloud_conflict_files, r.conflicts)
-        r.files == 0 -> context.getString(R.string.cloud_up_to_date)
-        else -> context.getString(R.string.cloud_done, r.files)
-    }
-    "skipped" -> context.getString(when (r.reason) {
-        "not-signed-in" -> R.string.cloud_signed_out
-        "no-cloud-saves" -> R.string.cloud_none
-        else -> R.string.cloud_not_synced
-    })
-    else -> context.getString(R.string.cloud_not_synced)
-}
-
 @Composable
 internal fun ClientTag() {
     Box(Modifier.testTag("games-client-x64")) { StateChip(stringResource(R.string.mode_client_arch_x64), ChipTone.PLAIN) }

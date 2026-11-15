@@ -176,12 +176,9 @@ internal fun SetupPanel(
     val gpuOk = gpu.support == com.droiddeck.launcher.gpu.GpuInfo.Support.TESTED || s.vkBridge
     val gpuName = remember { DeviceSupport.gpuName(ctx) }
     val limitBlocks = PhantomProcessLimit.blocksSteam(s.phantomProcessStatus)
-    val signedIn = s.offlineAccount != null
     var showLimitDetails by rememberSaveable { mutableStateOf(false) }
-    var editSgdbKey by remember { mutableStateOf(false) }
     var editDownloadPrefix by remember { mutableStateOf(false) }
     var editDownloadProxy by remember { mutableStateOf(false) }
-    if (editSgdbKey) SgdbKeyDialog(s.sgdbUserKey, onSave = { a.onSgdbKey(it); editSgdbKey = false }, onDismiss = { editSgdbKey = false })
 
     if (editDownloadPrefix) TextEntryDialog(
         stringResource(R.string.setup_download_prefix), s.downloadPrefix,
@@ -234,7 +231,7 @@ internal fun SetupPanel(
         }
     }
     val runtimeOk = s.ready && !s.busy && !s.removalPending
-    val checks = listOf(gpuOk, runtimeOk, !limitBlocks, signedIn)
+    val checks = listOf(gpuOk, runtimeOk, !limitBlocks)
     val passing = checks.count { it }
     var showChecks by rememberSaveable { mutableStateOf(s.vkBridge) }
     Rise(0, Modifier.fillMaxSize()) {
@@ -373,28 +370,13 @@ internal fun SetupPanel(
                             }
                             if (divider && showLimitDetails) Box(Modifier.fillMaxWidth().height(1.dp).background(pal.line))
                         }
-                        val accountCheck: @Composable (Boolean) -> Unit = { divider ->
-                            CheckRow(
-                                if (signedIn) CheckState.OK else CheckState.WARN,
-                                stringResource(R.string.setup_account),
-                                s.offlineAccount?.let {
-                                    when {
-                                        it.isEmpty() -> stringResource(if (s.offline) R.string.setup_signed_in_offline_unnamed else R.string.setup_signed_in_unnamed)
-                                        s.offline -> stringResource(R.string.setup_signed_in_offline, it)
-                                        else -> stringResource(R.string.setup_signed_in, it)
-                                    }
-                                } ?: stringResource(R.string.setup_sign_in),
-                                divider = divider,
-                            )
-                        }
-                        val all = listOf(gpuCheck, runtimeCheck, limitCheck, accountCheck)
+                        val all = listOf(gpuCheck, runtimeCheck, limitCheck)
                         ReadinessCard(
                             passing, checks.size,
                             listOfNotNull(
                                 gpu.displayName(ctx),
                                 s.installed?.let { stringResource(R.string.setup_ready_runtime, it) },
                                 stringResource(R.string.setup_ready_limit_off).takeIf { !limitBlocks },
-                                s.offlineAccount?.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.setup_ready_signed_in, it) },
                             ).joinToString(" · "),
                             open = showChecks, onDetails = { showChecks = !showChecks },
                         ) {
@@ -411,7 +393,6 @@ internal fun SetupPanel(
                             }
                         }
                         SettingsGroup(stringResource(R.string.setup_runtime)) { runtimeCheck(false) }
-                        SteamIntegrationGroup(s.integration, s.integrationFocus, a.onIntegration, a.onIntegrationAppInfo, a.onIntegrationLocation)
                     }
                     1 -> {
                         val controller = s.controller
@@ -536,15 +517,6 @@ internal fun SetupPanel(
                                 }
                             }
                         }
-                        val art: @Composable () -> Unit = {
-                            SettingsGroup(stringResource(R.string.setup_group_art)) {
-                                ToggleRow(host, "added-art", stringResource(R.string.mode_added_art), stringResource(R.string.mode_added_art_hint), s.addedGamesArt) { a.onAddedGamesArt(it) }
-                                ActionRow(
-                                    stringResource(R.string.mode_sgdb_key), if (s.sgdbUserKey) stringResource(R.string.mode_sgdb_key_yours) else null,
-                                    stringResource(R.string.mode_sgdb_edit), onClick = { editSgdbKey = true },
-                                )
-                            }
-                        }
                         val download: @Composable () -> Unit = {
                             SettingsGroup(stringResource(R.string.setup_group_download)) {
                                 ChoiceRow(
@@ -583,8 +555,8 @@ internal fun SetupPanel(
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
                             if (maxWidth >= 840.dp && !LocalNarrowPane.current) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {
                                 Column(Modifier.weight(1f)) { look() }
-                                Column(Modifier.weight(1f)) { device(); art(); download() }
-                            } else Column { look(); device(); art(); download() }
+                                Column(Modifier.weight(1f)) { device(); download() }
+                            } else Column { look(); device(); download() }
                         }
                     }
                     STORAGE_TAB -> StoragePanel(s, a)
@@ -833,12 +805,6 @@ internal fun LaunchSettings(s: FrontEndState, a: FrontEndActions, host: MenuHost
         }
         if (controller != null) add { m -> SettingCard(stringResource(R.string.setup_card_controls), stringResource(R.string.setup_card_controls_hint), "card:controls", m, controller.onMapping) }
         if (steamCard != null) add(steamCard)
-        val cardStore = com.droiddeck.launcher.stores.Store.byId(game?.source.orEmpty())?.takeIf { it == com.droiddeck.launcher.stores.Store.EPIC || it == com.droiddeck.launcher.stores.Store.GOG }
-        if (cardStore != null && game?.gameFiles != null) add { m ->
-            Box(m) {
-                StoreLaunchCard(host, game.gameFiles!!, cardStore)
-            }
-        }
         if (wincompKey != null) add { m ->
             SettingCard(
                 stringResource(R.string.wincomp_title),
@@ -1064,64 +1030,6 @@ internal fun GameSettingsMenus(host: MenuHost, game: com.droiddeck.launcher.fron
 }
 
 internal const val GAME_SETTINGS_MENU = "game-settings"
-
-private const val EPIC_RESOLVE_URL = "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Faccount%2Fpersonal"
-
-@Composable
-private fun StoreLaunchCard(host: MenuHost, folder: java.io.File, store: com.droiddeck.launcher.stores.Store) {
-    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    var sidecar by remember(folder) { mutableStateOf(com.droiddeck.launcher.stores.StoreGameSidecar.read(folder)) }
-    val options = sidecar?.epic ?: com.droiddeck.launcher.stores.EpicOptions()
-    val epic = store == com.droiddeck.launcher.stores.Store.EPIC
-    val key = "store-" + store.id
-    val value = if (!epic) stringResource(when {
-        !com.droiddeck.launcher.stores.gog.GogComet.enabled(appContext) || sidecar?.achievements == false -> R.string.gog_achievements_off
-        com.droiddeck.launcher.stores.gog.GogComet.status == "sign-in-needed" -> R.string.gog_achievements_signin
-        com.droiddeck.launcher.stores.gog.GogComet.status in listOf("service-unavailable", "credentials-unavailable", "not-installed") -> R.string.gog_achievements_unavailable
-        com.droiddeck.launcher.stores.gog.GogComet.status == "uploaded" -> R.string.gog_achievements_uploaded
-        com.droiddeck.launcher.stores.gog.GogComet.status == "pending-upload" || com.droiddeck.launcher.stores.gog.GogComet.status == "unlocked-locally" -> R.string.gog_achievements_pending
-        else -> R.string.gog_achievements_on
-    }) else buildList {
-        if (epic && options.offline) add(stringResource(R.string.epic_card_offline))
-        else if (epic && options.eos) add(stringResource(R.string.epic_card_eos))
-    }.ifEmpty { listOf(stringResource(R.string.epic_card_none)) }.joinToString(" · ")
-    fun set(change: (com.droiddeck.launcher.stores.EpicOptions) -> com.droiddeck.launcher.stores.EpicOptions) {
-        Thread({
-            val written = runCatching { com.droiddeck.launcher.stores.StoreGameSidecar.updateEpic(folder, change) }
-                .onFailure { android.util.Log.w("EpicLaunchCard", "could not write ${folder.name}: ${it.message}") }.getOrNull()
-            if (written != null) android.util.Log.i("EpicLaunchCard", "epic options ${written.id} eos=${written.epic.eos} offline=${written.epic.offline}")
-            else android.util.Log.w("EpicLaunchCard", "epic options not saved for ${folder.name}")
-            com.droiddeck.launcher.stores.StoresState.post { sidecar = written ?: com.droiddeck.launcher.stores.StoreGameSidecar.read(folder) }
-        }, "epic-options").start()
-    }
-    SettingCard(store.shortLabel, value, "card:$key", Modifier.fillMaxSize()) {
-        host.open = if (host.open == key) null else key
-    }
-    AnchoredMenu(host.open == key, onDismiss = { if (host.open == key) host.open = null }, title = store.shortLabel) { first ->
-        if (!epic) {
-            MenuItem(stringResource(R.string.gog_achievements), checked = sidecar?.achievements != false, focusRequester = first,
-                detail = if (!com.droiddeck.launcher.stores.gog.GogComet.enabled(appContext)) stringResource(R.string.gog_achievements_enable_store) else null) {
-                val on = sidecar?.achievements == false
-                Thread({
-                    val written = runCatching { com.droiddeck.launcher.stores.StoreGameSidecar.updateAchievements(folder, on) }.getOrNull()
-                    com.droiddeck.launcher.stores.StoresState.post { sidecar = written ?: sidecar }
-                }, "gog-game-achievements").start()
-            }
-        }
-        if (epic) {
-            MenuItem(stringResource(R.string.epic_eos), checked = options.eos, focusRequester = first) { set { it.copy(eos = !it.eos) } }
-            MenuItem(stringResource(R.string.epic_offline), checked = options.offline) { set { it.copy(offline = !it.offline) } }
-        }
-        if (epic) {
-        MenuItem(stringResource(R.string.epic_resolve), checked = false) {
-            host.open = null
-            runCatching {
-                appContext.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(EPIC_RESOLVE_URL)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
-        }
-        }
-    }
-}
 
 @Composable
 private fun SettingCard(label: String, value: String, id: String, modifier: Modifier, onClick: () -> Unit) {

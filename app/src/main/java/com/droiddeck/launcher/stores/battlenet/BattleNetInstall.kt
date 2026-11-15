@@ -112,7 +112,6 @@ object BattleNetInstall {
         val app = context.applicationContext
         Thread({
             val item = updateItem(game, installUid(app, game))
-            game.folder.parentFile?.parentFile?.let { com.droiddeck.launcher.stores.download.SavedQueue.remember(app, item, it) }
             enqueue(app, item, game.folder, update = true)
         }, "battlenet-update").start()
     }

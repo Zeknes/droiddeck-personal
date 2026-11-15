@@ -149,7 +149,7 @@ object RockstarAuth {
         if (!fresh) {
             val current = stored(o)
             if (com.droiddeck.launcher.session.SessionState.running &&
-                com.droiddeck.launcher.stores.StoreLaunchRequests.lastLaunched?.first == Store.ROCKSTAR) {
+                false) {
                 return current?.takeIf { it.expiresAt > System.currentTimeMillis() }
             }
             current?.takeIf { it.expiresAt - System.currentTimeMillis() > TICKET_MARGIN_MS }?.let { return it }

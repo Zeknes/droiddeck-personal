@@ -78,7 +78,6 @@ object StoresState {
 
     fun refresh(context: Context) {
         val app = context.applicationContext
-        com.droiddeck.launcher.stores.download.SavedQueue.restore(app)
         if (refreshRequests.getAndIncrement() > 0) return
         var seen = 0
         background("stores-refresh", onFailure = { if (refreshRequests.getAndSet(0) > seen) main.post { refresh(app) } }) {
@@ -90,7 +89,6 @@ object StoresState {
                     StoreGameSidecar.read(folder)?.takeIf { it.isInstalled || it.state == StoreGameSidecar.STATE_UPDATING }?.let { InstalledStoreGame(it, folder) }
                 } + runCatching { com.droiddeck.launcher.stores.battlenet.BattleNetBackend.installedGames(app) }.getOrDefault(emptyList())
                 val partial = StoreInstallRoot.unfinished(app)
-                val version = if (StoresNative.available) StoresNative.version ?: "" else ""
                 main.post {
                     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                         val restored = found.toMap()
@@ -98,10 +96,8 @@ object StoresState {
                         accounts.putAll(restored)
                         installed = onDisk
                         unfinished = partial
-                        engine = version
                         accountsLoaded = true
                     }
-                    com.droiddeck.launcher.stores.gog.GogMaintenance.checkInstalled(app, onDisk)
                 }
             } while (!refreshRequests.compareAndSet(seen, 0))
         }
@@ -200,8 +196,7 @@ object StoresState {
         background("stores-signout") {
             val backend = backends[store]
             backend?.signOut(app)
-            if (store == Store.GOG) com.droiddeck.launcher.stores.gog.GogComet.replaceAccount { StoreAccounts.clear(app, store) }
-            else if (store != Store.XBOX || backend == null) StoreAccounts.clear(app, store)
+            if (store != Store.XBOX || backend == null) StoreAccounts.clear(app, store)
             if (store == Store.GAMEJOLT) {
                 com.droiddeck.launcher.stores.gamejolt.GameJoltCollections.clear()
                 com.droiddeck.launcher.stores.gamejolt.GameJoltUpdates.clear(app)
@@ -213,7 +208,6 @@ object StoresState {
             main.post {
                 if (store == Store.XBOX && StoreAccounts.signedInAs(app, store) != null) return@post
                 accounts.remove(store); library.remove(store); status.remove(store); problems.remove(store); libraryAsked.remove(store)
-                if (store == Store.GOG) com.droiddeck.launcher.stores.gog.GogMaintenance.reset()
                 logLine("${store.label}: signed out")
             }
         }
@@ -297,13 +291,11 @@ object StoresState {
                 bytesTotal = tagged.sizeBytes,
                 location = StoreInstallRoot.labelFor(app, folder)
             )
-            com.droiddeck.launcher.stores.download.SavedQueue.remember(app, tagged, target)
             com.droiddeck.launcher.stores.download.DownloadQueue.recordFailed(app, entry, errorMsg) {
                 install(app, tagged, target, code)
             }
             return
         }
-        com.droiddeck.launcher.stores.download.SavedQueue.remember(app, tagged, target)
         backends[tagged.store]?.install(app, tagged, target) ?: logLine("${tagged.store.label}: this build cannot install yet")
     }
 
@@ -364,13 +356,7 @@ object StoresState {
     fun init(context: Context) {
         appContext = context.applicationContext
         StoreLogFiles.prune(context)
-        val overlay = java.io.File(com.droiddeck.launcher.runtime.LinuxRuntime.rootDir(context), "root/.local/share/droiddeck/epic-overlay")
-        if (overlay.exists()) background("epic-overlay-cleanup") { overlay.deleteRecursively(); Log.i(TAG, "removed the old EOS overlay download") }
-        val app = context.applicationContext
-        Thread({
-            runCatching { CloudSaves.uploadAllDirty(app, "recovery") }
-                .onFailure { Log.w(TAG, "cloud save recovery failed", it) }
-        }, "cloud-recovery").start()
+
     }
 
     internal fun post(block: () -> Unit) = main.post(block)

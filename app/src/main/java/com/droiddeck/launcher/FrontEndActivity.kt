@@ -978,91 +978,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         return true
     }
 
-    private fun opensEpicLauncher(next: Intent): Boolean =
-        next.getStringExtra(SessionService.EXTRA_PROGRAM) == com.droiddeck.launcher.session.NoSteamLaunch.EPIC ||
-            next.getStringExtra(SessionService.EXTRA_STEAM_URL) == com.droiddeck.launcher.frontend.GameLaunchLink.steamUrl(
-                com.droiddeck.launcher.stores.epic.EpicClient.gameId(com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId))
-
-    private fun uninstallEpicLauncher() {
-        if (com.droiddeck.launcher.stores.epic.EpicClient.uninstalling) return
-        com.droiddeck.launcher.stores.epic.EpicClient.uninstalling = true
-        pendingSwitch?.takeIf(::opensEpicLauncher)?.let { pendingSwitch = null }
-        switchingTo?.takeIf(::opensEpicLauncher)?.let {
-            switchPoll?.let { poll -> ui.removeCallbacks(poll) }
-            switchPoll = null
-            switchingTo = null
-        }
-        if (SessionState.running) SessionService.stop(this)
-        val app = applicationContext
-        val deadline = android.os.SystemClock.uptimeMillis() + SESSION_SWITCH_WAIT_MS
-        Thread({
-            while ((SessionState.running || SessionState.phase !in SESSION_ENDED) && android.os.SystemClock.uptimeMillis() < deadline) {
-                Thread.sleep(SESSION_SWITCH_POLL_MS)
-            }
-            val ended = !SessionState.running && SessionState.phase in SESSION_ENDED
-            val done = try {
-                ended && com.droiddeck.launcher.stores.epic.EpicClient.uninstall(app)
-            } finally {
-                com.droiddeck.launcher.stores.epic.EpicClient.uninstalling = false
-            }
-            ui.post {
-                if (!isDestroyed) refresh()
-                android.widget.Toast.makeText(app, if (done) R.string.epic_client_uninstalled else R.string.epic_client_uninstall_failed,
-                    android.widget.Toast.LENGTH_LONG).show()
-            }
-        }, "epic-uninstall").start()
-    }
-
-    private fun openEpicLauncher(): Boolean {
-        if (com.droiddeck.launcher.stores.epic.EpicClient.uninstalling) {
-            android.widget.Toast.makeText(this, R.string.epic_client_uninstalling, android.widget.Toast.LENGTH_SHORT).show()
-            return false
-        }
-        if (pkgStage != null) {
-            android.widget.Toast.makeText(this, R.string.main_wait_install_game, android.widget.Toast.LENGTH_SHORT).show()
-            return false
-        }
-        if (!com.droiddeck.launcher.stores.epic.EpicClient.launcherRunning(this) && !com.droiddeck.launcher.stores.epic.EpicClient.fexReady(this)) {
-            com.droiddeck.launcher.stores.epic.EpicClient.requestFex(this)
-            android.widget.Toast.makeText(this, R.string.epic_client_needs_fex, android.widget.Toast.LENGTH_LONG).show()
-            if (!SessionState.running) startSteamSession()
-            else if (SessionState.mode == SessionService.MODE_STEAM) startActivity(Intent(this, SessionActivity::class.java)
-                .setAction(SessionService.ACTION_RESUME).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-            return true
-        }
-        if (com.droiddeck.launcher.session.NoSteamLaunch.enabled(this, com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId)) {
-            com.droiddeck.launcher.stores.epic.EpicClient.launcherEntry(this, Library.EPIC_LAUNCHER_NAME)?.let { return launchWithoutSteam(it, false) }
-        }
-        val launcher = Intent(this, SessionActivity::class.java)
-            .putExtra(SessionActivity.EXTRA_RETURN_HOME, false)
-            .putExtra(SessionService.EXTRA_STEAM_URL, com.droiddeck.launcher.frontend.GameLaunchLink.steamUrl(
-                com.droiddeck.launcher.stores.epic.EpicClient.gameId(com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId)))
-        if (SessionState.running && SessionState.mode == SessionService.MODE_STEAM && !SessionState.stopRequested) {
-            val app = applicationContext
-            val shortcut = com.droiddeck.launcher.stores.epic.EpicClient.shortcutAppId
-            val listed = com.droiddeck.launcher.frontend.AddedGames.inSteam(app, shortcut)
-            if (listed && !SessionService.launchGame(this, com.droiddeck.launcher.stores.epic.EpicClient.gameId(shortcut))) {
-                android.widget.Toast.makeText(this, R.string.game_link_failed, android.widget.Toast.LENGTH_LONG).show()
-                return false
-            }
-            startActivity(Intent(this, SessionActivity::class.java).setAction(SessionService.ACTION_RESUME)
-                .putExtra(SessionActivity.EXTRA_RETURN_HOME, false)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-            if (!listed) Thread({
-                com.droiddeck.launcher.frontend.AddedGamesPublisher.republish(app)
-                val id = com.droiddeck.launcher.stores.epic.EpicClient.steamLauncherId(app) ?: shortcut
-                ui.post { SessionService.launchGame(app, com.droiddeck.launcher.stores.epic.EpicClient.gameId(id)) }
-            }, "epic-launcher-open").start()
-            return true
-        }
-        if (SessionState.running) {
-            if (SessionState.stopRequested) android.widget.Toast.makeText(this, R.string.game_link_session_busy, android.widget.Toast.LENGTH_LONG).show()
-            else pendingSwitch = launcher
-            return true
-        }
-        return startSessionOrWait(launcher)
-    }
-
     private fun startSessionOrWait(next: Intent): Boolean {
         val started = startSession(next, steamSession = next.hasExtra(SessionService.EXTRA_STEAM_URL) ||
             next.getStringExtra(SessionService.EXTRA_PROGRAM) in setOf(com.droiddeck.launcher.session.NoSteamLaunch.PROTON_RUN, com.droiddeck.launcher.session.NoSteamLaunch.BATTLENET))
@@ -1093,7 +1008,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
                 }
                 switchPoll = null
                 switchingTo = null
-                if (com.droiddeck.launcher.stores.epic.EpicClient.uninstalling && opensEpicLauncher(next)) return
                 startSessionOrWait(next)
             }
         }
@@ -1278,44 +1192,14 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
                         storeDownloadsActive = com.droiddeck.launcher.stores.StoresState.activeDownloads,
                     ),
                     FrontEndActions(
-                        onPlay = { playSteam() },
-                        onPlaySteamVr = { playSteamVr() },
-                        onSteamUrl = { url ->
-                            if (!SessionState.running) startSession(
-                                Intent(this, SessionActivity::class.java).putExtra(SessionService.EXTRA_STEAM_URL, url), steamSession = true,
-                            )
-                        },
-                        onPlayDesktopUi = {
-                            startSession(Intent(this, SessionActivity::class.java)
-                                .putExtra(SessionService.EXTRA_MODE, SessionService.MODE_STEAM)
-                                .putExtra(SessionService.EXTRA_STEAM_UI, "desktop"), steamSession = true)
-                        },
-                        onSteamGame = { g ->
-                            if (shortcutPicker) chooseGameShortcut(g)
-                            else if (g.launchKey !in preparingGames) {
-                                preparingGames = preparingGames + g.launchKey
-                                prepareAndLaunch(g, g.launchKey)
-                            }
-                        },
-                        onStoreGame = { store, id ->
-                            val key = "${store.id}:$id"
-                            if (key !in preparingGames) {
-                                preparingGames = preparingGames + key
-                                val app = applicationContext
-                                Thread({
-                                    val g = runCatching { com.droiddeck.launcher.stores.StoreLaunch.installedGame(app, store, id) }.getOrNull()
-                                    runOnUiThread {
-                                        if (g != null && !isFinishing && !isDestroyed) prepareAndLaunch(g, key)
-                                        else {
-                                            preparingGames = preparingGames - key
-                                            if (g == null && !isFinishing && !isDestroyed) android.widget.Toast.makeText(this, R.string.stores_launch_not_registered, android.widget.Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }, "store-play").start()
-                            }
-                        },
-                        onEpicLauncher = { openEpicLauncher() },
-                        onUninstallEpicLauncher = { uninstallEpicLauncher() },
+                        onPlay = {},
+                        onPlaySteamVr = {},
+                        onSteamUrl = {},
+                        onPlayDesktopUi = {},
+                        onSteamGame = {},
+                        onStoreGame = { _, _ -> },
+                        onEpicLauncher = {},
+                        onUninstallEpicLauncher = {},
                         onGameShortcut = { g ->
                             if (g.soundtrack) com.droiddeck.launcher.frontend.SoundtrackShortcuts.pin(this, g)
                             else com.droiddeck.launcher.frontend.GameShortcuts.pin(this, g)
@@ -1361,7 +1245,7 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
                                 .putExtra(SessionService.EXTRA_PROGRAM, app.program)
                                 .putExtra(SessionService.EXTRA_PROGRAM_ARGS, app.args.toTypedArray()))
                         },
-                        onBattleNet = { openBattleNet() },
+                        onBattleNet = {},
                         onFlatpakApp = { id, name ->
                             Library.flatpakNames[id] = name
                             startActivity(Intent(this, SessionActivity::class.java)
@@ -1811,7 +1695,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
             SessionPrefs.setMicAsked(this)
         }
         if (wanted.isNotEmpty()) requestPermissions(wanted.toTypedArray(), 1)
-        Thread({ com.droiddeck.launcher.stores.StoreAccounts.encryptAll(this) }, "store-credentials").start()
         if (!SessionState.running) Thread({
             com.droiddeck.launcher.session.LogMigration.run(this)
             com.droiddeck.launcher.frontend.GamesFolderMigration.run(this)
@@ -1849,7 +1732,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         if (intent.action != Intent.ACTION_MAIN && !(cold && intent.action == null)) return
         if (isFinishing || isDestroyed) return
         when (SessionPrefs.startupSession(this)) {
-            SessionPrefs.STARTUP_STEAM -> startSteamSession()
             SessionPrefs.STARTUP_DESKTOP -> startSession(Intent(this, SessionActivity::class.java)
                 .putExtra(SessionService.EXTRA_MODE, SessionService.MODE_DESKTOP))
         }
@@ -1976,9 +1858,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         homePage = com.droiddeck.launcher.core.AppUiPrefs.homePage(this)
         SteamIntegration.syncShortcutsListing(this)
         refreshWifiDiscovery()
-        com.droiddeck.launcher.stores.StoresState.refresh(this)
-        com.droiddeck.launcher.stores.StoresState.libraryListener = { refreshAddedGames(); refresh() }
-        com.droiddeck.launcher.stores.battlenet.BattleNetClient.opener = { args -> openBattleNet(args) }
         com.droiddeck.launcher.ui.Motion.refresh(this)
         com.droiddeck.launcher.ui.QuitFlood.take()?.let { c ->
             returning = ReturningFlood(c, com.droiddeck.launcher.ui.LaunchOrigin.takeReturn())
@@ -2099,8 +1978,6 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
         getSystemService(android.content.pm.LauncherApps::class.java).unregisterCallback(packageCallback)
         HomeWidgets.stopListening(this)
         ui.removeCallbacks(mediaRefresh)
-        com.droiddeck.launcher.stores.StoresState.libraryListener = null
-        com.droiddeck.launcher.stores.battlenet.BattleNetClient.opener = null
         displayManager.unregisterDisplayListener(secondScreenDisplayListener)
         com.droiddeck.launcher.input.DualScreen.unwatchTaken(bottomScreenListener)
         getSystemService(android.hardware.input.InputManager::class.java)?.unregisterInputDeviceListener(secondScreenTouchListener)

@@ -50,7 +50,7 @@ object StoreInstallRoot {
     @JvmStatic
     fun insufficientSpace(required: Long, available: Long): Boolean = required > 0L && available >= 0L && available < required
 
-    fun estimatedBytesNeeded(item: CatalogItem): Long = StoreSizes.size(item).coerceAtLeast(0L)
+    fun estimatedBytesNeeded(item: CatalogItem): Long = item.sizeBytes.coerceAtLeast(0L)
 
     fun checkStorage(context: Context, item: CatalogItem, targetRoot: File): StorageCheck {
         val size = estimatedBytesNeeded(item)
