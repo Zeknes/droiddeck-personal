@@ -1116,7 +1116,7 @@ object SessionPrefs {
                 SessionDisplay.presetHeight(value) != null) return value
             parseResolution(value)?.let { return "${it.first}x${it.second}" }
         }
-        if (!resolutionChosen(context, mode) && !saved.contains("shape")) return SessionDisplay.DEFAULT_RESOLUTION
+        if (!resolutionChosen(context, mode)) return SessionDisplay.DEFAULT_RESOLUTION
         val custom = customResolution(context, mode)
         val legacy = SessionDisplay.resolve(panel, resolutionCap(context, mode), shapeMode(context), custom)
         return if (legacy == SessionDisplay.screenSize(panel)) SessionDisplay.MATCH_SCREEN

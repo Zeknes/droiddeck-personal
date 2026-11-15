@@ -13,7 +13,7 @@ class SessionDisplayTest {
         assertEquals(720 to 1600, SessionDisplay.resolveChoice(2400 to 1080, "720p", portrait = true))
         assertEquals(1080 to 1920, SessionDisplay.resolveChoice(1921 to 1081, SessionDisplay.MATCH_SCREEN, portrait = true))
         assertEquals(1080 to 2400, SessionDisplay.resolveChoice(2400 to 1080, SessionDisplay.FOLLOW_SCREEN, portrait = true))
-        assertEquals(720 to 1280, SessionDisplay.resolveChoice(1920 to 1080, "invalid", portrait = true))
+        assertEquals(1080 to 1920, SessionDisplay.resolveChoice(1920 to 1080, "invalid", portrait = true))
     }
 
     @Test fun customDimensionsStayExplicitInEitherOrientation() {
@@ -31,7 +31,7 @@ class SessionDisplayTest {
     }
 
     @Test fun heightPresetsKeepThePanelShapeWithASixteenByNineFloor() {
-        assertEquals(1600 to 720, SessionDisplay.resolveChoice(2400 to 1080, SessionDisplay.DEFAULT_RESOLUTION))
+        assertEquals(2400 to 1080, SessionDisplay.resolveChoice(2400 to 1080, SessionDisplay.DEFAULT_RESOLUTION))
         assertEquals(1608 to 720, SessionDisplay.resolveChoice(2412 to 1080, "720p"))
         assertEquals(1560 to 720, SessionDisplay.resolveChoice(3120 to 1440, "720p"))
         assertEquals(2340 to 1080, SessionDisplay.resolveChoice(3120 to 1440, "1080p"))

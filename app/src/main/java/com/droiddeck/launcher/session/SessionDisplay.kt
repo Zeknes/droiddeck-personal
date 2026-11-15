@@ -12,7 +12,7 @@ object SessionDisplay {
     const val FOLLOW_SCALE_MAX = 8f
     private const val FOLLOW_SCALED_PREFIX = "follow/"
 
-    const val DEFAULT_RESOLUTION = "720p"
+    const val DEFAULT_RESOLUTION = MATCH_SCREEN
     private val PRESET_HEIGHTS = listOf(720, 900, 1080)
 
     fun presetHeight(choice: String): Int? =
@@ -45,7 +45,7 @@ object SessionDisplay {
         presetHeight(choice)?.let { return orient(resolve(panel, it, SessionPrefs.SHAPE_AUTO)) }
         val parts = choice.split('x').map { it.toIntOrNull() }
         return if (parts.size == 2 && parts.all { it != null && it > 0 }) parts[0]!! to parts[1]!!
-        else orient(resolve(panel, 720, SessionPrefs.SHAPE_AUTO))
+        else orient(screenSize(panel))
     }
 
     fun resolutionOptions(panel: Pair<Int, Int>): List<String> {

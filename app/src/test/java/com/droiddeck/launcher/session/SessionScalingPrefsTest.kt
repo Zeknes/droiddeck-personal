@@ -19,8 +19,8 @@ class SessionScalingPrefsTest {
         prefs.edit().putString("shape", SessionPrefs.SHAPE_AUTO).putInt("resolutionCap.steam", 900).commit()
         assertEquals("900p", SessionPrefs.resolutionChoice(context, "steam", 1920 to 1080))
         val desktop = SessionPrefs.resolutionChoice(context, "lxqt", 1920 to 1080)
-        assertEquals("720p", desktop)
-        assertEquals(720 to 1280, SessionDisplay.resolveChoice(1920 to 1080, desktop, portrait = true))
+        assertEquals(SessionDisplay.MATCH_SCREEN, desktop)
+        assertEquals(1080 to 1920, SessionDisplay.resolveChoice(1920 to 1080, desktop, portrait = true))
     }
 
     @Before fun clearSettings() {
@@ -65,7 +65,10 @@ class SessionScalingPrefsTest {
 
     @Test fun freshSettingsUseTheConcreteDefaultAndCustomSizesAreNormalized() {
         val context = RuntimeEnvironment.getApplication()
-        assertEquals(SessionDisplay.DEFAULT_RESOLUTION, SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
+        assertEquals(SessionDisplay.MATCH_SCREEN, SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
+        val prefs = context.getSharedPreferences("session", Context.MODE_PRIVATE)
+        prefs.edit().putString("shape", SessionPrefs.SHAPE_WIDE).commit()
+        assertEquals(SessionDisplay.MATCH_SCREEN, SessionPrefs.resolutionChoice(context, "lxqt", 2400 to 1080))
         SessionPrefs.setResolutionChoice(context, "steam", "900p")
         assertEquals("900p", SessionPrefs.resolutionChoice(context, "steam", 2400 to 1080))
         SessionPrefs.setResolutionChoice(context, "steam", "1025×769")
