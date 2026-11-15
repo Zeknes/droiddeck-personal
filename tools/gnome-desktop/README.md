@@ -162,6 +162,23 @@ The pack is not committed; `stageGnomePack` copies it into the APK build
 directory. Without `DROIDDECK_GNOME_PACK` the regular KDE catalog is used and
 the existing tests keep their behavior.
 
+A test release APK built from this tree carries:
+
+- `assets/gnome-r1-gnome-desktop.tar.zst` (sha256
+  `fadf0a7c7b7c5035303e199864aa905d68c351874ef12efe4c8a932e073585bc`,
+  244619035 bytes);
+- the `proot` and `directaudio` addon packs from the Components releases,
+  staged into `assets/packs`;
+- `assets/linuxfs/usr/local/bin/droiddeck-session` with the
+  `DROIDDECK_DESKTOP=gnome` branch.
+
+Its GNOME catalog entry ignores the runtime's pre-existing KDE
+`desktop-pack.json` and always installs the embedded GNOME pack. The test APK
+was produced with `-x verifyRuntimeInputs` because the full
+`tools/build_local.sh` runtime-input staging (gaming preloads, gamescope and
+the release manifest) is not present in the isolated build tree; a normal
+release build runs that task.
+
 ## Unprivileged start
 
 `droiddeck-gnome-desktop` starts the same services and then GNOME Shell in
