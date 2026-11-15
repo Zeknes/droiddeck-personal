@@ -260,6 +260,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var routedTouchMode = SessionPrefs.TOUCH_AUTO
     private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
+    private var gnomeIme: com.droiddeck.launcher.session.GnomeImeClient? = null
     private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopKeyboardButton? = null
     private var lastUserPressMs = 0L
     private var pressDownX = 0f
@@ -791,10 +792,14 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             }
             root.addView(controls)
         }
-        keyboard = KeyboardHost(this).also { host ->
+        keyboard = KeyboardHost(this, { dispatchKeyEvent(it) },
+            commitText = { text -> gnomeIme?.commit(text) == true },
+            preeditText = { text, cursor -> gnomeIme?.preedit(text, cursor) == true },
+        ).also { host ->
             host.onImeChanged = { updateDesktopKeyboardButton() }
             root.addView(host)
         }
+        if (SessionState.mode == SessionService.MODE_DESKTOP) startGnomeIme()
         desktopKeyboardButton = com.droiddeck.launcher.input.DesktopKeyboardButton(this) { keyboard?.show() }
             .also { root.addView(it) }
         touchpad = TouchpadGestures(PointerGestures.slop(this), pointerListener)
@@ -4707,6 +4712,20 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
     }
 
+    private fun startGnomeIme() {
+        if (!BuildConfig.DESKTOP_GNOME || SessionState.mode != SessionService.MODE_DESKTOP || gnomeIme != null) return
+        val socket = java.io.File(filesDir, ".wayland-rt/droiddeck-ime.sock")
+        gnomeIme = com.droiddeck.launcher.session.GnomeImeClient(socket) { state ->
+            AgentGuest.desktopFieldChanged(state != null && state.inner && state.shell && !state.sensitive)
+        }.also { it.start() }
+    }
+
+    private fun stopGnomeIme() {
+        gnomeIme?.close()
+        gnomeIme = null
+        AgentGuest.desktopFieldChanged(false)
+    }
+
     private fun onDesktopTextField(focused: Boolean) {
         val host = keyboard
         if (host != null && desktopTextInput()) {
@@ -5641,6 +5660,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         uiHandler.removeCallbacks(steamTouchRetry)
         uiHandler.removeCallbacks(cursorResync)
         releaseEvdevMouse()
+        stopGnomeIme()
         if (runtimeRemovalBlocked) { super.onDestroy(); return }
         watching = false
         releaseDrawerDirection()

@@ -16,6 +16,8 @@ import android.view.inputmethod.InputMethodManager
 class KeyboardHost(
     context: Context,
     private val sendKeyEvent: (KeyEvent) -> Boolean,
+    private val commitText: ((String) -> Boolean)? = null,
+    private val preeditText: ((String, Int) -> Boolean)? = null,
 ) : View(context) {
     constructor(activity: Activity) : this(activity, { activity.dispatchKeyEvent(it) })
 
@@ -112,13 +114,34 @@ class KeyboardHost(
     }
 
     private inner class KeyConnection : BaseInputConnection(this, false) {
+        private var composing = false
+
         override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            val commit = commitText
+            if (text != null && commit != null && (composing || text.any { it.code > 0x7f })) {
+                composing = false
+                preeditText?.invoke("", 0)
+                if (commit(text.toString())) return true
+            }
             type(text)
             return true
         }
 
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
-        override fun finishComposingText(): Boolean = true
+        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            val preedit = preeditText
+            if (preedit == null || text == null) return true
+            composing = text.isNotEmpty()
+            preedit(text.toString(), text.length)
+            return true
+        }
+
+        override fun finishComposingText(): Boolean {
+            if (composing) {
+                composing = false
+                preeditText?.invoke("", 0)
+            }
+            return true
+        }
 
         override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
             repeat(beforeLength) { tap(KeyEvent.KEYCODE_DEL) }

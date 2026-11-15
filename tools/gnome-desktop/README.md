@@ -33,8 +33,12 @@ method, so no Mutter change and no IBus engine is needed.
     PIN, sensitive-data and hidden-text fields at the commit itself.
   - `Preedit(text, cursor) -> bool`: same checks, then sets preedit.
   - `ClearPreedit()`: clears the preedit on blur/disconnect.
+- `droiddeck-gnome-extension`: enable/disable/status for the extension for the
+  current user, preserving the other enabled extensions.
 - `tests/`: the real GNOME 50 integration test, its GTK app, outer simulator
   and Shell automation script.
+- `package/`: the `droiddeck-gnome-desktop` deb, its install verification and
+  the package control template.
 
 ## Wire protocol
 
@@ -99,6 +103,44 @@ GNOME Shell in devkit mode. It runs as the image's `tester` user and refuses to
 run as root or with a host system bus socket. The IBus daemon is part of
 GNOME's input-method infrastructure; the bridge does not register an engine.
 
+## App session wiring
+
+The GNOME build sets `DROIDDECK_DESKTOP=gnome` in the guest environment.
+`droiddeck-session` then runs `/usr/local/bin/droiddeck-gnome-desktop` instead
+of the Plasma script. In desktop mode `SessionActivity` opens
+`files/.wayland-rt/droiddeck-ime.sock` (the host side of the guest's
+`/run/droiddeck`), passes the generation/ready state to `GnomeImeProtocol`, and
+drives the Android keyboard:
+
+- `setComposingText` -> bridge preedit;
+- `commitText` with composing or non-ASCII text -> bridge commit;
+- plain ASCII keeps the existing evdev key path;
+- `desktopTextField` (the keyboard button) appears only for a confirmed,
+  non-sensitive field. Password/PIN fields stay out of the bridge, so they need
+  a physical keyboard.
+
+The bridge and the extension both keep the generation check; the extension
+rechecks purpose and hints inside `Commit`/`Preedit`, so a stale app state
+cannot deliver text into a sensitive field.
+
+## Package
+
+`package/build-deb.sh OUT [VERSION]` builds
+`droiddeck-gnome-desktop_<version>_all.deb` with the launcher, the extension
+toggle and the input bridge. It depends on the Ubuntu GNOME packages and is
+installed with apt in the runtime:
+
+```sh
+tools/gnome-desktop/package/build-deb.sh /tmp/gnome-deb
+sudo apt-get install /tmp/gnome-deb/droiddeck-gnome-desktop_*_all.deb
+droiddeck-gnome-desktop --check
+droiddeck-gnome-extension enable|disable|status
+```
+
+`package/verify-deb.sh DEB [IMAGE] [EVIDENCE]` installs the deb in the
+unprivileged test image, runs `--check`, exercises the extension toggle and
+removes the package again.
+
 ## Unprivileged start
 
 `droiddeck-gnome-desktop` starts the same services and then GNOME Shell in
@@ -115,6 +157,6 @@ proot -r / -b /repo -b /out -b /tmp/runtime -w / /bin/bash \
 ```
 
 Do not set `PROOT_NO_SECCOMP=1` in this image: it makes the Rust coreutils
-multicall see proot's trampoline name as its program and fail. The session
-reaches `OUTER_TO_SHELL_TO_GTK PASS`; the proot wrapper can outlive the PASS
-line while its children exit.
+multicall see proot's trampoline name as its program and fail. The run reaches
+`OUTER_TO_SHELL_TO_GTK PASS`, prints `INTEGRATION_PASS` and exits 0; the
+harness reaps only the PIDs it started (recursively), never processes by name.

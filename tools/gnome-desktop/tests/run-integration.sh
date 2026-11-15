@@ -1,6 +1,8 @@
 #!/bin/bash
 # Runs the bridge inside a real GNOME 50 session, as an unprivileged user, with
 # no system bus or logind. The outer side is simulated over the bridge socket.
+# Every process this run starts is reaped through its captured PID or the
+# session's own process group; nothing is killed by name.
 set -euo pipefail
 
 here=$(cd "${0%/*}" && pwd)
@@ -18,9 +20,8 @@ export out here
 dpkg -s libmutter-18-0 2>/dev/null | grep -E '^(Package|Version):' >"$out/mutter-version.log" || true
 export IBUS_ADDRESS="unix:path=$runtime/ibus.sock"
 export DBUS_SYSTEM_BUS_ADDRESS="unix:path=$runtime/system-bus.sock"
-dbus-daemon --session --address="$DBUS_SYSTEM_BUS_ADDRESS" --nofork --nopidfile     >"$out/system-bus.log" 2>&1 &
+dbus-daemon --session --address="$DBUS_SYSTEM_BUS_ADDRESS" --nofork --nopidfile >"$out/system-bus.log" 2>&1 &
 system_bus_pid=$!
-trap 'kill "${system_bus_pid:-}" "${weston_pid:-}" 2>/dev/null || true' EXIT
 for _ in {1..100}; do [ -S "$runtime/system-bus.sock" ] && break; sleep .05; done
 [ -S "$runtime/system-bus.sock" ] || { echo 'Private system bus failed' >&2; exit 1; }
 export LIBGL_ALWAYS_SOFTWARE=1 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
@@ -37,16 +38,30 @@ for _ in {1..100}; do [ -S "$runtime/outer" ] && break; kill -0 "$weston_pid"; s
 [ -S "$runtime/outer" ] || { echo 'Weston failed to start' >&2; exit 1; }
 export WAYLAND_DISPLAY=outer
 
+tree=()
+collect_tree() {
+    local pid=$1 child
+    for child in $(pgrep -P "$pid" 2>/dev/null); do collect_tree "$child"; done
+    tree+=("$pid")
+}
 cleanup() {
-    kill "${weston_pid:-}" 2>/dev/null || true
-    wait "${weston_pid:-}" 2>/dev/null || true
+    kill "${weston_pid:-}" "${system_bus_pid:-}" 2>/dev/null || true
+    if [ -n "${session_pid:-}" ]; then
+        tree=()
+        collect_tree "$session_pid"
+        for pid in "${tree[@]}"; do kill -TERM "$pid" 2>/dev/null || true; done
+        for _ in {1..50}; do kill -0 "$session_pid" 2>/dev/null || break; sleep .1; done
+        for pid in "${tree[@]}"; do kill -KILL "$pid" 2>/dev/null || true; done
+        wait "$session_pid" 2>/dev/null || true
+    fi
+    wait "${weston_pid:-}" "${system_bus_pid:-}" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 dbus-run-session -- bash -euo pipefail -c '
     cleanup() {
-        kill "${app_pid:-}" "${shell_pid:-}" "${engine_pid:-}" "${ibus_pid:-}" \
-             "${wire_pid:-}" "${pipe_pid:-}" 2>/dev/null || true
+        kill "${app_pid:-}" "${shell_pid:-}" "${engine_pid:-}" \
+             "${ibus_pid:-}" "${wire_pid:-}" "${pipe_pid:-}" 2>/dev/null || true
         wait 2>/dev/null || true
     }
     trap cleanup EXIT
@@ -103,4 +118,8 @@ dbus-run-session -- bash -euo pipefail -c '
         DROIDDECK_APP_SOCKET="$DROIDDECK_APP_SOCKET" \
         python3 "$here/outer-sim.py" | tee "$out/outer-sim.log"
     echo INTEGRATION_PASS
-'
+' &
+session_pid=$!
+wait "$session_pid"
+rc=$?
+exit "$rc"

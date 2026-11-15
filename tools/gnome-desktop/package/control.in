@@ -1,0 +1,11 @@
+Package: droiddeck-gnome-desktop
+Version: @VERSION@
+Section: admin
+Priority: required
+Architecture: all
+Maintainer: DroidDeck <maxjividen@gmail.com>
+Depends: gnome-shell, mutter, mutter-dev-bin, gnome-session-bin, ibus, gir1.2-ibus-1.0,
+ python3-gi, gir1.2-gtk-4.0, pipewire, wireplumber, dbus-x11, fonts-noto-cjk
+Description: DroidDeck GNOME desktop and Android input bridge
+ Runs GNOME Shell nested in DroidDeck's compositor without root or logind and
+ carries Android keyboard text to the focused application.

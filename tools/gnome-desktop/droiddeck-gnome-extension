@@ -1,0 +1,59 @@
+#!/usr/bin/python3
+"""Installs or removes the DroidDeck GNOME input extension for the current user."""
+import os
+import shutil
+import sys
+
+import gi
+
+gi.require_version('Gio', '2.0')
+from gi.repository import Gio
+
+UUID = 'droiddeck-input@zeknes.com'
+SHARE = os.environ.get('DROIDDECK_GNOME_SHARE', '/usr/local/share/droiddeck/gnome-input')
+TARGET = os.path.join(os.path.expanduser('~'), '.local/share/gnome-shell/extensions', UUID)
+
+
+def enabled():
+    settings = Gio.Settings.new('org.gnome.shell')
+    return list(settings.get_strv('enabled-extensions'))
+
+
+def set_enabled(current, wanted):
+    settings = Gio.Settings.new('org.gnome.shell')
+    value = [uuid for uuid in current if uuid != UUID]
+    if wanted:
+        value.append(UUID)
+    settings.set_strv('enabled-extensions', value)
+
+
+def install():
+    os.makedirs(TARGET, exist_ok=True)
+    for name in ('extension.js', 'metadata.json'):
+        shutil.copy2(os.path.join(SHARE, 'extension', name), os.path.join(TARGET, name))
+    settings = Gio.Settings.new('org.gnome.shell')
+    settings.set_boolean('disable-extension-version-validation', True)
+    set_enabled(enabled(), True)
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else 'status'
+    if action == 'enable':
+        install()
+        print(f'{UUID} enabled')
+    elif action == 'disable':
+        set_enabled(enabled(), False)
+        print(f'{UUID} disabled')
+    elif action == 'status':
+        installed = os.path.isfile(os.path.join(TARGET, 'metadata.json'))
+        print(f'{UUID} installed={installed} enabled={UUID in enabled()}')
+    elif action == 'remove':
+        set_enabled(enabled(), False)
+        shutil.rmtree(TARGET, ignore_errors=True)
+        print(f'{UUID} removed')
+    else:
+        sys.exit('usage: droiddeck-gnome-extension enable|disable|status|remove')
+
+
+if __name__ == '__main__':
+    main()

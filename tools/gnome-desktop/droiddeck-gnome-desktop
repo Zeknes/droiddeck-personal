@@ -6,22 +6,57 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+share=${DROIDDECK_GNOME_SHARE:-}
+if [ -z "$share" ]; then
+    if [ -f "$here/../input-bridge/droiddeck-ime-bridge" ]; then
+        share=$(cd "$here/../input-bridge" && pwd)
+    else
+        share=/usr/local/share/droiddeck/gnome-input
+    fi
+fi
+
+if [ "${1:-}" = --check ]; then
+    [ "$(id -u)" -ne 0 ] || { echo 'Run as the app user, not root' >&2; exit 1; }
+    missing=()
+    for cmd in gnome-shell pipewire wireplumber ibus-daemon gsettings; do
+        command -v "$cmd" >/dev/null || missing+=("$cmd")
+    done
+    [ -x /usr/libexec/mutter-devkit ] || missing+=(mutter-devkit)
+    [ -f "$share/droiddeck-ime-bridge" ] || missing+=("$share/droiddeck-ime-bridge")
+    [ -f "$share/droiddeck_ime_state.py" ] || missing+=("$share/droiddeck_ime_state.py")
+    [ -f "$share/extension/extension.js" ] || missing+=("$share/extension/extension.js")
+    python3 -c 'import gi; gi.require_version("Gtk", "4.0"); from gi.repository import Gtk' 2>/dev/null ||
+        missing+=("python3-gi/gtk4")
+    if [ ${#missing[@]} -gt 0 ]; then
+        printf 'GNOME desktop check failed, missing: %s\n' "${missing[*]}" >&2
+        exit 1
+    fi
+    echo GNOME_DESKTOP_CHECK_OK
+    exit 0
+fi
+
 runtime=${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}
 [ -n "${WAYLAND_DISPLAY:-}" ] || { echo 'WAYLAND_DISPLAY must name the outer display' >&2; exit 1; }
 [ "$(id -u)" -ne 0 ] || { echo 'Run as the app user, not root' >&2; exit 1; }
-[ ! -S /run/dbus/system_bus_socket ] || { echo 'A host system bus must not be used' >&2; exit 1; }
+session_bus=0
+if [ "${DROIDDECK_SYSTEM_BUS:-}" = session ] && [ -S /run/dbus/system_bus_socket ]; then
+    session_bus=1
+else
+    [ ! -S /run/dbus/system_bus_socket ] || { echo 'A host system bus must not be used' >&2; exit 1; }
+fi
 
 export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=GNOME
 export IBUS_ADDRESS="unix:path=$runtime/ibus.sock"
-export DBUS_SYSTEM_BUS_ADDRESS="unix:path=$runtime/system-bus.sock"
 export DROIDDECK_IME_SOCKET="$runtime/droiddeck-ime.sock"
-
-if [ ! -S "$runtime/system-bus.sock" ]; then
-    dbus-daemon --session --address="$DBUS_SYSTEM_BUS_ADDRESS" --fork --print-pid >"$runtime/system-bus.pid"
+if [ "$session_bus" = 0 ]; then
+    export DBUS_SYSTEM_BUS_ADDRESS="unix:path=$runtime/system-bus.sock"
+    if [ ! -S "$runtime/system-bus.sock" ]; then
+        dbus-daemon --session --address="$DBUS_SYSTEM_BUS_ADDRESS" --fork --print-pid >"$runtime/system-bus.pid"
+    fi
 fi
 if [ ! -S "$runtime/pipewire-0" ]; then
     pipewire >"$runtime/pipewire.log" 2>&1 &
-    for _ in $(seq 1 100); do [ -S "$runtime/pipewire-0" ] && break; sleep .1; done
+    for _ in {1..100}; do [ -S "$runtime/pipewire-0" ] && break; sleep .1; done
 fi
 if ! pgrep -x wireplumber >/dev/null; then
     wireplumber >"$runtime/wireplumber.log" 2>&1 &
@@ -29,21 +64,23 @@ fi
 if [ ! -S "$runtime/ibus.sock" ]; then
     WAYLAND_DISPLAY=inner ibus-daemon --single --emoji-extension=disable \
         --address="$IBUS_ADDRESS" >"$runtime/ibus.log" 2>&1 &
-    for _ in $(seq 1 100); do [ -S "$runtime/ibus.sock" ] && break; sleep .1; done
+    for _ in {1..100}; do [ -S "$runtime/ibus.sock" ] && break; sleep .1; done
 fi
 
-ext="$HOME/.local/share/gnome-shell/extensions/droiddeck-input@zeknes.com"
-if [ ! -e "$ext/metadata.json" ]; then
+if command -v droiddeck-gnome-extension >/dev/null 2>&1; then
+    DROIDDECK_GNOME_SHARE="$share" droiddeck-gnome-extension enable
+else
+    ext="$HOME/.local/share/gnome-shell/extensions/droiddeck-input@zeknes.com"
     mkdir -p "$ext"
-    cp "$here/input-bridge/extension/extension.js" "$here/input-bridge/extension/metadata.json" "$ext/"
+    cp "$share/extension/extension.js" "$share/extension/metadata.json" "$ext/"
+    gsettings set org.gnome.shell disable-extension-version-validation true
+    gsettings set org.gnome.shell enabled-extensions "['droiddeck-input@zeknes.com']"
 fi
-gsettings set org.gnome.shell disable-extension-version-validation true
-gsettings set org.gnome.shell enabled-extensions "['droiddeck-input@zeknes.com']"
 
-if [ ! -S "$DROIDDECK_IME_SOCKET" ] || ! pgrep -f droiddeck-ime-bridge >/dev/null; then
+if [ ! -S "$DROIDDECK_IME_SOCKET" ] || ! pgrep -f "droiddeck-ime-bridge" >/dev/null; then
     WAYLAND_DISPLAY=inner DROIDDECK_IME_SOCKET="$DROIDDECK_IME_SOCKET" \
-        python3 "$here/input-bridge/droiddeck-ime-bridge" >"$runtime/droiddeck-ime.log" 2>&1 &
-    for _ in $(seq 1 100); do [ -S "$DROIDDECK_IME_SOCKET" ] && break; sleep .1; done
+        python3 "$share/droiddeck-ime-bridge" >"$runtime/droiddeck-ime.log" 2>&1 &
+    for _ in {1..100}; do [ -S "$DROIDDECK_IME_SOCKET" ] && break; sleep .1; done
 fi
 
 echo "== DroidDeck GNOME on $WAYLAND_DISPLAY"

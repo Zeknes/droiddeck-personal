@@ -24,6 +24,10 @@ object AgentGuest {
         private set
     var desktopTextField by mutableStateOf(false)
         private set
+
+    fun desktopFieldChanged(focused: Boolean) {
+        main.post { desktopTextField = focused }
+    }
     var keyboardRequests by mutableIntStateOf(0)
         private set
     var gameTextField by mutableStateOf(false)
