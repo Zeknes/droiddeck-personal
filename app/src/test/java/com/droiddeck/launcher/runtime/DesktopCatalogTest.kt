@@ -37,8 +37,10 @@ class DesktopCatalogTest {
 
     @Test fun anInstalledGnomeDesktopIsRecognised() {
         val root = temporary.root
-        File(root, "usr/bin/gnome-shell").apply { parentFile.mkdirs(); writeText("fixture") }
-        File(root, "usr/local/bin/droiddeck-gnome-desktop").apply { parentFile.mkdirs(); writeText("fixture") }
+        File(root, "usr/bin").mkdirs()
+        File(root, "usr/local/bin").mkdirs()
+        File(root, "usr/bin/gnome-shell").writeText("fixture")
+        File(root, "usr/local/bin/droiddeck-gnome-desktop").writeText("fixture")
         assertTrue(DesktopCatalog.desktopInstalled(root))
         File(root, ".droiddeck-pkg-desktop-gnome").writeText("older-gnome-pack\n")
         assertFalse(DesktopCatalog.desktopInstalled(root))
