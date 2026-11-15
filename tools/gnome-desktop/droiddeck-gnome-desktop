@@ -50,6 +50,9 @@ export IBUS_ADDRESS="unix:path=$runtime/ibus.sock"
 export DROIDDECK_IME_SOCKET="$runtime/droiddeck-ime.sock"
 
 stage() {
+    if [ -n "${BL_LOG:-}" ]; then
+        printf '== GNOME STAGE %s exit=%s\n' "$1" "${2:-}" >>"$BL_LOG" 2>/dev/null || true
+    fi
     [ -n "${BL_DEBUG_DIR:-}" ] || return 0
     mkdir -p "$BL_DEBUG_DIR" 2>/dev/null || return 0
     printf '{"stage":"%s","exit":"%s"}\n' "$1" "${2:-}" >>"$BL_DEBUG_DIR/gnome-stage.jsonl" 2>/dev/null || true
