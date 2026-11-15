@@ -184,6 +184,7 @@ object DesktopCatalog {
         val journal = journal(root, entry.id)
         var keepDownload = false
         val release = RuntimeInstallService.holdForPackage(context, context.getString(R.string.deskpkg_installing, entry.name))
+        var phase = "download"
         val report = object : LinuxRuntimeInstaller.ProgressListener {
             override fun onProgress(stage: String, percent: Int) = onProgress(LinuxRuntimeInstaller.Step.OTHER, stage, percent)
             override fun onProgress(step: LinuxRuntimeInstaller.Step, stage: String, percent: Int) {
@@ -228,9 +229,11 @@ object DesktopCatalog {
                     keepDownload = true
                     marker(context, entry.id).delete()
                     if (entry.id == DESKTOP_ID && desktopFromPack(root)) DesktopPack.prepareInstall(root)
-                    if (!LinuxRuntimeInstaller.extract(context, download, root, report)) return context.getString(R.string.deskpkg_extract_failed)
+                    phase = "extract"
+                    if (!LinuxRuntimeInstaller.extract(context, download, root, report)) return context.getString(R.string.deskpkg_extract_failed) + " (" + LinuxRuntimeInstaller.extractError() + ")"
                 }
             }
+            phase = "finalize"
             if (entry.id == DESKTOP_ID) {
                 if (desktopFromPack(root)) DesktopPack.finishInstall(root) else cleanLegacy(context, report)
                 val pending = File(root, DesktopRemoval.PENDING)
@@ -243,7 +246,7 @@ object DesktopCatalog {
             return null
         } catch (e: Exception) {
             Log.e(TAG, "install ${entry.id}", e)
-            return e.message ?: context.getString(R.string.deskpkg_install_failed)
+            return context.getString(R.string.deskpkg_install_failed) + " ($phase: ${e.javaClass.simpleName})"
         } finally {
             if (!keepDownload) download.delete()
             release()

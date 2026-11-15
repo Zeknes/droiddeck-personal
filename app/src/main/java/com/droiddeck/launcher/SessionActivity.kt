@@ -2104,7 +2104,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 !((runtime || resume) && com.droiddeck.launcher.runtime.DesktopCatalog.desktopInstalled(this))) {
                 if (activeInstallWorker === worker) SessionState.installing = "desktop"
                 SessionEvents.transition(SessionPhase.INSTALLING_RUNTIME, "desktop.installing", mapOf("component" to "desktop"))
-                problem = installDesktop()
+                problem = try { installDesktop() } catch (e: Exception) {
+                    Log.e(TAG, "desktop install worker failed", e)
+                    getString(R.string.session_desktop_install_failed, "worker: ${e.javaClass.simpleName}")
+                }
                 if (problem == null) SessionEvents.record("desktop.ready") else failedComponent = "desktop"
             }
             if (problem == null && proton && !SessionState.stopRequested) {

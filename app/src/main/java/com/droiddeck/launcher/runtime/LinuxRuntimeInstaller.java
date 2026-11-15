@@ -634,11 +634,19 @@ public final class LinuxRuntimeInstaller {
         }
     }
 
+    private static final ThreadLocal<String> EXTRACT_ERROR = new ThreadLocal<>();
+
+    public static String extractError() {
+        String error = EXTRACT_ERROR.get();
+        return error == null ? "unknown" : error;
+    }
+
     public static boolean extract(Context context, File archive, File destination, ProgressListener listener) {
         return extract(context, archive, destination, destination, listener);
     }
 
     static boolean extract(Context context, File archive, File destination, File linkRoot, ProgressListener listener) {
+        EXTRACT_ERROR.remove();
         long entries = 0;
         String extracting = context.getString(R.string.rtinst_extracting);
         java.util.LinkedHashMap<File, String> links = new java.util.LinkedHashMap<>();
@@ -710,6 +718,7 @@ public final class LinuxRuntimeInstaller {
             }
             return true;
         } catch (Exception e) {
+            EXTRACT_ERROR.set(e.getClass().getSimpleName());
             Log.e(TAG, "extract", e);
             return false;
         }

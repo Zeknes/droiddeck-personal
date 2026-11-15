@@ -81,6 +81,7 @@ class PackageExtractTest {
         )
 
         assertFalse(LinuxRuntimeInstaller.extract(context, pkg, root, null))
+        assertTrue(LinuxRuntimeInstaller.extractError().contains("FileNotFoundException"))
 
         assertEquals("old", lib("libvulkan.so.1").readText())
         assertFalse(lib("libvulkan.so.1.4.363").exists())
