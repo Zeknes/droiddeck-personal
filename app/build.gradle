@@ -93,6 +93,15 @@ def trackingPack = rootProject.file('tools/packs/tracking/release.env').readLine
 def prootPackPin = rootProject.file('tools/packs/proot/release.env').readLines()
     .findAll { it.contains('=') && !it.startsWith('#') }
     .collectEntries { def kv = it.split('=', 2); [(kv[0].trim()): kv[1].trim()] }
+def sha256Of = { File subject ->
+    def digest = java.security.MessageDigest.getInstance('SHA-256')
+    subject.withInputStream { input ->
+        byte[] buffer = new byte[1 << 20]
+        int n
+        while ((n = input.read(buffer)) > 0) digest.update(buffer, 0, n)
+    }
+    digest.digest().encodeHex().toString()
+}
 def addonPacks = ['proot', 'directaudio', 'tracking', 'xbox', 'comet', 'butler', 'powervr', 'ubisoft'].collectEntries { name ->
     def pack = file("build/packs/${name}.tar.zst")
     if (!pack.isFile()) {
@@ -102,13 +111,7 @@ def addonPacks = ['proot', 'directaudio', 'tracking', 'xbox', 'comet', 'butler',
         }
         return [(name): [sha256: '', size: 0L]]
     }
-    def digest = java.security.MessageDigest.getInstance('SHA-256')
-    pack.withInputStream { input ->
-        byte[] buffer = new byte[1 << 20]
-        int n
-        while ((n = input.read(buffer)) > 0) digest.update(buffer, 0, n)
-    }
-    [(name): [sha256: digest.digest().encodeHex().toString(), size: pack.length()]]
+    [(name): [sha256: sha256Of(pack), size: pack.length()]]
 }
 def desktopRemovalSources = new groovy.json.JsonSlurper().parse(file('src/main/assets/desktop-removal/sources.json'))
 if (desktopRemovalSources.archives[desktopKde.DESKTOP_KDE_TAG] != desktopKde.DESKTOP_KDE_SHA256) {
@@ -302,10 +305,28 @@ if (uvcDir) {
 tasks.named('preBuild').configure { dependsOn(stageRuntimeAssets) }
 
 def gnomePack = System.getenv('DROIDDECK_GNOME_PACK')
+def gnomeUrl = System.getenv('DROIDDECK_GNOME_URL') ?: ''
+def gnomeAsset = gnomeUrl.startsWith('asset://') ? gnomeUrl.substring('asset://'.length()) : (gnomePack ? new File(gnomePack).name : 'gnome-desktop.tar.zst')
 def stageGnomePack = tasks.register('stageGnomePack', Copy) {
     if (gnomePack) {
-        from(gnomePack) { rename { 'gnome-r1-gnome-desktop.tar.zst' } }
-        into(layout.buildDirectory.dir('gnomePack'))
+        def dest = layout.buildDirectory.dir('gnomePack')
+        def expectedSha256 = System.getenv('DROIDDECK_GNOME_SHA256') ?: ''
+        def expectedSize = System.getenv('DROIDDECK_GNOME_SIZE') ?: ''
+        into(dest)
+        doFirst { project.delete(dest) }
+        from(gnomePack) { rename { gnomeAsset } }
+        doLast {
+            def staged = new File(dest.get().asFile, gnomeAsset)
+            if (!staged.isFile()) {
+                throw new GradleException('GNOME desktop pack not staged as ' + gnomeAsset)
+            }
+            if (expectedSize && staged.length() != expectedSize.toLong()) {
+                throw new GradleException('GNOME desktop pack is ' + staged.length() + ' bytes, DROIDDECK_GNOME_SIZE is ' + expectedSize)
+            }
+            if (expectedSha256 && sha256Of(staged) != expectedSha256) {
+                throw new GradleException('GNOME desktop pack sha256 does not match DROIDDECK_GNOME_SHA256')
+            }
+        }
     }
 }
 android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('gnomePack'))
