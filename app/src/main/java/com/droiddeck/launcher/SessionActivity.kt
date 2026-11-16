@@ -2810,10 +2810,33 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
     }
 
-    private fun prootFailureHint(): EndHint? {
-        if (SessionState.failureCode != "PROOT_MISSING") return null
+    private fun failureCodeHint(): EndHint? {
+        val code = SessionState.failureCode ?: return null
+        if (code != "PROOT_MISSING" && code != "GNOME_LAUNCH_STALLED") return null
         val message = SessionState.failureMessage ?: return null
         return EndHint(message)
+    }
+
+    /** The GNOME launch stages the pack reported, so the end screen can name where it stopped. */
+    private fun gnomeStageHint(status: Int): EndHint? {
+        if (!BuildConfig.DESKTOP_GNOME || SessionState.mode != SessionService.MODE_DESKTOP) return null
+        val folder = SessionState.logDirectory ?: return null
+        val report = com.droiddeck.launcher.session.GnomeLaunchReport.report(folder, File(filesDir, ".wayland-rt"))
+        val failure = report.failure
+        if (failure == null) {
+            if (report.stages.isNotEmpty()) return null
+            val missing = com.droiddeck.launcher.session.GnomeLaunchReport.missingFiles(LinuxRuntime.rootDir(this))
+            if (!com.droiddeck.launcher.session.GnomeLaunchReport.unreached(report.stages, missing, status)) return null
+            Log.w(TAG, "GNOME wrote no stage (exit $status): missing ${missing.joinToString()}")
+            return EndHint(getString(R.string.session_end_gnome_unreached, status))
+        }
+        Log.w(TAG, "GNOME stopped at the ${failure.name} stage (exit ${failure.exit}): missing ${report.missing.joinToString()}")
+        val detail = com.droiddeck.launcher.session.GnomeLaunchReport.detail(report)
+        return EndHint(getString(
+            R.string.session_end_gnome_stage,
+            "${failure.name} ${failure.exit}".trim(),
+            if (detail.isEmpty()) "" else " ($detail)",
+        ))
     }
 
     private fun presentationFaultHint(): EndHint? = presentationFault()?.let {
@@ -2821,7 +2844,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     private fun sessionExitHint(status: Int): EndHint? = if (status == 0) presentationFaultHint()
-        else runtimeDamageHint() ?: sessionEndHint(SessionState.logFile) ?: prootFailureHint()
+        else runtimeDamageHint() ?: failureCodeHint() ?: gnomeStageHint(status) ?: sessionEndHint(SessionState.logFile)
 
     private fun sessionEndHint(log: File?): EndHint? {
         presentationFaultHint()?.let { return it }

@@ -948,6 +948,7 @@ internal object EnhancedSessionLogShare {
         "droiddeck", "droiddeck-esync", "session.log", "app.log", "wayland.log", "audio.log",
         "device.txt", "network.txt", "events.jsonl", "memory.csv", "capture.json", "crash.log",
         "frame-trace.log", "process-trace.log", "game-lifecycle.log", "launches.log", "tools.tsv", "wanted.tsv", "prefixes.json",
+        "gnome-stage.jsonl", "gnome-launch.jsonl", "crash-app.txt",
         "battlenet.log", "spawned.log", "flatpak-install.log", "cef_log.txt", "cef_log.previous.txt",
         "console_log.txt", "webhelper_js.txt", "controller_support.txt", "systemperfmanager.txt",
     )
@@ -962,7 +963,7 @@ internal object EnhancedSessionLogShare {
     private val SAFE_SUFFIX = Regex("\\.[A-Za-z0-9]{1,8}$")
     private val CRITICAL_SESSION_FILES = listOf(
         "session.log", "app.log", "wayland.log", "audio.log", "device.txt", "network.txt",
-        "events.jsonl", "memory.csv", "capture.json", "crash.log",
+        "events.jsonl", "memory.csv", "capture.json", "crash.log", "gnome-stage.jsonl",
     )
     private const val RECENT_MILLIS = 7L * 24 * 60 * 60 * 1000
     private const val COPY_BUFFER_BYTES = 64 * 1024

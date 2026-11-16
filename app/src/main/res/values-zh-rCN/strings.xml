@@ -3721,6 +3721,9 @@
     <string name="session_end_steam_sigill">Steam 因非法指令（SIGILL）停止。这可能是 CPU 指令兼容问题，也可能是客户端崩溃。请分享日志并附上设备信息。</string>
     <string name="session_end_steam_try_x64">可尝试“Steam 设置 → Steam 客户端 → x86-64（实验）”。此选项需要额外下载，运行速度也可能更慢。</string>
     <string name="session_end_vulkan_device">Linux 图形驱动未找到可用的 Vulkan 设备。请确认所选 Linux GPU 驱动支持这颗 GPU。</string>
+    <string name="session_end_gnome_stage">GNOME 停在 %1$s 阶段%2$s。请在本页分享日志，以便确定具体步骤。</string>
+    <string name="session_end_gnome_stalled">GNOME 没有启动起来：停在 %1$s 阶段，始终未创建自己的显示（缺少 %2$s）。请在本页分享日志。</string>
+    <string name="session_end_gnome_unreached">GNOME 没有报告任何启动阶段（会话退出码 %1$d）。可能是桌面包缺失，或会话在它启动之前就失败了。请在本页分享日志。</string>
     <string name="session_end_gpu_unsupported">当前配置缺少兼容这颗 GPU 的 Linux Vulkan 驱动，会话无法启动。Adreno Turnip 驱动不能为联发科／Mali GPU 增加支持。</string>
     <string name="setup_group_memory">内存</string>
     <string name="setup_clear_cached">会话前关闭缓存的应用</string>

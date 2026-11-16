@@ -821,6 +821,10 @@ class SessionService : Service() {
             stopSession(-1, gen)
             return
         }
+        if (SessionState.mode == MODE_DESKTOP && BuildConfig.DESKTOP_GNOME) {
+            recordGnomeLaunch(root)
+            watchGnomeLaunch(gen, runtimeDir, sessionDir)
+        }
         if (gen == sessionGen && SessionState.running) {
             suspendController = SessionSuspendController(
                 sessionRoot = { sessionPid },
@@ -2026,6 +2030,65 @@ class SessionService : Service() {
         }
     }
 
+    /** What the GNOME session runs on, recorded before the guest can fail on its own. */
+    private fun recordGnomeLaunch(root: File) {
+        val icd = runCatching { LinuxRuntime.vulkanIcd(this) }.getOrNull()
+        SessionEvents.record("gnome.launch.env", mapOf(
+            "launch" to if (SessionPrefs.nativeUserland(this)) "native" else "proot",
+            "driver" to SessionPrefs.linuxDriver(this).ifEmpty { "auto" },
+            "adreno" to DeviceSupport.adreno(),
+            "icd" to icd?.name,
+            "pack" to BuildConfig.DESKTOP_GNOME_TAG,
+            "missing" to GnomeLaunchReport.missingFiles(root).joinToString(","),
+        ))
+    }
+
+    /** GNOME reports its stages in its own file and marks progress with sockets, and neither
+     * survives a shell that hangs before its inner display exists: that is the signal that ends a
+     * session which would otherwise stay on a black screen with nothing to share. */
+    private fun watchGnomeLaunch(gen: Int, runtimeDir: File, sessionDir: File) {
+        if (!sessionDir.isDirectory) return
+        Thread({
+            var recorded = ""
+            val deadline = System.currentTimeMillis() + GNOME_LAUNCH_STALL_MS
+            try {
+                while (gen == sessionGen && SessionState.running) {
+                    val report = GnomeLaunchReport.report(sessionDir, runtimeDir)
+                    val stages = report.stages.joinToString(" ") { "${it.name}=${it.exit}" }
+                    if (stages != recorded) {
+                        recorded = stages
+                        SessionEvents.record("gnome.launch.stage", mapOf(
+                            "stage" to report.stageName, "exit" to report.stageExit,
+                        ))
+                    }
+                    if (report.innerUp) {
+                        SessionEvents.record("gnome.launch.shell", mapOf("stage" to report.stageName))
+                        return@Thread
+                    }
+                    if (report.failure != null) return@Thread
+                    if (System.currentTimeMillis() > deadline) {
+                        if (!GnomeLaunchReport.stalled(report, SessionState.firstFrameSeen)) return@Thread
+                        if (GnomeLaunchReport.INNER in GnomeLaunchReport.present(runtimeDir)) return@Thread
+                        val missing = report.missing.joinToString(",")
+                        Log.w(TAG, "GNOME did not create its inner display: stages ${report.stageName}=${report.stageExit}, missing $missing")
+                        SessionEvents.record("gnome.launch.stalled", mapOf(
+                            "stage" to report.stageName, "exit" to report.stageExit, "missing" to missing,
+                        ))
+                        failSession(gen, "GNOME_LAUNCH_STALLED", getString(
+                            R.string.session_end_gnome_stalled,
+                            report.stageName.ifEmpty { getString(R.string.session_starting_desktop) }, missing,
+                        ), -1)
+                        stopSession(-1, gen)
+                        return@Thread
+                    }
+                    Thread.sleep(GNOME_LAUNCH_POLL_MS)
+                }
+            } catch (_: InterruptedException) {
+                // the session ended before the deadline
+            }
+        }, "gnome-launch-watch").start()
+    }
+
     private fun stopSession(status: Int, gen: Int? = null, relaunch: Boolean = false) {
         if (gen != null && gen != sessionGen) {
             Log.i(TAG, "ignoring a stop from session $gen; session $sessionGen is current")
@@ -2346,6 +2409,8 @@ class SessionService : Service() {
         private const val TAG = "SessionService"
         private const val TRACER_NICE = -6
         private const val MIC_RELEASE_TIMEOUT_MS = 5_000L
+        private const val GNOME_LAUNCH_STALL_MS = 180_000L
+        private const val GNOME_LAUNCH_POLL_MS = 2_000L
         private const val TU_DEBUG_SWITCH = "Download/droiddeck-tu-debug"
         private const val GAME_PREFIX = "DROIDDECK_GAME_"
         private const val LEGACY_ENV_SWITCH = "Download/droiddeck-env"

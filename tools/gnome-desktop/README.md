@@ -164,9 +164,10 @@ the existing tests keep their behavior.
 
 A test release APK built from this tree carries:
 
-- `assets/gnome-r1-gnome-desktop.tar.zst` (sha256
-  `fadf0a7c7b7c5035303e199864aa905d68c351874ef12efe4c8a932e073585bc`,
-  244619035 bytes);
+- `assets/gnome-r2-gnome-desktop.tar.zst` (sha256
+  `5cc0233df319455a927127350bebc11adb73a164125519270b5e256b6086761b`,
+  244622641 bytes) from the `gnome-r2` build, whose launcher starts a session
+  bus before GNOME Shell;
 - the `proot` and `directaudio` addon packs from the Components releases,
   staged into `assets/packs`;
 - `assets/linuxfs/usr/local/bin/droiddeck-session` with the
@@ -178,6 +179,31 @@ is built with the standard `tools/build_local.sh` runtime-input preparation,
 `assembleRelease`, `check_session_assets.py`, `runtime_inputs.py apk`,
 `check_android_libraries.py` and the audio-bundle check; it is signed
 v1+v2+v3 with the project's personal key.
+
+## Launch stages the app reports
+
+The pack's launcher writes every step it reaches to
+`$BL_DEBUG_DIR/gnome-stage.jsonl` as `{"stage":"...","exit":"..."}` (older
+packs also print `== GNOME STAGE <name> exit=<value>` on `session.log`). The
+app cannot see the guest any other way, so `GnomeLaunchReport` reads that file
+from the session folder and `SessionService` records each change in
+`events.jsonl`:
+
+- `gnome.launch.env` before the guest runs: proot or native launch, the Linux
+  driver and Vulkan ICD, the pack tag, and any file the desktop pack should
+  have installed but did not;
+- `gnome.launch.stage` per stage change, `gnome.launch.shell` once the shell's
+  own `inner` display socket exists;
+- `gnome.launch.stalled` and a `GNOME_LAUNCH_STALLED` failure when, after
+  180 s, nothing has been drawn, no `inner` socket exists and no stage
+  reported a failure. The session then ends on the end screen, which names
+  the last stage and its missing sockets, instead of leaving a black screen.
+
+A non-zero `shell` exit code or a stage with `exit=failed` is named on the end
+screen too, and a session that wrote no stage at all is named that way when the
+pack files are missing or the launcher exited 66. Both paths are non-secret:
+stage names, exit codes and socket names, no tokens or user data.
+
 
 ## Unprivileged start
 

@@ -3901,6 +3901,9 @@
     <string name="session_end_steam_sigill">Steam stopped with an illegal instruction (SIGILL). This can be a CPU instruction compatibility problem or a client crash. Share the logs with your device details.</string>
     <string name="session_end_steam_try_x64">You can try Steam settings → Steam client → x86-64 (experimental). It needs an additional download and may run more slowly.</string>
     <string name="session_end_vulkan_device">The Linux graphics driver could not find a usable Vulkan device. Check that the selected Linux GPU driver supports this GPU.</string>
+    <string name="session_end_gnome_stage">GNOME stopped at the %1$s stage%2$s. Share the logs from this screen so the exact step is known.</string>
+    <string name="session_end_gnome_stalled">GNOME did not come up: it stayed at the %1$s stage and never created its display (missing %2$s). Share the logs from this screen.</string>
+    <string name="session_end_gnome_unreached">GNOME reported no launch stage (session exit %1$d). The desktop package may be missing or the session failed before it started. Share the logs from this screen.</string>
     <string name="session_end_gpu_unsupported">This session cannot start because this GPU has no compatible Linux Vulkan driver in the current setup. Adreno Turnip drivers cannot enable support for MediaTek/Mali GPUs.</string>
     <string name="setup_group_memory">Memory</string>
     <string name="setup_clear_cached">Clear cached apps before a session</string>
