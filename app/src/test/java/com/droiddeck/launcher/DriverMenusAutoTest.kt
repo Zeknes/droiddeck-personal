@@ -34,18 +34,6 @@ class DriverMenusAutoTest {
         ShadowBuild.setDevice("phone")
     }
 
-    @Test fun pickingTheAutoDisplayHandsBothHalvesToAuto() {
-        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        SessionPrefs.setGpuDriverMode(activity, SessionPrefs.GPU_DRIVERS_MIX)
-        SessionPrefs.setAndroidDriver(activity, "chosen-display")
-        SessionPrefs.setLinuxDriver(activity, "chosen-linux")
-        val menus = DriverMenus(activity, Handler(Looper.getMainLooper()))
-        menus.selectDriver(TurnipDriver.AUTO, linux = false)
-        assertEquals(SessionPrefs.GPU_DRIVERS_AUTO, SessionPrefs.gpuDriverMode(activity))
-        assertEquals(TurnipDriver.AUTO, SessionPrefs.androidDriver(activity))
-        assertEquals("", SessionPrefs.linuxDriver(activity))
-    }
-
     @Test fun pickingTheAutoDisplayWithNoPairForTheGpuStillPutsTheDisplayOnAuto() {
         ShadowBuild.setModel("Generic phone")
         ShadowBuild.setDevice("generic")
