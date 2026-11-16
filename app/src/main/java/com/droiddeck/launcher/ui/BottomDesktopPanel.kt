@@ -120,7 +120,8 @@ class BottomDesktopPanel(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         BottomDesktop.addListener(stateListener)
-        BottomDesktop.setTextInputListener { focused ->
+        BottomDesktop.setTextInputListener { focused, purpose, hint ->
+            keyboardHost.content(purpose, hint)
             val tapped = SystemClock.uptimeMillis() - lastPressMs < TEXT_FIELD_TAP_MS
             val hardKeyboard = resources.configuration.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
             if (focused && tapped && !hardKeyboard && !keyboardHost.shown) keyboardHost.show()

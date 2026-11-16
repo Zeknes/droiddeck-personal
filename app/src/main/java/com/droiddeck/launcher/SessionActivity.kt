@@ -983,6 +983,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.steamKeyboard) { updateOnScreenControls() }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.desktopTextField) { onDesktopTextField(AgentGuest.desktopTextField) }
+            androidx.compose.runtime.LaunchedEffect(AgentGuest.desktopPurpose, AgentGuest.desktopHint) {
+                keyboard?.content(AgentGuest.desktopPurpose, AgentGuest.desktopHint)
+            }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.gameTextField, AgentGuest.gameProgram) { onGameTextField(AgentGuest.gameTextField) }
             androidx.compose.runtime.LaunchedEffect(wowChat.request) { placeWowChat() }
             androidx.compose.runtime.LaunchedEffect(pipUi, pcKeyboardOpen) { updateDesktopKeyboardButton() }
@@ -3936,6 +3939,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
 
     private fun openBottomKeyboard() {
         val presentation = bottomKeyboardPresentation() ?: return
+        presentation.keyboardContent(AgentGuest.desktopPurpose, AgentGuest.desktopHint)
         presentation.requestKeyboard(forField = true)
         com.droiddeck.launcher.ui.SessionTyping.focusDisplay(this, presentation.display.displayId)
     }

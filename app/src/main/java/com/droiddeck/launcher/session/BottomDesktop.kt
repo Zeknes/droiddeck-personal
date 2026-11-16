@@ -49,7 +49,7 @@ object BottomDesktop {
 
     @Volatile var state = State.OFF
         private set
-    private var onTextInput: ((Boolean) -> Unit)? = null
+    private var onTextInput: ((Boolean, Int, Int) -> Unit)? = null
     private var imeWatcher: android.os.FileObserver? = null
 
     private var appContext: Context? = null
@@ -108,8 +108,8 @@ object BottomDesktop {
 
     fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
 
-    /** Called on the main thread when a text field in the desktop gains or loses focus (droiddeck-ime's report). */
-    fun setTextInputListener(listener: ((Boolean) -> Unit)?) { onTextInput = listener }
+    /** Called on the main thread when a text field in the desktop gains or loses focus, with its zwp_text_input_v3 purpose and hint. */
+    fun setTextInputListener(listener: ((Boolean, Int, Int) -> Unit)?) { onTextInput = listener }
 
     private fun watchIme(dir: File) {
         imeWatcher?.stopWatching()
@@ -119,9 +119,8 @@ object BottomDesktop {
         imeWatcher = object : android.os.FileObserver(dir.path, MOVED_TO or CLOSE_WRITE) {
             override fun onEvent(event: Int, path: String?) {
                 if (path != "ime.json") return
-                val focused = runCatching { org.json.JSONObject(File(dir, path).readText()).optBoolean("textField") }
-                    .getOrNull() ?: return
-                main.post { if (imeWatcher === this) onTextInput?.invoke(focused) }
+                val snapshot = runCatching { org.json.JSONObject(File(dir, path).readText()) }.getOrNull() ?: return
+                main.post { if (imeWatcher === this) onTextInput?.invoke(snapshot.optBoolean("textField"), snapshot.optInt("purpose"), snapshot.optInt("hint")) }
             }
         }.also { it.startWatching() }
     }

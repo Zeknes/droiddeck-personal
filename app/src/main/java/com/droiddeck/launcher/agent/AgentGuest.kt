@@ -24,6 +24,10 @@ object AgentGuest {
         private set
     var desktopTextField by mutableStateOf(false)
         private set
+    var desktopPurpose by mutableIntStateOf(0)
+        private set
+    var desktopHint by mutableIntStateOf(0)
+        private set
     var keyboardRequests by mutableIntStateOf(0)
         private set
     var gameTextField by mutableStateOf(false)
@@ -48,7 +52,7 @@ object AgentGuest {
             observer?.stopWatching()
             observer = null
             lastFocusKey = null
-            main.post { steamKeyboard = false; desktopTextField = false; gameTextField = false; gameProgram = null }
+            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; gameTextField = false; gameProgram = null }
             val dir = dir(context)
             dir.deleteRecursively()
             dir.mkdirs()
@@ -78,7 +82,7 @@ object AgentGuest {
         synchronized(lock) {
             observer?.stopWatching()
             observer = null
-            main.post { steamKeyboard = false; desktopTextField = false; gameTextField = false; gameProgram = null }
+            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; gameTextField = false; gameProgram = null }
         }
     }
 
@@ -129,11 +133,13 @@ object AgentGuest {
 
     private fun recordTextField(source: FileObserver, snapshot: JSONObject) {
         val focused = snapshot.optBoolean("textField")
+        val purpose = snapshot.optInt("purpose")
+        val hint = snapshot.optInt("hint")
         synchronized(lock) {
             if (source !== observer) return
-            main.post { desktopTextField = focused }
+            main.post { desktopTextField = focused; desktopPurpose = purpose; desktopHint = hint }
         }
-        SessionEvents.record("ime.changed", mapOf("textField" to focused, "seq" to snapshot.optInt("seq")))
+        SessionEvents.record("ime.changed", mapOf("textField" to focused, "purpose" to purpose, "hint" to hint, "seq" to snapshot.optInt("seq")))
     }
 
     private fun recordGameTextField(source: FileObserver, snapshot: JSONObject) {

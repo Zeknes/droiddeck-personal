@@ -3,7 +3,6 @@ package com.droiddeck.launcher.input
 import android.app.Activity
 import android.content.Context
 import android.os.Build
-import android.text.InputType
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
@@ -26,6 +25,17 @@ class KeyboardHost(
     var imeShowing = false
         private set
     var onImeChanged: ((Boolean) -> Unit)? = null
+    var purpose = ImeContentType.PURPOSE_NORMAL
+        private set
+    var hint = 0
+        private set
+
+    fun content(purpose: Int, hint: Int) {
+        if (this.purpose == purpose && this.hint == hint) return
+        this.purpose = purpose
+        this.hint = hint
+        if (shown) imm.restartInput(this)
+    }
 
     init {
         isFocusable = false
@@ -38,10 +48,8 @@ class KeyboardHost(
 
     override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
         if (!shown) return null
-        outAttrs.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
-            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-        outAttrs.imeOptions = EditorInfo.IME_ACTION_NONE or EditorInfo.IME_FLAG_NO_FULLSCREEN or
-            EditorInfo.IME_FLAG_NO_EXTRACT_UI
+        outAttrs.inputType = ImeContentType.inputType(purpose, hint)
+        outAttrs.imeOptions = ImeContentType.imeOptions(purpose, hint)
         return KeyConnection()
     }
 

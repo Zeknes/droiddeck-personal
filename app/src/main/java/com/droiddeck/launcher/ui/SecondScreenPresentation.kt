@@ -90,6 +90,10 @@ class SecondScreenPresentation(
         renderMode()
     }
 
+    fun keyboardContent(purpose: Int, hint: Int) {
+        keyboardHost?.content(purpose, hint)
+    }
+
     fun requestKeyboard(forField: Boolean = false) {
         if (!showsKeyboard || keyboardHost == null) return
         if (forField) fieldKeyboard = true
