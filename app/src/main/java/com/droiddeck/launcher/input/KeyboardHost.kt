@@ -14,9 +14,10 @@ import android.view.inputmethod.InputMethodManager
 
 class KeyboardHost(
     context: Context,
+    private val sendText: (String) -> Boolean = { false },
     private val sendKeyEvent: (KeyEvent) -> Boolean,
 ) : View(context) {
-    constructor(activity: Activity) : this(activity, { activity.dispatchKeyEvent(it) })
+    constructor(activity: Activity) : this(activity, { text -> ImeTextBridge.send(activity, text) }, { activity.dispatchKeyEvent(it) })
 
     private val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
     private val map: KeyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
@@ -99,18 +100,27 @@ class KeyboardHost(
 
     fun type(text: CharSequence?) {
         if (text.isNullOrEmpty()) return
-        for (ch in text) {
-            val mapped = map.getEvents(charArrayOf(ch))
-            if (mapped != null && mapped.any { it.action == KeyEvent.ACTION_DOWN && it.getUnicodeChar() == ch.code }) {
-                for (event in mapped) sendKeyEvent(event)
-            } else {
-                val t = System.currentTimeMillis()
-                val down = KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_UNKNOWN, 0, 0,
-                    KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, 0)
-                sendKeyEvent(CharKeyEvent(down, ch))
-                sendKeyEvent(CharKeyEvent(KeyEvent.changeAction(down, KeyEvent.ACTION_UP), ch))
-            }
+        val value = text.toString()
+        val mapped = value.map { ch -> map.getEvents(charArrayOf(ch))?.takeIf { events ->
+            events.any { it.action == KeyEvent.ACTION_DOWN && it.getUnicodeChar() == ch.code }
+        } }
+        if (mapped.all { it != null }) {
+            for (events in mapped) for (event in events!!) sendKeyEvent(event)
+            return
         }
+        if (!secret && sendText(value)) return
+        for (ch in value) sendUnicode(ch)
+    }
+
+    private val secret get() =
+        purpose == ImeContentType.PURPOSE_PASSWORD || hint and ImeContentType.HINT_HIDDEN_TEXT != 0
+
+    private fun sendUnicode(ch: Char) {
+        val t = System.currentTimeMillis()
+        val down = KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_UNKNOWN, 0, 0,
+            KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, 0)
+        sendKeyEvent(CharKeyEvent(down, ch))
+        sendKeyEvent(CharKeyEvent(KeyEvent.changeAction(down, KeyEvent.ACTION_UP), ch))
     }
 
     fun tap(keyCode: Int) {

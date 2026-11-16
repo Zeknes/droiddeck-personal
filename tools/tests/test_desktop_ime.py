@@ -66,6 +66,30 @@ class DesktopImeTest(unittest.TestCase):
             time.sleep(0.02)
         self.fail('ime.json never reached seq %d' % seq)
 
+    def test_text_the_keyboard_cannot_type_is_committed_through_the_input_method(self):
+        self.server.sendall(message(3, 0, struct.pack('<I', 100)))
+        self.assertTrue(self.state(1)['textField'])
+        self.server.sendall(message(100, 4, struct.pack('<I', 77)))
+        (self.session / 'agent/ime-text.json').write_text(json.dumps({'text': '中文', 'seq': 5}))
+        expected = message(100, 1, struct.pack('<I', 77) + wl_string('中文'))
+        self.assertEqual(self.read(len(expected)), expected)
+        (self.session / 'agent/ime-text.json').write_text(json.dumps({'text': '中文', 'seq': 5}))
+        self.server.settimeout(0.4)
+        with self.assertRaises(socket.timeout):
+            self.server.recv(8)
+
+    def test_text_waits_for_the_serial_the_field_commits(self):
+        self.server.sendall(message(3, 0, struct.pack('<I', 100)))
+        self.assertTrue(self.state(1)['textField'])
+        (self.session / 'agent/ime-text.json').write_text(json.dumps({'text': 'x', 'seq': 1}))
+        self.server.settimeout(0.4)
+        with self.assertRaises(socket.timeout):
+            self.server.recv(8)
+        self.server.settimeout(5)
+        self.server.sendall(message(100, 4, struct.pack('<I', 9)))
+        expected = message(100, 1, struct.pack('<I', 9) + wl_string('x'))
+        self.assertEqual(self.read(len(expected)), expected)
+
     def test_focus_and_blur_are_reported(self):
         self.server.sendall(message(3, 0, struct.pack('<I', 100)))
         self.assertTrue(self.state(1)['textField'])

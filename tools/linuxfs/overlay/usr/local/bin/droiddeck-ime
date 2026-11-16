@@ -11,6 +11,7 @@ DISPLAY_ID = 1
 REGISTRY_ID = 2
 METHOD_ID = 3
 SETTLE = 0.15
+TEXT_POLL = 0.03
 
 
 def wl_string(value):
@@ -52,6 +53,31 @@ class Connection:
         return out
 
 
+class TextRequests:
+    """Text the Android side could only express as characters, not as key presses."""
+
+    def __init__(self, directory):
+        self.path = os.path.join(directory, "ime-text.json") if directory else ""
+        self.seen = 0
+        self.peek()
+
+    def peek(self):
+        if not self.path:
+            return "", 0
+        try:
+            with open(self.path, encoding="utf-8") as handle:
+                snapshot = json.load(handle)
+        except (OSError, ValueError):
+            return "", 0
+        seq = int(snapshot.get("seq") or 0)
+        if seq <= self.seen:
+            return "", 0
+        return str(snapshot.get("text") or ""), seq
+
+    def advance(self, seq):
+        self.seen = max(self.seen, seq)
+
+
 class Report:
     def __init__(self, directory):
         self.directory = directory
@@ -85,14 +111,22 @@ def connect():
 
 def main():
     launch = os.environ.get("BL_LAUNCH_DIR", "")
-    report = Report(os.environ.get("BL_IME_DIR") or (os.path.join(launch, "agent") if launch else ""))
+    directory = os.environ.get("BL_IME_DIR") or (os.path.join(launch, "agent") if launch else "")
+    report = Report(directory)
+    texts = TextRequests(directory)
     conn = Connection(connect())
     conn.send(DISPLAY_ID, 1, struct.pack("<I", REGISTRY_ID))
     contexts = {}
+    serials = {}
     current = None
     pending = None
     while True:
-        timeout = None if pending is None else max(0.0, pending - time.monotonic())
+        if pending is not None:
+            timeout = max(0.0, pending - time.monotonic())
+        elif current is not None:
+            timeout = TEXT_POLL
+        else:
+            timeout = None
         try:
             batch = conn.messages(timeout)
         except (EOFError, ConnectionError):
@@ -115,12 +149,14 @@ def main():
             elif obj == METHOD_ID and opcode == 0:
                 (context,) = struct.unpack_from("<I", payload)
                 contexts[context] = [0, 0]
+                serials.pop(context, None)
                 current = context
                 pending = None
                 report.write(True)
             elif obj == METHOD_ID and opcode == 1:
                 (context,) = struct.unpack_from("<I", payload)
                 contexts.pop(context, None)
+                serials.pop(context, None)
                 conn.send(context, 0)
                 if context == current:
                     current = None
@@ -130,6 +166,16 @@ def main():
                 contexts[obj] = [hint, purpose]
                 if obj == current:
                     report.write(True, hint, purpose)
+            elif obj in contexts and opcode == 4:
+                (serial,) = struct.unpack_from("<I", payload)
+                serials[obj] = serial
+        if current is not None:
+            text, seq = texts.peek()
+            serial = serials.get(current, 0)
+            if text and serial:
+                conn.send(current, 1, struct.pack("<I", serial) + wl_string(text))
+                texts.advance(seq)
+                print(f"droiddeck-ime: committed {len(text)} characters of text", file=sys.stderr, flush=True)
         if pending is not None and time.monotonic() >= pending:
             pending = None
             if current is None:
