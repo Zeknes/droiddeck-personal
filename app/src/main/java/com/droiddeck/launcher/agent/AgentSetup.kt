@@ -38,7 +38,7 @@ object AgentSetup {
     private fun completedKey(harness: AgentHarness) = "setup_completed_${harness.id}"
 
     private val main = Handler(Looper.getMainLooper())
-    private const val REPO = "https://github.com/Droid-Deck/DroidDeck.git"
+    private const val REPO = "https://github.com/Zeknes/droiddeck-pure.git"
     private const val CHECKOUT = "/root/DroidDeck"
     private val HELPERS = listOf("android-open", "dd-gh-login", "droiddeckctl")
     internal const val CTL = "/root/.local/share/droiddeck/ctl"

@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">เปิดไว้ต่อ</string>
     <string name="steamvr_recovery_restarting">กำลังรีเซ็ตกราฟิกและเปิด SteamVR อีกครั้ง…</string>
     <string name="steamvr_recovery_failed">DroidDeck รีสตาร์ทโดยอัตโนมัติไม่ได้ ปิดแอปให้สนิทแล้วเปิดใหม่อีกครั้ง</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>การเริ่มใช้งานครั้งแรกจะดาวน์โหลด Steam ซึ่งอาจใช้เวลาสักครู่</item>
         <item>ตามค่าเริ่มต้น การออกจากแอปจะหยุด Steam ไว้ชั่วคราว แล้วกลับมาทำงานต่อจากจุดเดิมเมื่อคุณเปิดแอปอีกครั้ง</item>
@@ -913,7 +913,7 @@
     <string name="setup_language_system">ค่าเริ่มต้นของระบบ (%1$s)</string>
     <string name="setup_language_system_short">ค่าเริ่มต้นของระบบ</string>
     <string name="setup_app_scale">ขนาดแอป</string>
-    <string name="setup_app_scale_hint">ข้อความและการควบคุมของ DroidDeck</string>
+    <string name="setup_app_scale_hint">ข้อความและการควบคุมของ DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d%% (ค่าเริ่มต้น)</string>
     <string name="setup_theme">ธีม</string>
     <string name="setup_theme_hint">รูปลักษณ์ของตัวเปิดแอป</string>
@@ -1023,10 +1023,10 @@
     <string name="store_website">เว็บไซต์</string>
     <string name="store_verified">ยืนยันแล้ว</string>
     <string name="upd_title">การอัปเดต</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">ตรวจสอบล่าสุด %1$s</string>
     <string name="upd_not_checked">ยังไม่ตรวจสอบ</string>
-    <string name="upd_perm_title">ให้ DroidDeck อัปเดตตัวเองได้</string>
+    <string name="upd_perm_title">ให้ DroidDeck Pure อัปเดตตัวเองได้</string>
     <string name="upd_perm_text">ในหน้าจอถัดไป เปิด “อนุญาตจากแหล่งนี้” แล้วกลับมาที่นี่ การอัปเดตจะดำเนินต่อไปเอง</string>
     <string name="upd_open_settings">เปิดการตั้งค่า</string>
     <string name="upd_not_now">ไม่ใช่ตอนนี้</string>
@@ -1054,7 +1054,7 @@
     <string name="upd_stop_session">หยุดเซสชันที่กำลังทำงานอยู่เพื่ออัปเดต</string>
     <string name="upd_less">น้อยลง</string>
     <string name="upd_more">เพิ่มเติม</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">บิลด์ Preview ใหม่</string>
     <string name="upd_new_test">บิลด์ทดสอบ PR #%1$d</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1127,7 +1127,7 @@
     <string name="agent_storage_confirm">ลบตอนนี้</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">ซอร์สโค้ด DroidDeck</string>
+    <string name="agent_storage_source">ซอร์สโค้ด DroidDeck Pure</string>
     <string name="agent_storage_caches">แคชที่ดาวน์โหลด</string>
     <string name="agent_storage_source_warning">การเปลี่ยนแปลงที่ยังไม่ได้พุชจะหายไป</string>
     <string name="agent_storage_caches_warning">ตอนสร้างบิลด์จะดาวน์โหลดใหม่อีกครั้ง</string>

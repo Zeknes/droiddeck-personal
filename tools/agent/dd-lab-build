@@ -9,7 +9,7 @@ pkg=${DROIDDECK_PACKAGE:-}
 if [ -z "$pkg" ] && [[ ${DD_AGENT_INBOX:-} =~ ^/data/(user/[0-9]+|data)/([^/]+)/files/agent$ ]]; then
   pkg=${BASH_REMATCH[2]}
 fi
-pkg=${pkg:-com.droiddeck.launcher}
+pkg=${pkg:-com.zeknes.droiddeck.pure}
 serial=${ADB_SERIAL:-127.0.0.1:5555}
 mode=build
 explain=()

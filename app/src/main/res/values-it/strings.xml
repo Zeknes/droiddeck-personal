@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Lascia aperto</string>
     <string name="steamvr_recovery_restarting">Ripristino della grafica e riapertura di SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck non è riuscito a riavviarsi automaticamente. Chiudi completamente l\'app, poi riaprila.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>Al primo avvio viene scaricato Steam. Potrebbero volerci alcuni minuti.</item>
         <item>Per impostazione predefinita, uscire dall\'app mette in pausa Steam; al tuo ritorno riprende da dove si era interrotto.</item>
@@ -911,7 +911,7 @@
     <string name="setup_language_system">Predefinita di sistema (%1$s)</string>
     <string name="setup_language_system_short">Predefinita di sistema</string>
     <string name="setup_app_scale">Scala dell\'app</string>
-    <string name="setup_app_scale_hint">Testo e controlli di DroidDeck</string>
+    <string name="setup_app_scale_hint">Testo e controlli di DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d%% (predefinita)</string>
     <string name="setup_theme">Tema</string>
     <string name="setup_theme_hint">Aspetto del launcher</string>
@@ -1021,10 +1021,10 @@
     <string name="store_website">Sito web</string>
     <string name="store_verified">Verificata</string>
     <string name="upd_title">Aggiornamenti</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Controllato %1$s</string>
     <string name="upd_not_checked">Non ancora controllato</string>
-    <string name="upd_perm_title">Lascia che DroidDeck si aggiorni da sé</string>
+    <string name="upd_perm_title">Lascia che DroidDeck Pure si aggiorni da sé</string>
     <string name="upd_perm_text">Nella prossima schermata, attiva Consenti da questa fonte, poi torna qui. L\'aggiornamento continua da solo.</string>
     <string name="upd_open_settings">Apri Impostazioni</string>
     <string name="upd_not_now">Non ora</string>
@@ -1052,7 +1052,7 @@
     <string name="upd_stop_session">Interrompi la sessione in corso per aggiornare.</string>
     <string name="upd_less">Meno</string>
     <string name="upd_more">Altro</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Nuova build Preview</string>
     <string name="upd_new_test">Build di test della PR #%1$d</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1125,7 +1125,7 @@
     <string name="agent_storage_confirm">Rimuovi ora</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">Sorgenti di DroidDeck</string>
+    <string name="agent_storage_source">Sorgenti di DroidDeck Pure</string>
     <string name="agent_storage_caches">Cache dei download</string>
     <string name="agent_storage_source_warning">Le modifiche non inviate vanno perse</string>
     <string name="agent_storage_caches_warning">Le build le scaricano di nuovo</string>

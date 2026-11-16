@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Не закрывать</string>
     <string name="steamvr_recovery_restarting">Сброс графики и повторный запуск SteamVR…</string>
     <string name="steamvr_recovery_failed">Не удалось автоматически перезапустить DroidDeck. Полностью закройте приложение и откройте его снова.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>При первом запуске будет загружен Steam. Это может занять несколько минут.</item>
         <item>По умолчанию при выходе из приложения Steam приостанавливается; при возвращении работа возобновляется с того же места.</item>
@@ -922,7 +922,7 @@
     <string name="setup_language_system">Как в системе (%1$s)</string>
     <string name="setup_language_system_short">Как в системе</string>
     <string name="setup_app_scale">Масштаб приложения</string>
-    <string name="setup_app_scale_hint">Текст и элементы управления DroidDeck</string>
+    <string name="setup_app_scale_hint">Текст и элементы управления DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d%% (по умолчанию)</string>
     <string name="setup_theme">Тема</string>
     <string name="setup_theme_hint">Внешний вид лаунчера</string>
@@ -1032,10 +1032,10 @@
     <string name="store_website">Веб-сайт</string>
     <string name="store_verified">Проверено</string>
     <string name="upd_title">Обновления</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Проверено %1$s</string>
     <string name="upd_not_checked">Еще не проверялось</string>
-    <string name="upd_perm_title">Разрешить DroidDeck обновляться самостоятельно</string>
+    <string name="upd_perm_title">Разрешить DroidDeck Pure обновляться самостоятельно</string>
     <string name="upd_perm_text">Включите «Разрешить из этого источника» на следующей странице и вернитесь. Обновление продолжится автоматически.</string>
     <string name="upd_open_settings">Открыть настройки</string>
     <string name="upd_not_now">Не сейчас</string>
@@ -1063,7 +1063,7 @@
     <string name="upd_stop_session">Остановите текущую сессию перед обновлением.</string>
     <string name="upd_less">Свернуть</string>
     <string name="upd_more">Еще</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Новая сборка Preview</string>
     <string name="upd_new_test">Тестовая сборка PR #%1$d</string>
     <string name="upd_mb">%1$d МБ</string>
@@ -1136,7 +1136,7 @@
     <string name="agent_storage_confirm">Удалить сейчас</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">Исходный код DroidDeck</string>
+    <string name="agent_storage_source">Исходный код DroidDeck Pure</string>
     <string name="agent_storage_caches">Кэш загрузок</string>
     <string name="agent_storage_source_warning">Неотправленные изменения будут потеряны</string>
     <string name="agent_storage_caches_warning">Сборки скачают их заново</string>

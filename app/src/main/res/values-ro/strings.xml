@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Lasă deschis</string>
     <string name="steamvr_recovery_restarting">Se resetează grafica și se redeschide SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck nu a putut reporni automat. Închide complet aplicația, apoi redeschide-o.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>Prima rulare descarcă Steam. Poate dura câteva minute.</item>
         <item>În mod implicit, la părăsirea aplicației, Steam este pus pe pauză; continuă de unde ai rămas când te întorci.</item>
@@ -919,7 +919,7 @@
     <string name="setup_language_system">Cea implicită a sistemului (%1$s)</string>
     <string name="setup_language_system_short">Cea implicită a sistemului</string>
     <string name="setup_app_scale">Scala aplicației</string>
-    <string name="setup_app_scale_hint">Textul și comenzile DroidDeck</string>
+    <string name="setup_app_scale_hint">Textul și comenzile DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d%% (Implicit)</string>
     <string name="setup_theme">Temă</string>
     <string name="setup_theme_hint">Aspectul launcherului</string>
@@ -1029,10 +1029,10 @@
     <string name="store_website">Site web</string>
     <string name="store_verified">Verificat</string>
     <string name="upd_title">Actualizări</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Verificat %1$s</string>
     <string name="upd_not_checked">Neverificat încă</string>
-    <string name="upd_perm_title">Permite DroidDeck să se actualizeze singur</string>
+    <string name="upd_perm_title">Permite DroidDeck Pure să se actualizeze singur</string>
     <string name="upd_perm_text">Pe ecranul următor, activează Permite din această sursă, apoi revino. Actualizarea continuă de la sine.</string>
     <string name="upd_open_settings">Deschide setările</string>
     <string name="upd_not_now">Nu acum</string>
@@ -1060,7 +1060,7 @@
     <string name="upd_stop_session">Oprește sesiunea în curs pentru a actualiza.</string>
     <string name="upd_less">Mai puțin</string>
     <string name="upd_more">Mai mult</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Versiune nouă Preview</string>
     <string name="upd_new_test">Versiune de test PR #%1$d</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1133,7 +1133,7 @@
     <string name="agent_storage_confirm">Elimină acum</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">Codul sursă DroidDeck</string>
+    <string name="agent_storage_source">Codul sursă DroidDeck Pure</string>
     <string name="agent_storage_caches">Cache-uri de descărcare</string>
     <string name="agent_storage_source_warning">Modificările netrimise se pierd</string>
     <string name="agent_storage_caches_warning">Compilările le vor descărca din nou</string>

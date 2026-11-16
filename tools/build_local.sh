@@ -450,11 +450,15 @@ for scheme in \
         exit 1
     }
 done
-grep -qi 'CN=DroidDeck Personal' <<<"${signature_output}" || {
-    echo "APK signature check failed: the signer is not DroidDeck Personal." >&2
+expected_signer=$(tr -d ' \n' < "${repo_root}/keystore/release-signer.sha256")
+grep -qi "certificate SHA-256 digest: ${expected_signer}" <<<"${signature_output}" || {
+    echo "APK signature check failed: the signer does not match DroidDeck Pure's upgrade key." >&2
     exit 1
 }
 
-printf 'APK: %s\n' "${apk}"
+version=$(sed -n 's/^ *versionName "\(.*\)"$/\1/p' "${repo_root}/app/build.gradle")
+delivery_apk="${repo_root}/app/build/outputs/apk/${build_variant}/DroidDeck-Pure-${version}.apk"
+cp "${apk}" "${delivery_apk}"
+printf 'APK: %s\n' "${delivery_apk}"
 printf 'SHA-256: '
 shasum -a 256 "${apk}" | awk '{print $1}'

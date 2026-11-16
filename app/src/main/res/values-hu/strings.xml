@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Nyitva tartás</string>
     <string name="steamvr_recovery_restarting">A grafika visszaállítása és a SteamVR újranyitása…</string>
     <string name="steamvr_recovery_failed">A DroidDeck nem tudott automatikusan újraindulni. Zárja be teljesen az alkalmazást, majd nyissa meg újra.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>Az első indítás letölti a Steamet. Ez néhány percet vehet igénybe.</item>
         <item>Alapértelmezés szerint az alkalmazás elhagyása szünetelteti a Steamet; visszatéréskor ott folytatja, ahol abbahagyta.</item>
@@ -916,7 +916,7 @@
     <string name="setup_language_system">Rendszer alapértelmezett (%1$s)</string>
     <string name="setup_language_system_short">Rendszer alapértelmezett</string>
     <string name="setup_app_scale">Alkalmazásméret</string>
-    <string name="setup_app_scale_hint">A DroidDeck szövege és vezérlői</string>
+    <string name="setup_app_scale_hint">A DroidDeck Pure szövege és vezérlői</string>
     <string name="setup_app_scale_default">%1$d%% (Alapértelmezett)</string>
     <string name="setup_theme">Téma</string>
     <string name="setup_theme_hint">Az indítóalkalmazás megjelenése</string>
@@ -1026,10 +1026,10 @@
     <string name="store_website">Weboldal</string>
     <string name="store_verified">Ellenőrzött</string>
     <string name="upd_title">Frissítések</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Ellenőrizve: %1$s</string>
     <string name="upd_not_checked">Még nincs ellenőrizve</string>
-    <string name="upd_perm_title">Engedélyezze, hogy a DroidDeck magát frissítse</string>
+    <string name="upd_perm_title">Engedélyezze, hogy a DroidDeck Pure magát frissítse</string>
     <string name="upd_perm_text">A következő képernyőn kapcsolja be az „Engedélyezés ebből a forrásból” lehetőséget, majd térjen vissza. A frissítés önműködően folytatódik.</string>
     <string name="upd_open_settings">Beállítások megnyitása</string>
     <string name="upd_not_now">Most nem</string>
@@ -1057,7 +1057,7 @@
     <string name="upd_stop_session">Állítsa le a futó munkamenetet a frissítéshez.</string>
     <string name="upd_less">Kevesebb</string>
     <string name="upd_more">Több</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Új Preview build</string>
     <string name="upd_new_test">PR #%1$d teszt build</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1130,7 +1130,7 @@
     <string name="agent_storage_confirm">Eltávolítás most</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">DroidDeck forráskódja</string>
+    <string name="agent_storage_source">DroidDeck Pure forráskódja</string>
     <string name="agent_storage_caches">Letöltési gyorsítótárak</string>
     <string name="agent_storage_source_warning">A fel nem küldött módosítások elvesznek</string>
     <string name="agent_storage_caches_warning">A buildek újra letöltik őket</string>

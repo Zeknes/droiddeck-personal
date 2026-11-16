@@ -316,7 +316,7 @@ def stable_app_release(releases: list[dict]) -> dict | None:
     apps = [
         r for r in releases
         if not r.get("draft") and not r.get("prerelease")
-        and any(a.get("name") == f"DroidDeck-{r.get('tag_name')}.apk" for a in r.get("assets") or [])
+        and any(a.get("name") in (f"DroidDeck-{r.get('tag_name')}.apk", f"DroidDeck-Pure-{r.get('tag_name')}.apk") for a in r.get("assets") or [])
     ]
     return max(apps, key=lambda r: r.get("published_at") or r.get("created_at") or "", default=None)
 

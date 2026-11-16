@@ -1,3 +1,10 @@
+# DroidDeck Pure
+
+- Canonical repository: https://github.com/Zeknes/droiddeck-pure. Plasma Mobile is the maintained desktop; GNOME development is discontinued.
+- The independent application ID is `com.zeknes.droiddeck.pure`. It coexists with the historical `com.zeknes.droiddeck.mobileprobe` app and has separate private data. Never uninstall, clear or automatically migrate the historical installation. Keep Pure's existing signing key for future Pure upgrades; its private signing-directory name is retained.
+- Use `DroidDeck Pure` for the application name. `tools/build_local.sh` produces `DroidDeck-Pure-<versionName>.apk`; build distributable packages from a committed, clean tree on ROG. Do not change GitHub workflows for this distribution; do not publish tags or releases without an explicit request.
+- Preserve upstream copyright, licences and notices. Internal `com.droiddeck.launcher` namespaces and `droiddeck-*` runtime commands remain unchanged.
+
 # Rules
 
 - Comments should be rare, factual, and explain only non-obvious external constraints or business invariants.

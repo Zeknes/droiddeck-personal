@@ -24,7 +24,7 @@ import java.io.IOException
 class AppUpdatesTest {
     private fun apk(versionCode: Int = 9) = AppUpdates.Apk(
         "DroidDeck.apk",
-        "https://github.com/Droid-Deck/DroidDeck-CI/releases/download/t/DroidDeck.apk",
+        "https://github.com/Zeknes/droiddeck-pure/releases/download/t/DroidDeck.apk",
         10,
         "a".repeat(64),
         "com.droiddeck.launcher",
@@ -216,8 +216,8 @@ class AppUpdatesTest {
         val raw = """
             {
               "schema": 1,
-              "sourceRepo": "Droid-Deck/DroidDeck",
-              "ciRepo": "Droid-Deck/DroidDeck-CI",
+              "sourceRepo": "Zeknes/droiddeck-pure",
+              "ciRepo": "Zeknes/droiddeck-pure",
               "stable": null,
               "preview": {
                 "tag": "main-deadbee",
@@ -228,11 +228,11 @@ class AppUpdatesTest {
                 "version": null,
                 "versionCode": 9,
                 "publishedAt": 1,
-                "url": "https://github.com/Droid-Deck/DroidDeck-CI/releases/tag/main-deadbee",
+                "url": "https://github.com/Zeknes/droiddeck-pure/releases/tag/main-deadbee",
                 "apks": {
                   "com.droiddeck.launcher": {
                     "name": "DroidDeck-main-deadbee.apk",
-                    "url": "https://github.com/Droid-Deck/DroidDeck-CI/releases/download/main-deadbee/DroidDeck-main-deadbee.apk",
+                    "url": "https://github.com/Zeknes/droiddeck-pure/releases/download/main-deadbee/DroidDeck-main-deadbee.apk",
                     "size": 10,
                     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "packageName": "com.droiddeck.launcher",
@@ -245,6 +245,22 @@ class AppUpdatesTest {
             }
         """.trimIndent().replace("__SIGNER__", signer)
         return JSONObject(raw)
+    }
+
+    @Test fun pureCatalogIsIndependentAndDoesNotOfferAnUnpublishedRelease() {
+        assertEquals("Zeknes/droiddeck-pure", AppUpdates.REPO)
+        val raw = JSONObject().put("schema", 1).put("sourceRepo", AppUpdates.REPO)
+            .put("ciRepo", AppUpdates.REPO).put("stable", JSONObject.NULL)
+            .put("preview", JSONObject.NULL).put("tests", JSONArray())
+        val parsed = AppUpdates.readPublishedCatalog(raw, BuildConfig.APPLICATION_ID, 1L)
+        assertNull(parsed.stable)
+        assertNull(parsed.preview)
+        assertTrue(parsed.tests.isEmpty())
+        try {
+            AppUpdates.readPublishedCatalog(raw.put("sourceRepo", "Droid-Deck/DroidDeck"), BuildConfig.APPLICATION_ID, 1L)
+            fail("upstream catalog must not replace Pure")
+        } catch (_: IOException) {
+        }
     }
 
     @Test

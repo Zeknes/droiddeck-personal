@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">열어 두기</string>
     <string name="steamvr_recovery_restarting">그래픽을 초기화하고 SteamVR을 다시 여는 중…</string>
     <string name="steamvr_recovery_failed">DroidDeck을 자동으로 다시 시작하지 못했습니다. 앱을 완전히 종료한 후 다시 여세요.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>첫 실행 시 Steam을 다운로드합니다. 몇 분 정도 걸릴 수 있습니다.</item>
         <item>기본적으로 앱을 나가면 Steam이 일시 중지되며, 다시 돌아오면 중단된 부분부터 재개됩니다.</item>
@@ -913,7 +913,7 @@
     <string name="setup_language_system">시스템 기본값(%1$s)</string>
     <string name="setup_language_system_short">시스템 기본값</string>
     <string name="setup_app_scale">앱 크기</string>
-    <string name="setup_app_scale_hint">DroidDeck 텍스트 및 컨트롤</string>
+    <string name="setup_app_scale_hint">DroidDeck Pure 텍스트 및 컨트롤</string>
     <string name="setup_app_scale_default">%1$d%%(기본값)</string>
     <string name="setup_theme">테마</string>
     <string name="setup_theme_hint">런처 외관</string>
@@ -1023,10 +1023,10 @@
     <string name="store_website">웹사이트</string>
     <string name="store_verified">인증됨</string>
     <string name="upd_title">업데이트</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">%1$s 확인됨</string>
     <string name="upd_not_checked">확인하지 않음</string>
-    <string name="upd_perm_title">DroidDeck 자체 업데이트 허용</string>
+    <string name="upd_perm_title">DroidDeck Pure 자체 업데이트 허용</string>
     <string name="upd_perm_text">다음 페이지에서 \"이 출처 허용\"을 켜고 돌아오세요. 업데이트가 자동으로 계속됩니다.</string>
     <string name="upd_open_settings">설정 열기</string>
     <string name="upd_not_now">나중에</string>
@@ -1054,7 +1054,7 @@
     <string name="upd_stop_session">업데이트하기 전에 실행 중인 세션을 중지하세요.</string>
     <string name="upd_less">접기</string>
     <string name="upd_more">더보기</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">새 미리보기 빌드</string>
     <string name="upd_new_test">PR #%1$d 테스트 빌드</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1127,7 +1127,7 @@
     <string name="agent_storage_confirm">지금 삭제</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">DroidDeck 소스</string>
+    <string name="agent_storage_source">DroidDeck Pure 소스</string>
     <string name="agent_storage_caches">다운로드 캐시</string>
     <string name="agent_storage_source_warning">푸시하지 않은 변경 사항은 사라집니다</string>
     <string name="agent_storage_caches_warning">빌드 시 다시 다운로드합니다</string>

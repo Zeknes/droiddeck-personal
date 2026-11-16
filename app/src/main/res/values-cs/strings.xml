@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Nechat otevřené</string>
     <string name="steamvr_recovery_restarting">Resetování grafiky a opětovné otevírání SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck se nepodařilo automaticky restartovat. Aplikaci úplně zavřete a pak ji znovu otevřete.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>První spuštění stáhne Steam. Může to trvat několik minut.</item>
         <item>Ve výchozím nastavení se po opuštění aplikace Steam pozastaví; po návratu pokračuje, kde skončil.</item>
@@ -922,7 +922,7 @@
     <string name="setup_language_system">Výchozí systémový (%1$s)</string>
     <string name="setup_language_system_short">Výchozí systémový</string>
     <string name="setup_app_scale">Měřítko aplikace</string>
-    <string name="setup_app_scale_hint">Text a ovládání DroidDeck</string>
+    <string name="setup_app_scale_hint">Text a ovládání DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d %% (výchozí)</string>
     <string name="setup_theme">Téma</string>
     <string name="setup_theme_hint">Vzhled spouštěče</string>
@@ -1032,10 +1032,10 @@
     <string name="store_website">Web</string>
     <string name="store_verified">Ověřeno</string>
     <string name="upd_title">Aktualizace</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Zkontrolováno %1$s</string>
     <string name="upd_not_checked">Zatím nezkontrolováno</string>
-    <string name="upd_perm_title">Povolit DroidDecku aktualizovat se sám</string>
+    <string name="upd_perm_title">Povolit DroidDeck Pureu aktualizovat se sám</string>
     <string name="upd_perm_text">Na další obrazovce zapněte Povolit z tohoto zdroje a vraťte se zpět. Aktualizace pak pokračuje sama.</string>
     <string name="upd_open_settings">Otevřít nastavení</string>
     <string name="upd_not_now">Teď ne</string>
@@ -1063,7 +1063,7 @@
     <string name="upd_stop_session">Pro aktualizaci zastavte běžící relaci.</string>
     <string name="upd_less">Méně</string>
     <string name="upd_more">Více</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Nová sestava Preview</string>
     <string name="upd_new_test">Testovací sestava PR #%1$d</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1136,7 +1136,7 @@
     <string name="agent_storage_confirm">Odebrat nyní</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">Zdrojový kód DroidDeck</string>
+    <string name="agent_storage_source">Zdrojový kód DroidDeck Pure</string>
     <string name="agent_storage_caches">Mezipaměť stahování</string>
     <string name="agent_storage_source_warning">Neodeslané změny se ztratí</string>
     <string name="agent_storage_caches_warning">Sestavení je znovu stáhnou.</string>

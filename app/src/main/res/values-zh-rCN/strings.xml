@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">保持打开</string>
     <string name="steamvr_recovery_restarting">正在重置图形并重新打开 SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck 无法自动重启。请完全关闭应用，然后重新打开。</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>首次运行会下载 Steam，这可能需要几分钟。</item>
         <item>默认情况下，离开应用会暂停 Steam；返回后会从原处继续。</item>
@@ -914,7 +914,7 @@
     <string name="setup_language_system">系统默认（%1$s）</string>
     <string name="setup_language_system_short">系统默认</string>
     <string name="setup_app_scale">应用缩放</string>
-    <string name="setup_app_scale_hint">DroidDeck 的文字和控件</string>
+    <string name="setup_app_scale_hint">DroidDeck Pure 的文字和控件</string>
     <string name="setup_app_scale_default">%1$d%%（默认）</string>
     <string name="setup_theme">主题</string>
     <string name="setup_theme_hint">启动器外观</string>
@@ -1107,10 +1107,10 @@
     <string name="store_website">网站</string>
     <string name="store_verified">已验证</string>
     <string name="upd_title">更新</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">已于 %1$s 检查</string>
     <string name="upd_not_checked">尚未检查</string>
-    <string name="upd_perm_title">允许 DroidDeck 自动更新</string>
+    <string name="upd_perm_title">允许 DroidDeck Pure 自动更新</string>
     <string name="upd_perm_text">在下一屏幕中打开“允许此来源”，然后返回。更新会自动继续。</string>
     <string name="upd_open_settings">打开设置</string>
     <string name="upd_not_now">暂不</string>
@@ -1138,7 +1138,7 @@
     <string name="upd_stop_session">请先停止正在运行的会话再更新。</string>
     <string name="upd_less">收起</string>
     <string name="upd_more">展开</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">新的预览版构建</string>
     <string name="upd_new_test">PR #%1$d 测试构建</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1211,7 +1211,7 @@
     <string name="agent_storage_confirm">立即移除</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">DroidDeck 源码</string>
+    <string name="agent_storage_source">DroidDeck Pure 源码</string>
     <string name="agent_storage_caches">下载缓存</string>
     <string name="agent_storage_source_warning">未推送的更改将丢失</string>
     <string name="agent_storage_caches_warning">构建时会重新下载</string>

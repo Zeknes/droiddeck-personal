@@ -128,11 +128,11 @@ android {
     ndkVersion project.findProperty('ndkVersion') ?: '27.3.13750724'
 
     defaultConfig {
-        applicationId "com.zeknes.droiddeck.mobileprobe"
+        applicationId "com.zeknes.droiddeck.pure"
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 30
-        versionName "0.7.1"
+        versionCode 32
+        versionName "0.7.3"
         buildConfigField "String", "BUILD_LABEL", "\"${escapedBuildLabel}\""
         buildConfigField "String", "SOURCE_COMMIT", "\"${sourceCommit}\""
         buildConfigField "int", "PR_NUMBER", "${prNumber}"
@@ -193,7 +193,7 @@ android {
             def localSuffix = localBuildOptions.getProperty('droiddeck.debugApplicationIdSuffix')
             if (localSuffix) {
                 applicationIdSuffix localSuffix
-                resValue 'string', 'app_name', 'DroidDeck XR Dev'
+                resValue 'string', 'app_name', 'DroidDeck Pure Dev'
             }
         }
         release {

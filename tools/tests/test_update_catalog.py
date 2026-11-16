@@ -21,6 +21,12 @@ from tools.release.update_catalog import (
 
 
 class UpdateCatalogTest(unittest.TestCase):
+    def test_pure_versioned_package_is_a_stable_app_asset(self):
+        release = {"tag_name": "0.7.3", "draft": False, "prerelease": False,
+                   "published_at": "2026-11-16T00:00:00Z",
+                   "assets": [{"name": "DroidDeck-Pure-0.7.3.apk"}]}
+        self.assertEqual(release, stable_app_release([release]))
+
     def test_gradle_metadata(self):
         code, name = parse_gradle("""android {
     defaultConfig {

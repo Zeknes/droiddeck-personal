@@ -140,8 +140,8 @@ CPUFREQ = textwrap.dedent('''\
 
 def battery(tenths):
     return f"Current Battery Service state:\n  level: 80\n  temperature: {tenths}\n  technology: Li-poly"
-PRIVATE_LOG_DIR = "/data/user/0/com.droiddeck.launcher/files/logs/sessions/s1"
-AGENT_LOGS_DIR = "/storage/emulated/0/Android/data/com.droiddeck.launcher/files/agent-logs"
+PRIVATE_LOG_DIR = f"/data/user/0/{ctl.PACKAGE}/files/logs/sessions/s1"
+AGENT_LOGS_DIR = f"/storage/emulated/0/Android/data/{ctl.PACKAGE}/files/agent-logs"
 EXPORTED_DIR = AGENT_LOGS_DIR + "/123e4567-e89b-12d3-a456-426614174000"
 EXPORTED_ZIP = EXPORTED_DIR + "/DroidDeck-s1.zip"
 
@@ -198,6 +198,13 @@ class FakeAdbTest(unittest.TestCase):
 
 
 class DroiddeckctlTest(FakeAdbTest):
+    def test_default_pure_provider_is_independent_of_the_historical_probe(self):
+        with unittest.mock.patch.dict(os.environ, {}, clear=True):
+            pure = load("droiddeckctl")
+        self.assertEqual("com.zeknes.droiddeck.pure", pure.PACKAGE)
+        self.assertEqual("content://com.zeknes.droiddeck.pure.agent", pure.AUTHORITY)
+        self.assertNotIn("mobileprobe", pure.AUTHORITY)
+
     def test_oversized_requests_are_refused_before_adb(self):
         with self.assertRaises(ctl.ControlError) as caught:
             ctl.provider_call(str(self.adb), "fake-1", "guest", request={"stdin": "x" * ctl.REQUEST_CAP})
@@ -378,7 +385,7 @@ class DroiddeckctlTest(FakeAdbTest):
         self.assertEqual(3, summary["offCadence"])
 
     def test_pacing_captures_then_turns_timestats_off(self):
-        self.configure({}, timestats=TIMESTATS_SURFACEVIEW)
+        self.configure({}, timestats=TIMESTATS_SURFACEVIEW.replace("com.droiddeck.launcher/", ctl.PACKAGE + "/"))
         with unittest.mock.patch.object(ctl.time, "sleep"):
             code, out = self.run_ctl("pacing", "--seconds", "1")
         self.assertEqual(0, code)

@@ -7,7 +7,7 @@
     <string name="steamvr_recovery_cancel">Не закривати</string>
     <string name="steamvr_recovery_restarting">Скидання графіки й повторне відкриття SteamVR…</string>
     <string name="steamvr_recovery_failed">DroidDeck не вдалося перезапуститися автоматично. Повністю закрийте додаток, а потім відкрийте його знову.</string>
-    <string name="app_name">DroidDeck</string>
+    <string name="app_name">DroidDeck Pure</string>
     <string-array name="loading_hints">
         <item>Під час першого запуску завантажується Steam. Це може зайняти кілька хвилин.</item>
         <item>За замовчуванням вихід із додатка ставить Steam на паузу; коли ви повернетеся, усе продовжиться з того самого місця.</item>
@@ -922,7 +922,7 @@
     <string name="setup_language_system">Системна мова (%1$s)</string>
     <string name="setup_language_system_short">Системна мова</string>
     <string name="setup_app_scale">Масштаб додатка</string>
-    <string name="setup_app_scale_hint">Текст і елементи керування DroidDeck</string>
+    <string name="setup_app_scale_hint">Текст і елементи керування DroidDeck Pure</string>
     <string name="setup_app_scale_default">%1$d%% (стандартно)</string>
     <string name="setup_theme">Тема</string>
     <string name="setup_theme_hint">Вигляд лаунчера</string>
@@ -1032,10 +1032,10 @@
     <string name="store_website">Веб-сайт</string>
     <string name="store_verified">Перевірено</string>
     <string name="upd_title">Оновлення</string>
-    <string name="upd_build">DroidDeck %1$s · %2$s</string>
+    <string name="upd_build">DroidDeck Pure %1$s · %2$s</string>
     <string name="upd_checked">Перевірено %1$s</string>
     <string name="upd_not_checked">Ще не перевірено</string>
-    <string name="upd_perm_title">Дозволити DroidDeck оновлюватися самостійно</string>
+    <string name="upd_perm_title">Дозволити DroidDeck Pure оновлюватися самостійно</string>
     <string name="upd_perm_text">На наступному екрані увімкніть «Дозволити з цього джерела», а потім поверніться. Оновлення продовжиться самостійно.</string>
     <string name="upd_open_settings">Відкрити налаштування</string>
     <string name="upd_not_now">Не зараз</string>
@@ -1063,7 +1063,7 @@
     <string name="upd_stop_session">Завершіть поточний сеанс, щоб оновити.</string>
     <string name="upd_less">Згорнути</string>
     <string name="upd_more">Розгорнути</string>
-    <string name="upd_new_stable">DroidDeck %1$s</string>
+    <string name="upd_new_stable">DroidDeck Pure %1$s</string>
     <string name="upd_new_preview">Нова попередня збірка</string>
     <string name="upd_new_test">Тестова збірка PR #%1$d</string>
     <string name="upd_mb">%1$d MB</string>
@@ -1136,7 +1136,7 @@
     <string name="agent_storage_confirm">Видалити зараз</string>
     <string name="agent_storage_claude">Claude Code</string>
     <string name="agent_storage_codex">Codex</string>
-    <string name="agent_storage_source">Вихідний код DroidDeck</string>
+    <string name="agent_storage_source">Вихідний код DroidDeck Pure</string>
     <string name="agent_storage_caches">Кеші завантажень</string>
     <string name="agent_storage_source_warning">Зміни, які не відправлено, буде втрачено</string>
     <string name="agent_storage_caches_warning">Збірки завантажать їх знову</string>
