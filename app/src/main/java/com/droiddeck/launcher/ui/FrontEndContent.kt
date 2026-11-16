@@ -115,7 +115,6 @@ internal fun Pane(
             s.pageKey != null && page != null -> null
             selected.startsWith("app:") -> s.steamGames.firstOrNull { "app:${it.appId}" == selected }?.art
             selected == "games" -> s.steamGames.maxByOrNull { it.lastPlayed }?.art
-            selected.startsWith("sound:") -> s.soundtracks.firstOrNull { "sound:${it.appId}" == selected }?.let { it.hero ?: it.art }
             selected.startsWith("rom:") -> romFor(s, selected)?.second?.art
             else -> null
         }

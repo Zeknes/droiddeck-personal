@@ -55,7 +55,6 @@ internal object NavTabs {
 
     private fun featureOff(s: FrontEndState, key: String) = when (key) {
         "stores" -> !s.gameStoresEnabled
-        "soundtracks" -> !s.soundtracksEnabled
         "agent" -> !AgentTab.shown
         else -> false
     }

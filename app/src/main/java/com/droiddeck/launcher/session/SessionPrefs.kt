@@ -201,16 +201,12 @@ object SessionPrefs {
         prefs(context).edit().putBoolean("gameStoresEnabled", on).apply()
     }
 
-    fun soundtracksEnabled(context: Context): Boolean = prefs(context).getBoolean("soundtracksEnabled", true)
 
     fun setSoundtracksEnabled(context: Context, on: Boolean) {
-        prefs(context).edit().putBoolean("soundtracksEnabled", on).apply()
     }
 
-    fun soundtracksIngame(context: Context): Boolean = prefs(context).getBoolean("soundtracksIngame", false)
 
     fun setSoundtracksIngame(context: Context, on: Boolean) {
-        prefs(context).edit().putBoolean("soundtracksIngame", on).apply()
     }
 
     fun gameStoresSpeedTier(context: Context): String = prefs(context).getString("gameStoresSpeedTier", "fast") ?: "fast"
@@ -301,7 +297,7 @@ object SessionPrefs {
         prefs(context).edit().putString("navTabOrder", order.joinToString(",")).apply()
     }
 
-    fun navTabShelved(context: Context): Set<String> = idList(prefs(context).getString("navTabShelved", "soundtracks,agent")).toSet()
+    fun navTabShelved(context: Context): Set<String> = idList(prefs(context).getString("navTabShelved", "agent")).toSet()
 
     fun setNavTabShelved(context: Context, keys: Set<String>) {
         prefs(context).edit().putString("navTabShelved", keys.joinToString(",")).apply()
@@ -1189,13 +1185,12 @@ object SessionPrefs {
     const val STARTUP_OFF = ""
     const val STARTUP_DESKTOP = "desktop"
 
-    fun startupSession(context: Context): String {
-        val p = prefs(context)
-        return p.getString("startupSession", null) ?: STARTUP_OFF
-    }
+    fun startupSession(context: Context): String =
+        if (prefs(context).getString("startupSession", null) == STARTUP_DESKTOP) STARTUP_DESKTOP else STARTUP_OFF
 
     fun setStartupSession(context: Context, id: String) {
-        prefs(context).edit().putString("startupSession", id).remove("runSteamAtStartup").apply()
+        val value = if (id == STARTUP_DESKTOP) STARTUP_DESKTOP else STARTUP_OFF
+        prefs(context).edit().putString("startupSession", value).remove("runSteamAtStartup").apply()
     }
 
     fun addedGamesDirs(context: Context): List<String> {

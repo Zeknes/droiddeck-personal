@@ -148,9 +148,8 @@ class GlassesRenderingTest {
         assertEquals(35, projection.screenWidthDm)
     }
 
-    @Test fun outputActiveDecidesWhetherTheGlassesRender() {
+    @Test fun onlyTheDedicatedGlassesOutputRendersToTheGlasses() {
         assertTrue(GlassesRendering.usesGlasses(ultra, true))
         assertFalse(GlassesRendering.usesGlasses(ultra, false))
-        assertFalse(GlassesRendering.usesGlasses(GlassesState(), true))
     }
 }

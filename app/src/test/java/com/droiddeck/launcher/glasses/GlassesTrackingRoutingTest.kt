@@ -34,6 +34,8 @@ class GlassesTrackingRoutingTest {
         supportsSpatial = true, displayId = Display.DEFAULT_DISPLAY + 1, width = 1920, height = 1080)
     private val saved = GlassesSettings(positionalTracking = true, handControllers = true)
 
+    private lateinit var screen: GlassesScreen
+
     @Before fun setUp() {
         val running = SessionState.running
         val fields = listOf("context", "publisherAttached").associateWith {
@@ -50,6 +52,11 @@ class GlassesTrackingRoutingTest {
         ReflectionHelpers.setField(activity, "loading", LoadingState(activity).apply { visible = false })
         ReflectionHelpers.setField(activity, "started", true)
         ReflectionHelpers.setField(activity, "activeCardboard", Cardboard.OFF)
+        val displayId = org.robolectric.shadows.ShadowDisplayManager.addDisplay("w1920dp-h1080dp")
+        val display = activity.getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(displayId)
+        screen = GlassesScreen(activity, display, 60, activity)
+        ReflectionHelpers.setField(activity, "glassesScreen", screen)
+        state("glassesOutputActive", true)
         state("glasses", ultra)
         state("glassesSettings", saved)
         SessionState.running = true
@@ -65,6 +72,7 @@ class GlassesTrackingRoutingTest {
     }
 
     @Test fun usbLossKeepsSpatialOwnershipAndShowsRecoveryOnTheGlassesDisplay() {
+        state("glassesSettings", saved.copy(headTracking = true, picture3d = GlassesSettings.PICTURE_SCREEN))
         SpatialTracking.disconnect()
         state("glasses", ultra.copy(connected = false, supportsSpatial = false))
         updateRouting()
@@ -81,6 +89,8 @@ class GlassesTrackingRoutingTest {
             SpatialTracking.connect(0, if (joyCons) 83 else 82, null, true, 1.6f, !joyCons, joyCons)
             SpatialTracking.disconnect()
             state("glasses", GlassesState())
+            ReflectionHelpers.setField(activity, "glassesScreen", null)
+            state("glassesOutputActive", false)
             updateRouting()
 
             assertEquals(0, modes())
@@ -93,6 +103,8 @@ class GlassesTrackingRoutingTest {
             SpatialTracking.connect(0, if (joyCons) 85 else 84, null, true, 1.6f, !joyCons, joyCons)
             assertEquals("Reconnecting waits for the output handoff", 0, modes())
             state("glasses", ultra)
+            ReflectionHelpers.setField(activity, "glassesScreen", screen)
+            state("glassesOutputActive", true)
             updateRouting()
             assertEquals(if (joyCons) 5 else 3, modes())
         }

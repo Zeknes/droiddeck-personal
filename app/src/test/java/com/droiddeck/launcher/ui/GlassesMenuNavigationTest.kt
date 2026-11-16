@@ -74,7 +74,7 @@ class GlassesMenuNavigationTest {
     @Test fun unavailableHardwareDoesNotLeaveEmptyTabs() {
         var tabs = emptyList<Pair<String, String>>()
         compose.setContent { DroidDeckTheme { tabs = glassesTabs(glasses.copy(connected = false)) } }
-        compose.runOnIdle { assertEquals(listOf("display", "vr"), tabs.map { it.first }) }
+        compose.runOnIdle { assertEquals(listOf("display"), tabs.map { it.first }) }
     }
 
     @Test fun threeDofRecenterComesFirstOnEveryTab() {

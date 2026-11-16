@@ -94,11 +94,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.droiddeck.launcher.R
 import com.droiddeck.launcher.frontend.Library
-import com.droiddeck.launcher.frontend.Soundtrack
-import com.droiddeck.launcher.frontend.SoundtrackCollections
-import com.droiddeck.launcher.frontend.SoundtrackIndex
-import com.droiddeck.launcher.frontend.SoundtrackTracks
-import com.droiddeck.launcher.playback.SoundtrackController
 import com.droiddeck.launcher.session.SessionPrefs
 import com.droiddeck.launcher.stores.CatalogItem
 import com.droiddeck.launcher.stores.Store
