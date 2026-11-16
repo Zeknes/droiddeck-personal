@@ -35,8 +35,11 @@ class KeyboardHost(
         if (this.purpose == purpose && this.hint == hint) return
         this.purpose = purpose
         this.hint = hint
+        composing = ""
         if (shown) imm.restartInput(this)
     }
+
+    private var composing = ""
 
     init {
         isFocusable = false
@@ -92,6 +95,7 @@ class KeyboardHost(
 
     fun hide() {
         shown = false
+        composing = ""
         imm.hideSoftInputFromWindow(windowToken, 0)
         isFocusable = false
         isFocusableInTouchMode = false
@@ -132,8 +136,6 @@ class KeyboardHost(
     // The IME's composing text only exists on the Android side: it is held here and sent as
     // keystrokes once the IME commits or finishes it, so a preview never types into the guest.
     private inner class KeyConnection : BaseInputConnection(this, false) {
-        private var composing = ""
-
         override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
             composing = ""
             type(text)

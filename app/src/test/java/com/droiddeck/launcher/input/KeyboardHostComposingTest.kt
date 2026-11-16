@@ -15,9 +15,10 @@ import org.robolectric.annotation.Config
 class KeyboardHostComposingTest {
     private val context get() = RuntimeEnvironment.getApplication()
     private val sent = ArrayList<KeyEvent>()
+    private lateinit var host: KeyboardHost
 
     private fun connection(): android.view.inputmethod.InputConnection {
-        val host = KeyboardHost(context) { event -> sent += event; true }
+        host = KeyboardHost(context) { event -> sent += event; true }
         host.content(0, 0)
         host.show()
         return host.onCreateInputConnection(EditorInfo())!!
@@ -80,6 +81,15 @@ class KeyboardHostComposingTest {
         val now = System.currentTimeMillis()
         ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0))
         assertEquals("ls\n", typed)
+    }
+
+    @Test fun switchingFieldsDiscardsWhatThePreviousFieldWasComposing() {
+        val ic = connection()
+        host.content(ImeContentType.PURPOSE_PASSWORD, 0)
+        ic.setComposingText("secret-words", 1)
+        host.content(ImeContentType.PURPOSE_NORMAL, ImeContentType.HINT_SENSITIVE_DATA)
+        ic.finishComposingText()
+        assertEquals("text composed in one field must not land in the next", "", typed)
     }
 
     @Test fun aPlainCommitStillTypesTheText() {
