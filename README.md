@@ -4,9 +4,10 @@ DroidDeck Pure is Zeknes's desktop-focused Android fork of [DroidDeck](https://g
 
 ## Install and upgrade
 
-- Current application version: **0.7.4**, Android versionCode **33**. The app displays **DroidDeck Pure** and uses the independent application ID `com.zeknes.droiddeck.pure`.
+- Current application version: **0.7.5**, Android versionCode **34**. The app displays **DroidDeck Pure** and uses the independent application ID `com.zeknes.droiddeck.pure`.
 - This is a new installation, not an upgrade of the historical Mobile probe or Pure 0.7.2 compatibility package (`com.zeknes.droiddeck.mobileprobe`). Both apps can remain installed. Pure has its own private data and runtime; nothing is automatically copied from the old app. Do not uninstall or clear the old app to install Pure.
-- Install the directly delivered `DroidDeck-Pure-0.7.4.apk`. It upgrades the independent Pure 0.7.3 installation in place with the same ID and signing key, retaining Pure data. A repository rename is not a GitHub Release; no tagged download is claimed until one is explicitly published.
+- Install the directly delivered `DroidDeck-Pure-0.7.5.apk`. It upgrades the independent Pure 0.7.3/0.7.4 installation in place with the same ID and signing key, retaining Pure data.
+- The corner build watermark is hidden by default and after resetting settings. The Updates settings page still shows and copies real build details, and its watermark toggle preserves an explicit on/off choice. A repository rename is not a GitHub Release; no tagged download is claimed until one is explicitly published.
 - Distribution builds run on ROG from committed, clean `main` with `tools/build_local.sh`. GitHub Actions is disabled at repository level; workflow files remain unchanged. The signed APK is written to `app/build/outputs/apk/release/DroidDeck-Pure-<versionName>.apk`; `tools/deploy_local.sh` installs it with `adb install -r`. The retained upstream workflows are not a configured Pure publishing service.
 - Keep the existing private signing key directory `~/.local/share/droiddeck-personal-signing` intact. Certificate SHA-256: `2e78e732f7ce5dea5225a7266a3b6bb5c5d55930d0f1db38433d1b54d699d531`.
 - The app update catalog belongs to this repository. It has no published update until a matching signed Pure package is released; upstream APKs are not offered as Pure updates.

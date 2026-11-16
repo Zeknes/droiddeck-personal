@@ -604,7 +604,7 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
     private var vacDiagnostics by mutableStateOf(false)
     private var agentCommands by mutableStateOf(false)
     private var graphicsLogs by mutableStateOf(false)
-    private var buildWatermark by mutableStateOf(true)
+    private var buildWatermark by mutableStateOf(false)
     private var steamGpuDrawing by mutableStateOf(false)
     private var bridgeFellBack by mutableStateOf(false)
     private var bridgeFellBackMemory by mutableStateOf(false)

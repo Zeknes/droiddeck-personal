@@ -110,7 +110,7 @@ class FrontEndState(
     val vacDiagnostics: Boolean = false,
     val agentCommands: Boolean = false,
     val graphicsLogs: Boolean = false,
-    val buildWatermark: Boolean = true,
+    val buildWatermark: Boolean = false,
     val steamGpuDrawing: Boolean = false,
     val bridgeFellBack: Boolean = false,
     val bridgeFellBackMemory: Boolean = false,
