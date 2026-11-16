@@ -80,7 +80,7 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 
 @Composable
-internal fun HandCameraHost(check: Boolean?, onAskPermission: () -> Unit, onPlay: () -> Unit, onClose: () -> Unit) {
+internal fun HandCameraHost(onAskPermission: () -> Unit, onClose: () -> Unit) {
     if (!HandTracking.supported) return
     val context = LocalContext.current
     val (glasses, tracking) = rememberGlasses()
@@ -102,11 +102,8 @@ internal fun HandCameraHost(check: Boolean?, onAskPermission: () -> Unit, onPlay
     }
     val requests by HandTracking.checkRequests.collectAsState()
     var handled by remember { mutableStateOf(requests) }
-    val fromSettings = requests != handled
-    if (check != null || fromSettings) {
-        PlacementCheck(settings, play = check == true && !fromSettings,
-            onPlay = { handled = requests; onPlay() },
-            onClose = { handled = requests; onClose() })
+    if (requests != handled) {
+        PlacementCheck(settings) { handled = requests; onClose() }
     }
 }
 
@@ -212,7 +209,7 @@ private fun TrackingPackRow() {
 }
 
 @Composable
-private fun PlacementCheck(settings: HandTracking.Settings, play: Boolean, onPlay: () -> Unit, onClose: () -> Unit) {
+private fun PlacementCheck(settings: HandTracking.Settings, onClose: () -> Unit) {
     val context = LocalContext.current
     val side = settings.side
     val camera = remember(side) { HandCamera(context, null, preview = true) }
@@ -228,18 +225,11 @@ private fun PlacementCheck(settings: HandTracking.Settings, play: Boolean, onPla
         else -> view?.advice ?: Advice.STARTING
     }
     val adviceText = stringResource(advice?.let(::adviceLabel) ?: R.string.hand_camera_failed)
-    val start by rememberUpdatedState(onPlay)
-    if (play) LaunchedEffect(advice == Advice.GOOD) {
-        if (advice == Advice.GOOD) {
-            delay(GOOD_HOLD_MS)
-            start()
-        }
-    }
     if (!front) SpokenAdvice(advice, adviceText)
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        PlacementCheckContent(view, front, advice, adviceText, play, switchable = settings.sides.size > 1,
+        PlacementCheckContent(view, front, advice, adviceText, switchable = settings.sides.size > 1,
             onSwitch = { HandTracking.setSide(context, if (front) TrackingCameras.REAR else TrackingCameras.FRONT) },
-            onPlay = onPlay, onClose = onClose)
+            onClose = onClose)
     }
 }
 
@@ -249,10 +239,8 @@ internal fun PlacementCheckContent(
     front: Boolean,
     advice: Advice?,
     adviceText: String,
-    play: Boolean,
     switchable: Boolean,
     onSwitch: () -> Unit,
-    onPlay: () -> Unit,
     onClose: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -270,12 +258,7 @@ internal fun PlacementCheckContent(
             Spacer(Modifier.heightIn(min = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (switchable) SecondaryButton(stringResource(R.string.hand_camera_switch), compact = true, onClick = onSwitch)
-                if (play) {
-                    SecondaryButton(stringResource(R.string.hand_camera_skip), compact = true, modifier = Modifier.testTag("hand-camera-skip"), onClick = onPlay)
-                    SecondaryButton(stringResource(R.string.common_cancel), compact = true, onClick = onClose)
-                } else {
-                    SecondaryButton(stringResource(R.string.hand_camera_done), compact = true, modifier = Modifier.testTag("hand-camera-done"), onClick = onClose)
-                }
+                SecondaryButton(stringResource(R.string.hand_camera_done), compact = true, modifier = Modifier.testTag("hand-camera-done"), onClick = onClose)
             }
         }
     }

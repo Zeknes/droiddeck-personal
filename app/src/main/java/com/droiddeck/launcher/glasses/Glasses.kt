@@ -57,7 +57,6 @@ data class GlassesState(
     val supports30Hz: Boolean = false,
     val supportsSpatial: Boolean = false,
     val resolutions: List<GlassesResolution> = emptyList(),
-    val vrActive: Boolean = false,
 ) {
     val hasDisplay: Boolean get() = displayId != Display.INVALID_DISPLAY
     val usable: Boolean get() = hasDisplay && !noSignal
@@ -86,7 +85,6 @@ data class GlassesSettings(
     val sbsHz: Int = 60,
     val resolution2d: String = "",
     val resolution3d: String = "",
-    val resolutionVr: String = "",
     val sunblock: Boolean? = null,
     val gameOnGlasses: Boolean = true,
     val headTracking: Boolean = true,
@@ -149,8 +147,6 @@ object Glasses {
     private var lastModeSentAt = 0L
     private val modeState = GlassesModeState(SBS_CONFIRM_MS)
     private val confirmMode = Runnable { refresh() }
-    private val steamVrSpatialGate = SteamVrSpatialGate()
-    private val resumeSteamVrSpatial = Runnable { updateSpatialMode() }
     private var glassesMode = 0
     private var autoModeSent = false
 
@@ -243,65 +239,11 @@ object Glasses {
         update { when (profile) {
             GlassesDisplayProfile.TWO_D -> it.copy(resolution2d = choice)
             GlassesDisplayProfile.THREE_D -> it.copy(resolution3d = choice)
-            GlassesDisplayProfile.VR -> it.copy(resolutionVr = choice)
         } }
-        val active = GlassesDisplayModes.profile(s.sbs, s.vrActive)
-        val inheritedByVr = s.vrActive && _settings.value.resolutionVr.isEmpty() &&
-            profile == GlassesDisplayModes.profile(s.sbs, false)
+        val active = GlassesDisplayModes.profile(s.sbs)
+        val inheritedByVr = false
         if ((profile == active || inheritedByVr) && s.canControl && !s.switching3d &&
             model?.resolutions?.isNotEmpty() == true) sendMode(s.sbs)
-    }
-
-    fun prepareSteamVrStart(onPrepared: () -> Unit = {}) {
-        if (!::handler.isInitialized) {
-            steamVrSpatialGate.prepare()
-            onPrepared()
-            return
-        }
-        post {
-            if (steamVrSpatialGate.prepare()) {
-                handler.removeCallbacks(resumeSteamVrSpatial)
-                updateSpatialMode()
-            }
-            onPrepared()
-        }
-    }
-
-    fun cancelSteamVrStart() {
-        if (!::handler.isInitialized) {
-            steamVrSpatialGate.cancel()
-            return
-        }
-        post {
-            steamVrSpatialGate.cancel()
-            handler.removeCallbacks(resumeSteamVrSpatial)
-            updateSpatialMode()
-        }
-    }
-
-    fun setVrActive(on: Boolean) = post {
-        val s = _state.value
-        val trackingChanged = steamVrSpatialGate.setRunning(on, SystemClock.uptimeMillis())
-        if (trackingChanged) {
-            handler.removeCallbacks(resumeSteamVrSpatial)
-            steamVrSpatialGate.deadline?.let {
-                Log.i(TAG, "SteamVR RUNNING; spatial resume scheduled at uptime ${it}ms")
-                handler.postAtTime(resumeSteamVrSpatial, it)
-            }
-        }
-        if (s.vrActive == on) {
-            if (trackingChanged) updateSpatialMode()
-            return@post
-        }
-        val previous = GlassesDisplayModes.selected(_settings.value, s)
-        publish { it.copy(vrActive = on) }
-        val restore2d = !on && modeState.stopVr()
-        val stereo = (s.sbs || modeState.pendingStereo) && !restore2d
-        val selected = GlassesDisplayModes.selected(_settings.value, _state.value, stereo)
-        if (s.canControl && s.usable && (restore2d ||
-            (previous != selected && model?.resolutions?.isNotEmpty() == true)) &&
-            !(on && _settings.value.auto3d && !s.sbs)) sendMode(stereo)
-        updateSpatialMode()
     }
 
     fun set3d(on: Boolean) = post {
@@ -313,16 +255,6 @@ object Glasses {
             rememberSbs(GlassesState.SBS_UNKNOWN)
         }
         sendMode(on)
-    }
-
-    fun set3dForVr(on: Boolean) = post {
-        val s = _state.value
-        if (on) {
-            if (!s.can3d || s.sbs || modeState.pendingStereo) return@post
-            if (sendMode(true)) modeState.startVr()
-        } else if (modeState.stopVr() && s.canControl) {
-            sendMode(false)
-        }
     }
 
     fun setBrightness(level: Int) = post {
@@ -478,7 +410,7 @@ object Glasses {
                 JSONObject().put("status",it[0]).put("callbackAgeMs",it[1]).put("cameraPoseDeltaMs",it[2])
             } ?: JSONObject.NULL)
             .put("spatial", SpatialTracking.diagnosticStatus())
-            .put("supports30Hz", s.supports30Hz).put("vrActive", s.vrActive)
+            .put("supports30Hz", s.supports30Hz)
             .put("resolutions", JSONArray(s.resolutions.map { it.key }))
             .put("display", if (s.hasDisplay) JSONObject().put("id", s.displayId).put("width", s.width).put("height", s.height).put("hz", s.hz.toDouble()) else JSONObject.NULL)
             .put("sbs", s.sbs).put("deviceMode", glassesMode).put("switching3d", s.switching3d)
@@ -494,7 +426,7 @@ object Glasses {
             .put("settings", JSONObject().put("refreshHz", g.refreshHz).put("sbsHz", g.sbsHz).put("sunblock", g.sunblock ?: JSONObject.NULL)
                 .put("gameOnGlasses", g.gameOnGlasses).put("headTracking", g.headTracking).put("auto3d", g.auto3d)
                 .put("screen3dof", g.screen3dof)
-                .put("resolution2d", g.resolution2d).put("resolution3d", g.resolution3d).put("resolutionVr", g.resolutionVr)
+                .put("resolution2d", g.resolution2d).put("resolution3d", g.resolution3d)
                 .put("positionalTracking", g.positionalTracking).put("handControllers", g.handControllers)
                 .put("joyConTracking", g.joyConTracking).put("eyeHeightCm", g.eyeHeightCm)
                 .put("steadyHandAim", g.steadyHandAim)
@@ -706,8 +638,7 @@ object Glasses {
 
     private fun updateSpatialMode() {
         val current = link as? VitureSdkLink ?: return
-        if (!current.ready || !current.isCarina || current.spatialEnabled ==
-            steamVrSpatialGate.spatialEnabled(_settings.value.positionalTracking, SystemClock.uptimeMillis())) return
+        if (!current.ready || !current.isCarina || current.spatialEnabled == _settings.value.positionalTracking) return
         val device = linkDevice
         closeLink()
         refresh()
@@ -718,7 +649,7 @@ object Glasses {
 
     private fun openLink(device: UsbDevice) {
         val generation = ++linkGeneration
-        val spatial = steamVrSpatialGate.spatialEnabled(_settings.value.positionalTracking, SystemClock.uptimeMillis())
+        val spatial = _settings.value.positionalTracking
         calibrationKey = calibrationStore.key(device.vendorId, device.productId,
             runCatching { device.serialNumber }.getOrNull(), model?.name.orEmpty())
         val l = if (device.vendorId == VitureProtocol.VENDOR_ID) {
@@ -1129,7 +1060,6 @@ object Glasses {
             sbsHz = p.getInt("sbsHz", 60),
             resolution2d = p.getString("resolution2d", "").orEmpty(),
             resolution3d = p.getString("resolution3d", "").orEmpty(),
-            resolutionVr = p.getString("resolutionVr", "").orEmpty(),
             sunblock = if (p.contains("sunblock")) p.getBoolean("sunblock", false) else null,
             gameOnGlasses = p.getBoolean("gameOnGlasses", true),
             headTracking = p.getBoolean("headTracking", true),
@@ -1152,7 +1082,6 @@ object Glasses {
             putInt("sbsHz", s.sbsHz)
             putString("resolution2d", s.resolution2d)
             putString("resolution3d", s.resolution3d)
-            putString("resolutionVr", s.resolutionVr)
             s.sunblock?.let { putBoolean("sunblock", it) } ?: remove("sunblock")
             putBoolean("gameOnGlasses", s.gameOnGlasses)
             putBoolean("headTracking", s.headTracking)

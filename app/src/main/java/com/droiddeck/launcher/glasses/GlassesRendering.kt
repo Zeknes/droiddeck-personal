@@ -31,12 +31,10 @@ internal object GlassesRendering {
         return if (hz == 30 && kotlin.math.abs(state.hz - 30f) >= 0.5f) 60 else hz
     }
 
-    fun usesGlasses(state: GlassesState, outputActive: Boolean, steamVrRunning: Boolean): Boolean =
-        outputActive || (steamVrRunning && state.usable)
+    fun usesGlasses(state: GlassesState, outputActive: Boolean): Boolean = outputActive
 
-    fun picture(settings: GlassesSettings, stereoDisplay: Boolean, steamVrRunning: Boolean): Picture =
+    fun picture(settings: GlassesSettings, stereoDisplay: Boolean): Picture =
         when {
-            steamVrRunning -> Picture.STEREO
             settings.picture3d == GlassesSettings.PICTURE_SCREEN -> Picture.VIRTUAL_SCREEN
             settings.picture3d == GlassesSettings.PICTURE_SBS -> Picture.STEREO
             stereoDisplay -> Picture.DUPLICATED
@@ -48,17 +46,9 @@ internal object GlassesRendering {
         settings: GlassesSettings,
         state: GlassesState,
         outputActive: Boolean,
-        steamVrRunning: Boolean,
     ): Cardboard {
-        if (!usesGlasses(state, outputActive, steamVrRunning)) {
-            return if (steamVrRunning && !base.enabled) base.copy(
-                enabled = true,
-                source = Cardboard.SOURCE_SBS,
-                viewer = Cardboard.Viewer.NONE.id,
-                mono = true,
-            ) else base
-        }
-        val picture = picture(settings, state.sbs, steamVrRunning)
+        if (!usesGlasses(state, outputActive)) return base
+        val picture = picture(settings, state.sbs)
         if (picture == Picture.FLAT) return Cardboard.OFF
         return Cardboard(
             enabled = true,
@@ -71,8 +61,7 @@ internal object GlassesRendering {
             ipdMm = base.ipdMm,
             screenWidthDm = settings.screenWidthDm,
             screenDistanceDm = settings.screenDistanceDm,
-            headTracking = settings.headTracking && state.canControl &&
-                (picture == Picture.VIRTUAL_SCREEN || steamVrRunning),
+            headTracking = settings.headTracking && state.canControl && picture == Picture.VIRTUAL_SCREEN,
             mono = !state.sbs,
         )
     }

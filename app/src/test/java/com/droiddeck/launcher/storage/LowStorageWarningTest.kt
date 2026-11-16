@@ -70,7 +70,7 @@ class LowStorageWarningTest {
             LowSpaceDialog(
                 free = low, warn = warn,
                 onWarnChange = { SessionPrefs.setLowStorageWarning(ctx, it); warn = it },
-                onFreeUp = {}, onPlay = {}, onDismiss = {},
+                onFreeUp = {}, onDismiss = {},
             )
         }
         val label = ctx.getString(R.string.storage_low_never)

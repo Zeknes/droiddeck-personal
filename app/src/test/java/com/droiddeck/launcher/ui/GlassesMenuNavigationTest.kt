@@ -48,18 +48,13 @@ class GlassesMenuNavigationTest {
         hz = 60f, sbs90 = true, supportsSpatial = true, supportsScreen3dof = true, brightness = 4, volume = 3,
         resolutions = listOf(GlassesResolution(1920, 1080), GlassesResolution(1920, 1200)))
 
-    @Test fun narrowMenuSeparatesDisplayVrTrackingAndDevice() {
+    @Test fun narrowMenuSeparatesDisplayTrackingAndDevice() {
         show(inSession = false)
         compose.onNodeWithTag("setting-glasses-resolution-two_d").assertExists()
         compose.onNodeWithTag("setting-glasses-resolution-three_d").assertExists()
         savePreview("display")
         compose.onNodeWithTag("glasses-distance").performScrollTo()
         savePreview("virtual-screen")
-        compose.onNodeWithTag("glasses-tab-vr").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("setting-glasses-resolution-vr").assertIsDisplayed()
-        compose.onNodeWithTag("setting-glasses-resolution-two_d").assertDoesNotExist()
-        compose.onNodeWithTag("glasses-vr-fov").assertExists()
-        savePreview("vr")
         compose.onNodeWithTag("glasses-tab-tracking").performClick()
         compose.onNodeWithText("LUMA ULTRA CAMERAS — EXPERIMENTAL").assertExists()
         compose.onNodeWithTag("setting-glasses-position").assertExists()
@@ -75,20 +70,6 @@ class GlassesMenuNavigationTest {
         savePreview("device")
     }
 
-    @Test fun controllerCanReachVrTabAndItsLaunchAction() {
-        var launches = 0
-        show(inSession = true, launch = { launches++ })
-        compose.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard); firstTab.requestFocus() }
-        compose.onNodeWithTag("glasses-tab-display").assertIsFocused().performKeyInput {
-            pressKey(Key.DirectionRight)
-            pressKey(Key.Enter)
-        }
-        compose.onNodeWithTag("glasses-tab-vr").assertIsSelected()
-        compose.onNodeWithTag("glasses-tab-vr").performKeyInput { pressKey(Key.DirectionDown) }
-        compose.onNodeWithText("Start SteamVR").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
-        assertEquals(1, launches)
-        savePreview("session-vr")
-    }
 
     @Test fun unavailableHardwareDoesNotLeaveEmptyTabs() {
         var tabs = emptyList<Pair<String, String>>()
@@ -104,16 +85,12 @@ class GlassesMenuNavigationTest {
         assertRecenterComesFirst(GlassesSettings(picture3d = GlassesSettings.PICTURE_SCREEN, positionalTracking = true), false)
     }
 
-    @Test fun vrRecenterComesFirstOnEveryTab() {
-        assertRecenterComesFirst(GlassesSettings(), true)
-    }
 
     private fun assertRecenterComesFirst(settings: GlassesSettings, vr: Boolean) {
         var recenters = 0
-        show(inSession = true, settings = settings, steamVrRunning = vr, recenter = { recenters++ })
+        show(inSession = true, settings = settings, recenter = { recenters++ })
         val firstControls = listOf(
             GlassesTab.DISPLAY to "setting-glasses-game",
-            GlassesTab.VR to "setting-glasses-auto3d",
             GlassesTab.TRACKING to "setting-glasses-tracking",
             GlassesTab.HARDWARE to "glasses-brightness",
         )
@@ -124,13 +101,13 @@ class GlassesMenuNavigationTest {
                 compose.onNodeWithTag(control).fetchSemanticsNode().boundsInRoot.top)
             button.performClick()
         }
-        assertEquals(4, recenters)
-        savePreview(if (vr) "recenter-vr" else if (settings.positionalTracking) "recenter-6dof" else "recenter-3dof")
+        assertEquals(3, recenters)
+        savePreview(if (settings.positionalTracking) "recenter-6dof" else "recenter-3dof")
     }
 
     private fun show(inSession: Boolean, launch: () -> Unit = {},
         settings: GlassesSettings = GlassesSettings(positionalTracking = true),
-        steamVrRunning: Boolean = false, recenter: (() -> Unit)? = null) {
+        recenter: (() -> Unit)? = null) {
         compose.setContent {
             DroidDeckTheme {
                 view = LocalView.current
@@ -145,10 +122,9 @@ class GlassesMenuNavigationTest {
                     key(selected) {
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                             CompositionLocalProvider(LocalChipMinWidth provides 120.dp) {
-                                GlassesGroups(host, glasses, settings, onRecenter = recenter, steamVrRunning = steamVrRunning,
+                                GlassesGroups(host, glasses, settings, onRecenter = recenter,
                                     track = { if (it in listOf("glasses-width", "glasses-distance", "glasses-vr-fov",
-                                        "glasses-brightness", "glasses-volume")) Modifier.testTag(it) else Modifier }, inSession = inSession, tab = selected,
-                                    steamVr = { if (inSession) ActionRow("SteamVR", null, "Start SteamVR", launch) })
+                                        "glasses-brightness", "glasses-volume")) Modifier.testTag(it) else Modifier }, inSession = inSession, tab = selected)
                             }
                         }
                     }

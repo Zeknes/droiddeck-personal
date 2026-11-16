@@ -62,7 +62,6 @@ import com.droiddeck.launcher.glasses.SpatialTracking
 import com.droiddeck.launcher.glasses.TrackingRecovery
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import com.droiddeck.launcher.gpu.SteamVr
 import com.droiddeck.launcher.gpu.ScreenEffectLooks
 import com.droiddeck.launcher.gpu.ScreenEffects
 import com.droiddeck.launcher.gpu.Lossless
@@ -227,8 +226,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private lateinit var memoryHud: com.droiddeck.launcher.session.MemoryHud
     private var padBridge: PadBridge? = null
     private val physicalShortcuts = PhysicalShortcutRouter()
-    private var joyConVr: com.droiddeck.launcher.input.JoyConVr? = null
-    private var handCamera: com.droiddeck.launcher.handtracking.HandCamera? = null
     private var padMotion: com.droiddeck.launcher.input.PadMotion? = null
     private var resumed by mutableStateOf(false)
     private val deckPadListener: () -> Unit = { uiHandler.post { updatePadMotion(); openDeckRing("deck pad changed"); applyUnfoldedControls(); leaveDeckPanel() } }
@@ -500,12 +497,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var effects by mutableStateOf(ScreenEffects.OFF)
     private var cardboard by mutableStateOf(Cardboard.OFF)
     private var headTracker: HeadTracker? = null
-    private var steamVrStatus by mutableStateOf<SteamVr.Status?>(null)
-    private var steamVrSwitchedPicture by mutableStateOf(false)
-    private var steamVrSeenRunning = false
-    private val steamVrRecovery by lazy { com.droiddeck.launcher.gpu.SteamVrRecovery(this) {
-        resumed && !ended && SessionState.running && !isInPictureInPictureMode
-    } }
     private var activeCardboard = Cardboard.OFF
     private var glasses by mutableStateOf(Glasses.state.value)
     private var glassesSettings by mutableStateOf(Glasses.settings.value)
@@ -521,12 +512,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var pausedFrameWanted = false
     private var pauseAnimated by mutableStateOf(false)
     private var trackingRecovery by mutableStateOf<TrackingRecovery?>(null)
-    private var glasses3dForVr = false
     private var ended = false
     private var glassesPresent = false
-    private var steamVrAutoTried = false
-    private var steamVrInstallTried = false
-    @Volatile private var steamVrRequestGeneration = 0L
     private var headTracking by mutableStateOf(false)
     private var glassesSlot by mutableStateOf(0)
     private var glassesKey: List<Any?> = emptyList()
@@ -652,12 +639,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private val deviceListener = object : InputManager.InputDeviceListener {
         override fun onInputDeviceAdded(deviceId: Int) {
             logInputDevice("connected", deviceId)
-            joyConVr?.refresh()
             padBridge?.syncConnectedControllers()
             refreshControls()
             updatePointerCapture()
             requestRelativeMouse()
-            updateHandCamera()
             refreshSecondScreenDisplays()
         }
         override fun onInputDeviceRemoved(deviceId: Int) {
@@ -666,18 +651,15 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             dropMouseCursor()
             backQamInput.onDeviceRemoved(deviceId)
             mouseBackInput.onDeviceRemoved(deviceId)
-            joyConVr?.refresh()
             physicalInputBindings?.disconnected(deviceId)
             padBridge?.onDeviceRemoved(deviceId)
             if (::padMouse.isInitialized) padMouse.reset()
             refreshControls()
             updatePointerCapture()
             requestRelativeMouse()
-            updateHandCamera()
             refreshSecondScreenDisplays()
         }
         override fun onInputDeviceChanged(deviceId: Int) {
-            joyConVr?.refresh()
             refreshControls()
             requestRelativeMouse()
             refreshSecondScreenDisplays()
@@ -718,15 +700,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             SessionState.programArgs = intent.getStringArrayExtra(SessionService.EXTRA_PROGRAM_ARGS)?.toList().orEmpty()
             SessionState.steamUi = intent.getStringExtra(SessionService.EXTRA_STEAM_UI)
             SessionState.steamUrl = intent.getStringExtra(SessionService.EXTRA_STEAM_URL)
-            SessionState.steamVr = intent.getBooleanExtra(EXTRA_STEAMVR, false)
-        } else if (intent.getBooleanExtra(EXTRA_STEAMVR, false) && SessionState.mode == SessionService.MODE_STEAM) {
-            SessionState.steamVr = true
         }
-        if (SessionState.steamVr) Glasses.prepareSteamVrStart()
         if (intent.action == SessionService.ACTION_AGENT_START) {
             SessionEvents.record("agent.start_requested", mapOf("mode" to SessionState.mode))
         }
-        com.droiddeck.launcher.gpu.SteamVrHealth.begin(this, SessionState.sessionId)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (!SessionState.running) {
             SessionState.fpsLimit = 0
@@ -887,16 +864,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         glassesScope.launch { Glasses.state.collect {
             glasses = it
             onGlassesChanged()
-            updateJoyConTracking()
-            updateHandCamera()
         } }
         glassesScope.launch { Glasses.settings.collect {
             glassesSettings = it
             onGlassesChanged()
-            updateJoyConTracking()
-            updateHandCamera()
         } }
-        glassesScope.launch { com.droiddeck.launcher.handtracking.HandTracking.settings.collect { updateHandCamera() } }
         glassesScope.launch {
             var lastRunGameId: String? = null
             while (true) {
@@ -917,18 +889,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                     lastRunGameId = null
                 }
                 kotlinx.coroutines.delay(100)
-            }
-        }
-        glassesScope.launch {
-            while (true) {
-                if (SessionState.running && SessionState.mode == SessionService.MODE_STEAM &&
-                    (SessionState.steamVr || steamVrStatus == SteamVr.Status.RUNNING)) {
-                    val lost = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        com.droiddeck.launcher.gpu.SteamVrHealth.deviceLost()
-                    }
-                    if (lost) steamVrRecovery.detected()
-                }
-                kotlinx.coroutines.delay(2000)
             }
         }
         pip = com.droiddeck.launcher.session.SessionPipController(this, ::pipBounds, ::showPipUi)
@@ -965,7 +925,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             val uiPointer = appUiOwnsPointer()
             androidx.compose.runtime.SideEffect {
                 com.droiddeck.launcher.glasses.GlassesMenuMirror.setSessionMenuVisible(this@SessionActivity,
-                    (drawerOpen || achievementsOpen || pcKeyboardOpen) && !pipUi && steamVrStatus != SteamVr.Status.RUNNING)
+                    (drawerOpen || achievementsOpen || pcKeyboardOpen) && !pipUi)
             }
             androidx.compose.runtime.SideEffect { applyPlatformPointer(uiPointer) }
             androidx.compose.runtime.DisposableEffect(Unit) {
@@ -1018,7 +978,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 if (memoryHud.text.isNotEmpty()) HudText(memoryHud.text, hudColor, hudOpacity)
                 if (bottomOutputActive && !loading.visible) SwappedTopPanel()
                 val phonePanel = glassesOutputActive && !loading.visible && !drawerOpen && !pcKeyboardOpen
-                if (phonePanel) GlassesPhonePanel(glasses, steamVrStatus == SteamVr.Status.RUNNING, headTracking)
+                if (phonePanel) GlassesPhonePanel(glasses, headTracking)
                 if (trackingRecovery != null && !drawerOpen && !pcKeyboardOpen && !loading.visible) {
                     androidx.compose.ui.viewinterop.AndroidView(
                         factory = { com.droiddeck.launcher.ui.TrackingRecoveryView(it) },
@@ -1026,12 +986,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                         update = { it.update(trackingRecovery, !glassesOutputActive && glasses.usable && glasses.sbs) },
                     )
                 }
-                if (!phonePanel && GlassesRendering.usesGlasses(glasses, glassesOutputActive, steamVrStatus == SteamVr.Status.RUNNING) &&
+                if (!phonePanel && GlassesRendering.usesGlasses(glasses, glassesOutputActive) &&
                     headTracking && !drawerOpen && !pcKeyboardOpen && !loading.visible) com.droiddeck.launcher.ui.GlassesRecenterButton(
                     controllerSettings?.tint ?: android.graphics.Color.rgb(90, 160, 255), controllerSettings?.opacity ?: 100,
-                    onRecenterJoyCons = if (steamVrStatus == SteamVr.Status.RUNNING &&
-                        glasses.usesSpatialControllers(glassesSettings) && glassesSettings.joyConTracking)
-                        joyConVr?.let { { it.recenter() } } else null,
+                    onRecenterJoyCons = null,
                 ) { headTracker?.recenter() }
                 if (!phonePanel && glasses.present && !drawerOpen && !pcKeyboardOpen && !loading.visible) com.droiddeck.launcher.ui.GlassesCornerButton(glassesSlot,
                     controllerSettings?.tint ?: android.graphics.Color.rgb(90, 160, 255), controllerSettings?.opacity ?: 100) {
@@ -1121,8 +1079,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                         controllerSettings = ControllerPrefs.read(this@SessionActivity)
                         oscMode = SessionPrefs.oscMode(this@SessionActivity)
                         padBridge?.setStickDeadZone(ControllerPrefs.deadZone(this@SessionActivity))
-                        joyConVr?.refresh()
-                        onScreenControls?.reload()
+                                    onScreenControls?.reload()
                         refreshInputProfile()
                         refreshControls()
                     },
@@ -1168,21 +1125,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                         Log.i(TAG, "drawer root focus requested=$requested docked=$drawerDocked")
                     } else {
                         releaseDrawerDirection()
-                    }
-                }
-                val glassesVr = glasses.usable && glasses.canControl
-                val steamVrRequested = SessionState.steamVr
-                val pollSteamVr = SteamVr.shouldPoll(steamVrStatus, cardboard.enabled,
-                    steamVrSwitchedPicture, glassesVr, steamVrRequested) || (drawerOpen && drawerPage == SessionDrawerPage.VR)
-                LaunchedEffect(pollSteamVr) {
-                    while (pollSteamVr) {
-                        val request = steamVrRequestGeneration
-                        val session = SessionState.sessionId
-                        val now = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            SteamVr.status(this@SessionActivity)
-                        }
-                        if (request == steamVrRequestGeneration && session == SessionState.sessionId) onSteamVrStatus(now)
-                        kotlinx.coroutines.delay(3000)
                     }
                 }
                 androidx.compose.runtime.LaunchedEffect(pcKeyboardOpen) { if (pcKeyboardOpen) releasePads(); updateOnScreenControls() }
@@ -1266,8 +1208,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 headTracker?.recenter()
                 com.droiddeck.launcher.glasses.GlassesMenuMirror.recenter()
             },
-            steamVr = steamVrStatus,
-            onSteamVr = { action -> steamVrAction(action) },
             textureAnisotropy = if (drawerGameProfileId == null) textureAnisotropy else drawerTextureAnisotropy,
             textureLodBias = if (drawerGameProfileId == null) textureLodBias else drawerTextureLodBias,
             frameGen = frameGen,
@@ -1568,7 +1508,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     @androidx.compose.runtime.Composable
-    private fun GlassesPhonePanel(glasses: com.droiddeck.launcher.glasses.GlassesState, vr: Boolean, headTracking: Boolean) {
+    private fun GlassesPhonePanel(glasses: com.droiddeck.launcher.glasses.GlassesState, headTracking: Boolean) {
         val battery by androidx.compose.runtime.produceState<String?>(null) {
             while (true) {
                 val b = registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
@@ -1579,35 +1519,17 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 kotlinx.coroutines.delay(30_000)
             }
         }
-        val pads = com.droiddeck.launcher.input.VrControllers.settings.collectAsState().value
         com.droiddeck.launcher.ui.GlassesPhonePanel(glasses.model, battery, com.droiddeck.launcher.ui.GlassesPhoneActions(
             onRecenter = if (headTracking) ({ headTracker?.recenter() }) else null,
-            onRecenterJoyCons = if (vr && glasses.usesSpatialControllers(glassesSettings) && glassesSettings.joyConTracking)
-                joyConVr?.let { { it.recenter() } } else null,
-            onSteamVrMenu = if (vr && SessionState.mode == SessionService.MODE_STEAM) ({ sendSteamGuide() }) else null,
-            onSwitchSticks = if (vr && pads.emulate != com.droiddeck.launcher.input.VrControllers.Emulate.OFF) ({ switchVrSticks() }) else null,
-            controllers = getString(when (pads.emulate) {
-                com.droiddeck.launcher.input.VrControllers.Emulate.OFF -> R.string.vr_controllers_off
-                com.droiddeck.launcher.input.VrControllers.Emulate.INDEX -> R.string.vr_controllers_index
-                com.droiddeck.launcher.input.VrControllers.Emulate.TOUCH -> R.string.vr_controllers_touch
-                com.droiddeck.launcher.input.VrControllers.Emulate.VIVE -> R.string.vr_controllers_vive
-            }),
-            onNextControllers = if (vr) ({
-                val all = com.droiddeck.launcher.input.VrControllers.Emulate.entries
-                com.droiddeck.launcher.input.VrControllers.setEmulate(this, all[(pads.emulate.ordinal + 1) % all.size])
-            }) else null,
+            onRecenterJoyCons = null,
             onKeyboard = { keyboard?.toggle() },
             onSessionMenu = { drawerOpen = true },
-            onStopSteamVr = if (vr) ({ steamVrAction("stop") }) else null,
             brightness = glasses.brightness,
             brightnessMax = glasses.brightnessMax,
             onBrightness = if (glasses.canControl && glasses.hardwareControls) Glasses::setBrightness else null,
         ))
     }
 
-    private fun switchVrSticks() {
-        padBridge?.triggerVrStickSwitch()
-    }
 
     private fun triggerSteamQam() {
         drawerOpen = false
@@ -2019,10 +1941,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         upscaleSharpness = SessionPrefs.upscaleSharpness(this)
         effects = SessionPrefs.screenEffects(this)
         applyCardboard(SessionPrefs.cardboard(this))
-        if (SessionPrefs.cardboardSourceBeforeSteamVr(this) >= 0 && !steamVrSwitchedPicture) {
-            steamVrSwitchedPicture = true
-            steamVrSeenRunning = true
-        }
         textureAnisotropy = SessionPrefs.textureAnisotropy(this)
         textureLodBias = SessionPrefs.textureLodBias(this)
         val nextTouchMode = SessionPrefs.touchMode(this)
@@ -2236,7 +2154,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
         val runtimeDir = File(filesDir, ".wayland-rt").apply { mkdirs() }
         FileUtils.copyAsset(this, "wayland/keymap.xkb", File(runtimeDir, "keymap.xkb"))
-        com.droiddeck.launcher.input.VrControllers.publish(this)
 
         val turnip = TurnipDriver(this)
         com.droiddeck.launcher.gpu.DriverSetupLog.write(this, "surface.driver-setup")
@@ -2694,7 +2611,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
 
     private fun onSessionEnded(status: Int) {
         ended = true
-        ++steamVrRequestGeneration
         if (isInPictureInPictureMode) {
             runOnUiThread { finish() }
             return
@@ -2745,7 +2661,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         com.droiddeck.launcher.input.HomeButtonShortcuts.cancel(this)
         backQamInput.cancel()
         padBridge?.releaseAll()
-        joyConVr?.releaseButtons()
     }
 
     private fun focusEndedScreen() {
@@ -3009,7 +2924,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
         if ((pcKeyboardOpen || achievementsOpen || inputSettingsOpen) && fromController) return super.dispatchKeyEvent(event)
         if (!fromController && event.keyCode != KeyEvent.KEYCODE_BACK && sendToTopDesktop(event)) return true
-        if (joyConVr?.onKeyEvent(event) == true) return true
         if (fromController && event.keyCode != KeyEvent.KEYCODE_BACK && padMouseMode() && padMouse.onKey(event)) return true
         if (event.keyCode != KeyEvent.KEYCODE_BACK && padBridge?.onKeyEvent(event) == true) return true
         val keyboardKey = event.keyCode != KeyEvent.KEYCODE_BACK ||
@@ -3060,7 +2974,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         }
         if (drawerDirectionKey != KeyEvent.KEYCODE_UNKNOWN) releaseDrawerDirection()
         if ((pcKeyboardOpen || achievementsOpen || inputSettingsOpen) && PadBridge.isControllerMotionEvent(event)) return super.dispatchGenericMotionEvent(event)
-        if (joyConVr?.onMotionEvent(event) == true) return true
         if (PadBridge.isControllerMotionEvent(event) && padMouseMode() && padMouse.onMotion(event)) return true
         if (padBridge?.onMotionEvent(event) == true) return true
         if (event.isFromSource(android.view.InputDevice.SOURCE_MOUSE) && !drawerOpen) {
@@ -4895,14 +4808,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         Glasses.rescan()
         updateGlassesScreen()
         updateBottomGame()
-        updateHandCamera()
     }
 
     override fun onStop() {
         if (runtimeRemovalBlocked) { super.onStop(); return }
         started = false
         if (::hud.isInitialized) hud.setBackgrounded(true)
-        updateHandCamera()
         displayManager.unregisterDisplayListener(displayListener)
         com.droiddeck.launcher.input.DualScreen.unwatchTaken(bottomScreenListener)
         contentResolver.unregisterContentObserver(refreshSettingObserver)
@@ -4928,10 +4839,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         if (this.intent.getBooleanExtra(EXTRA_RETURN_HOME, false)) intent.putExtra(EXTRA_RETURN_HOME, true)
         if (!intent.hasExtra(EXTRA_LINK_TASK)) intent.putExtra(EXTRA_LINK_TASK, this.intent.getIntExtra(EXTRA_LINK_TASK, -1))
         setIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_STEAMVR, false) && SessionState.mode == SessionService.MODE_STEAM) {
-            SessionState.steamVr = true
-            steamVrAutoTried = false
-        }
         if (intent.action == SessionService.ACTION_HOME_GUIDE) {
             handleHomeGuideIntent(intent)
         } else if (intent.action == SessionService.ACTION_RESUME) {
@@ -4965,7 +4872,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         padBridge?.setStickDeadZone(ControllerPrefs.deadZone(this))
         refreshSecondScreenDisplays()
         if (SessionState.guestPid > 1) padBridge?.syncConnectedControllers()
-        joyConVr?.refresh()
         onScreenControls?.reload()
         controllerSettings = ControllerPrefs.read(this)
         resumed = true
@@ -5036,143 +4942,16 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         super.onPause()
     }
 
-    private fun steamVrAction(action: String) {
-        val request = ++steamVrRequestGeneration
-        val session = SessionState.sessionId
-        fun currentRequest() = request == steamVrRequestGeneration && session == SessionState.sessionId && !isDestroyed && !ended
-        if (action == "start") {
-            SessionState.steamVr = true
-            steamVrAutoTried = true
-        }
-        if (action == "stop") {
-            SessionState.steamVr = false
-            Glasses.cancelSteamVrStart()
-        }
-        if (glasses.present) {
-            if (action == "install") steamVrStatus = SteamVr.Status.INSTALLING
-            runSteamVrAction(action, ::currentRequest) {
-                val ok = SteamVr.run(this, action)
-                val now = SteamVr.status(this)
-                uiHandler.post {
-                    if (!currentRequest()) return@post
-                    if (!ok && now != SteamVr.Status.RUNNING) Glasses.cancelSteamVrStart()
-                    onSteamVrStatus(now)
-                    if (!ok) Toast.makeText(this, getString(R.string.cardboard_steamvr_failed), Toast.LENGTH_LONG).show()
-                }
-            }
-            return
-        }
-        if (action == "start") {
-            switchPictureForSteamVr()
-            steamVrSeenRunning = false
-        }
-        if (action == "stop") restoreSteamVrPicture()
-        if (action == "install") steamVrStatus = SteamVr.Status.INSTALLING
-        runSteamVrAction(action, ::currentRequest) {
-            val ok = SteamVr.run(this, action)
-            val now = SteamVr.status(this)
-            uiHandler.post {
-                if (!currentRequest()) return@post
-                if (!ok && now != SteamVr.Status.RUNNING) Glasses.cancelSteamVrStart()
-                if (!ok && action == "start" && now != SteamVr.Status.RUNNING) restoreSteamVrPicture()
-                onSteamVrStatus(now)
-                if (!ok) Toast.makeText(this, getString(R.string.cardboard_steamvr_failed), Toast.LENGTH_LONG).show()
-            }
-        }
-    }
 
-    private fun runSteamVrAction(action: String, currentRequest: () -> Boolean, run: () -> Unit) {
-        if (action != "start") {
-            steamVrWorker.execute(run)
-            return
-        }
-        Glasses.prepareSteamVrStart {
-            uiHandler.post {
-                if (SessionState.steamVr && currentRequest()) steamVrWorker.execute {
-                    if (SessionState.steamVr && currentRequest()) run()
-                }
-            }
-        }
-    }
 
-    private fun switchPictureForSteamVr() {
-        if (cardboard.source != Cardboard.SOURCE_SBS) {
-            SessionPrefs.setCardboardSourceBeforeSteamVr(this, cardboard.source)
-            val c = cardboard.copy(source = Cardboard.SOURCE_SBS)
-            SessionPrefs.setCardboard(this, c)
-            applyCardboard(c)
-        }
-        steamVrSwitchedPicture = SessionPrefs.cardboardSourceBeforeSteamVr(this) >= 0
-    }
 
-    private fun usesSpatialControllers() =
-        GlassesRendering.usesGlasses(glasses, glassesScreen != null, steamVrStatus == SteamVr.Status.RUNNING) &&
-            glasses.usesSpatialControllers(glassesSettings)
 
-    private fun updateJoyConTracking() {
-        joyConVr?.setActive(steamVrStatus == SteamVr.Status.RUNNING &&
-            (ControllerPrefs.joyConVr(this) ||
-                (usesSpatialControllers() && glassesSettings.joyConTracking)))
-    }
-
-    private fun updateHandCamera() {
-        val joyCons = joyConVr?.holding == true
-        val bare = !joyCons && !controllerConnected()
-        val want = started && steamVrStatus == SteamVr.Status.RUNNING && (joyCons || bare) &&
-            !usesSpatialControllers() &&
-            com.droiddeck.launcher.handtracking.HandTracking.wanted(this)
-        handCamera?.bareHands = bare
-        if (want == (handCamera != null)) return
-        if (want) {
-            handCamera = com.droiddeck.launcher.handtracking.HandCamera(this,
-                File(filesDir, ".wayland-rt/${com.droiddeck.launcher.handtracking.HandCameraShm.FILE}"), preview = false)
-                .also {
-                    it.bareHands = bare
-                    it.start(com.droiddeck.launcher.handtracking.HandTracking.settings.value.side)
-                }
-        } else {
-            handCamera?.stop()
-            handCamera = null
-        }
-    }
 
     private fun controllerConnected(): Boolean = InputDevice.getDeviceIds().any { id ->
-        joyConVr?.owns(id) != true && com.droiddeck.launcher.input.PadBridge.isFromController(InputDevice.getDevice(id))
+        com.droiddeck.launcher.input.PadBridge.isFromController(InputDevice.getDevice(id))
     }
 
-    private fun onSteamVrStatus(now: SteamVr.Status) {
-        if (ended || isDestroyed) return
-        val was = steamVrStatus
-        steamVrStatus = now
-        updateJoyConTracking()
-        updateHandCamera()
-        autoStartSteamVr(now)
-        if ((was == SteamVr.Status.RUNNING) != (now == SteamVr.Status.RUNNING)) applyCardboard(cardboard)
-        if (now != SteamVr.Status.UNAVAILABLE) Glasses.setVrActive(now == SteamVr.Status.RUNNING)
-        if (glasses.present) onGlassesSteamVr(now)
-        if (GlassesRendering.usesGlasses(glasses, glassesScreen != null, now == SteamVr.Status.RUNNING)) {
-            return
-        }
-        if (now == SteamVr.Status.RUNNING && cardboard.enabled && !steamVrSwitchedPicture &&
-            cardboard.source != Cardboard.SOURCE_SBS) {
-            switchPictureForSteamVr()
-            steamVrSeenRunning = true
-        }
-        if (!steamVrSwitchedPicture) return
-        if (now == SteamVr.Status.RUNNING) steamVrSeenRunning = true
-        else if (steamVrSeenRunning && now != SteamVr.Status.UNAVAILABLE) restoreSteamVrPicture()
-    }
 
-    private fun restoreSteamVrPicture() {
-        val before = SessionPrefs.cardboardSourceBeforeSteamVr(this)
-        SessionPrefs.setCardboardSourceBeforeSteamVr(this, -1)
-        steamVrSwitchedPicture = false
-        steamVrSeenRunning = false
-        if (before < 0 || cardboard.source == before) return
-        val c = cardboard.copy(source = before)
-        SessionPrefs.setCardboard(this, c)
-        applyCardboard(c)
-    }
 
     private fun applyCardboard(c: Cardboard) {
         val was = activeCardboard
@@ -5198,12 +4977,10 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         settings = glassesSettings,
         state = glasses,
         outputActive = glassesScreen != null,
-        steamVrRunning = steamVrStatus == SteamVr.Status.RUNNING,
     )
 
     private fun updateHeadTracker() {
-        val onGlasses = GlassesRendering.usesGlasses(glasses, glassesScreen != null,
-            steamVrStatus == SteamVr.Status.RUNNING)
+        val onGlasses = GlassesRendering.usesGlasses(glasses, glassesScreen != null)
         SpatialTracking.setOutputUsesGlasses(onGlasses && !ended)
         val c = activeCardboard
         val centerView = onGlasses && c.source == Cardboard.SOURCE_SCREEN
@@ -5224,11 +5001,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     private fun updateTrackingRecovery() {
-        val onGlasses = GlassesRendering.usesGlasses(glasses, glassesScreen != null,
-            steamVrStatus == SteamVr.Status.RUNNING)
+        val onGlasses = GlassesRendering.usesGlasses(glasses, glassesScreen != null)
         val spatialView = onGlasses && SpatialTracking.selected && glassesSettings.positionalTracking &&
-            (SessionState.steamVr || steamVrStatus == SteamVr.Status.RUNNING ||
-                (glassesOutputActive && glassesSettings.headTracking && glassesSettings.picture3d == com.droiddeck.launcher.glasses.GlassesSettings.PICTURE_SCREEN))
+            (glassesOutputActive && glassesSettings.headTracking && glassesSettings.picture3d == com.droiddeck.launcher.glasses.GlassesSettings.PICTURE_SCREEN)
         val active = started && !ended && SessionState.running && !loading.visible && !pipUi && spatialView
         if (active) SpatialTracking.refreshStatus()
         trackingRecovery = TrackingRecovery.forSession(active, glasses.canControl, SpatialTracking.status.value)
@@ -5454,32 +5229,17 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private fun onGlassesChanged() {
         val g = glasses
         val s = glassesSettings
-        val key = listOf(g.present, g.usable, g.displayId, g.sbs, g.sbs90, g.supports30Hz, g.switching3d, g.canControl, g.width, g.height, g.hz, g.resolutions, g.vrActive, s)
+        val key = listOf(g.present, g.usable, g.displayId, g.sbs, g.sbs90, g.supports30Hz, g.switching3d, g.canControl, g.width, g.height, g.hz, g.resolutions, s)
         if (key == glassesKey) return
         glassesKey = key
         updateGlassesScreen()
         applyCardboard(cardboard)
         if (!g.switching3d) {
-            if (glassesPresent && !g.present) onGlassesUnplugged()
-            glassesPresent = g.present
+                glassesPresent = g.present
         }
     }
 
-    private fun onGlassesUnplugged() {
-        val hadVr = steamVrAutoTried
-        steamVrAutoTried = false
-        glasses3dForVr = false
-        if (hadVr && !cardboard.enabled) steamVrAction("stop")
-    }
 
-    private fun autoStartSteamVr(now: SteamVr.Status) {
-        if (now == SteamVr.Status.RUNNING) steamVrAutoTried = true
-        val action = SteamVr.autoAction(now, SessionState.steamVr, loading.visible,
-            SessionState.mode == SessionService.MODE_STEAM, steamVrAutoTried, steamVrInstallTried) ?: return
-        if (action == "start") steamVrAutoTried = true else steamVrInstallTried = true
-        Log.i(TAG, "requested SteamVR $action (glasses=${glasses.model}, output=$glassesOutputActive, control=${glasses.canControl})")
-        steamVrAction(action)
-    }
 
     private fun updateGlassesScreen() {
         if (!::surfaceView.isInitialized) return
@@ -5526,18 +5286,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         if (target == null) updateBottomGame()
     }
 
-    private fun onGlassesSteamVr(now: SteamVr.Status) {
-        val g = glasses
-        if (now == SteamVr.Status.RUNNING) {
-            if (glassesSettings.auto3d && g.can3d && !g.sbs && !glasses3dForVr) {
-                glasses3dForVr = true
-                Glasses.set3dForVr(true)
-            }
-        } else if (glasses3dForVr && now != SteamVr.Status.UNAVAILABLE) {
-            glasses3dForVr = false
-            Glasses.set3dForVr(false)
-        }
-    }
 
     private fun panelSizeMm(): Pair<Float, Float> {
         val dm = resources.displayMetrics
@@ -5632,7 +5380,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         com.droiddeck.launcher.input.HomeButtonShortcuts.detach(this)
         relativeMouseRequests.shutdownNow()
         backQamInput.cancel()
-        steamVrRecovery.close()
         uiHandler.removeCallbacks(steamTouchRetry)
         uiHandler.removeCallbacks(cursorResync)
         releaseEvdevMouse()
@@ -5651,10 +5398,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         headTracker?.stop()
         if (::hud.isInitialized) hud.stop()
         if (::memoryHud.isInitialized) memoryHud.stop()
-        joyConVr?.close()
-        joyConVr = null
-        handCamera?.stop()
-        handCamera = null
         inputMotion.stop()
         padBridge?.setInputEnabled(false)
         physicalInputBindings?.close()
@@ -5732,7 +5475,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     companion object {
         const val EXTRA_RETURN_HOME = "returnHome"
         const val EXTRA_LINK_TASK = "linkTask"
-        const val EXTRA_STEAMVR = "steamVr"
         const val EXTRA_PLAYED_GAME = "com.droiddeck.launcher.PLAYED_GAME"
         const val EXTRA_REPAIR_RUNTIME = "repairRuntime"
         private const val LEAVE_TIMEOUT_MS = 1_500L
@@ -5776,8 +5518,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         private const val DRAWER_SLOW_REPEAT_FLOOR_MS = 240L
         private const val DRAWER_FAST_REPEAT_INTERVAL_MS = 90L
         private const val DRAWER_REPEAT_ACCELERATION_MS = 1_400L
-        private val steamVrWorker = java.util.concurrent.ThreadPoolExecutor(0, 1, 30, java.util.concurrent.TimeUnit.SECONDS,
-            java.util.concurrent.LinkedBlockingQueue()) { Thread(it, "steamvr") }
         private const val SCALE_FIT = 1
         private const val ALIGN_CENTER = 0
         private const val ALIGN_PICTURE_TOP = 3

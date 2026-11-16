@@ -232,16 +232,6 @@
             android:windowSoftInputMode="stateAlwaysHidden|adjustNothing"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density" />
 
-        <activity
-            android:name=".gpu.SteamVrRestartActivity"
-            android:exported="false"
-            android:process=":vr_recovery"
-            android:taskAffinity="${applicationId}.vr_recovery"
-            android:excludeFromRecents="true"
-            android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
-            android:theme="@style/SessionTheme" />
-
         <service android:name=".agent.AgentHostService" android:exported="false" />
         <service
             android:name=".update.UpdateWatch"

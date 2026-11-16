@@ -38,12 +38,6 @@ class GlassesPanelTest {
         compose.onNodeWithTag("setting-glasses-3dof").assertExists()
     }
 
-    @Test fun trackingOnlyDeviceHidesVrDisplayWrites() {
-        show(supportsDisplayModeControl = false, tab = GlassesTab.VR, steamVrRunning = true)
-        compose.onNodeWithTag("setting-glasses-resolution-vr").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-3d-hz").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-auto3d").assertDoesNotExist()
-    }
 
     @Test fun flatResolutionMenuShowsPerEyeResolutionsBesideRefresh() {
         show()
@@ -60,12 +54,6 @@ class GlassesPanelTest {
         compose.onNodeWithTag("setting-glasses-3d-hz").assertExists()
     }
 
-    @Test fun vrResolutionDoesNotEditTheOrdinaryStereoPreference() {
-        show(stereo = true, steamVrRunning = true, tab = GlassesTab.VR)
-        compose.onNodeWithTag("setting-glasses-resolution-vr").performScrollTo().performClick()
-        compose.onNodeWithText("1920 × 1080").assertExists()
-        compose.onNodeWithTag("setting-glasses-resolution-three_d").assertDoesNotExist()
-    }
 
     @Test fun homeDisplayCanConfigureBothOrdinaryResolutionProfiles() {
         show(inSession = false)
@@ -118,43 +106,10 @@ class GlassesPanelTest {
         compose.onNodeWithText(text(R.string.glasses_screen_flat_hint)).assertDoesNotExist()
     }
 
-    @Test fun automaticSteamVrShowsFieldOfViewAndStereoRefresh() {
-        show(stereo = true, steamVrRunning = true, tab = GlassesTab.VR)
-        compose.onNodeWithTag("glasses-width").assertDoesNotExist()
-        compose.onNodeWithTag("glasses-distance").assertDoesNotExist()
-        compose.onNodeWithTag("glasses-vr-fov").assertIsEnabled()
-        compose.onNodeWithTag("setting-glasses-hz").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-3d-hz").assertExists()
-        compose.onNodeWithTag("setting-glasses-auto3d").assertExists()
-    }
 
-    @Test fun mirroredSteamVrIn2dKeepsFieldOfViewAndRecenter() {
-        show(steamVrRunning = true, outputActive = false, tab = null)
-        assertMirroredVrControls()
-    }
 
-    @Test fun mirroredSteamVrIn3dKeepsFieldOfViewAndRecenter() {
-        show(stereo = true, steamVrRunning = true, outputActive = false, tab = null)
-        assertMirroredVrControls()
-    }
 
-    @Test fun mirroredSteamVrUsesStereoControlsWithASavedVirtualScreen() {
-        show(settings = GlassesSettings(picture3d = GlassesSettings.PICTURE_SCREEN),
-            steamVrRunning = true, outputActive = false, tab = null)
-        compose.onNodeWithTag("glasses-width").assertDoesNotExist()
-        compose.onNodeWithTag("glasses-distance").assertDoesNotExist()
-        compose.onNodeWithText(text(R.string.glasses_screen_direct_hint)).assertExists()
-        assertMirroredVrControls()
-    }
 
-    @Test fun automatic3dForVrUsesStereoControlsWithASavedVirtualScreen() {
-        show(settings = GlassesSettings(picture3d = GlassesSettings.PICTURE_SCREEN, auto3d = true),
-            stereo = true, steamVrRunning = true, tab = null)
-        compose.onNodeWithTag("glasses-width").assertDoesNotExist()
-        compose.onNodeWithTag("glasses-distance").assertDoesNotExist()
-        compose.onNodeWithText(text(R.string.glasses_screen_direct_hint)).assertExists()
-        assertMirroredVrControls()
-    }
 
     private fun assertMirroredVrControls() {
         compose.onNodeWithTag("glasses-vr-fov").assertIsEnabled()
@@ -234,46 +189,23 @@ class GlassesPanelTest {
         compose.onNodeWithTag("setting-glasses-3dof").assertDoesNotExist()
     }
 
-    @Test fun runningSteamVrFieldOfViewRemainsAvailableWhenUsbControlDisconnects() {
-        show(stereo = true, steamVrRunning = true, controlAvailable = false, tab = GlassesTab.VR)
-        compose.onNodeWithTag("glasses-vr-fov").assertIsEnabled()
-        compose.onNodeWithTag("setting-glasses-picture").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-3d-hz").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-3d").assertDoesNotExist()
-    }
 
-    @Test fun sideBySideGameWithoutSteamVrDoesNotOfferIneffectiveFieldOfView() {
+    @Test fun sideBySideGameDoesNotOfferIneffectiveFieldOfView() {
         show(settings = GlassesSettings(picture3d = GlassesSettings.PICTURE_SBS), stereo = true)
         compose.onNodeWithTag("glasses-width").assertDoesNotExist()
         compose.onNodeWithTag("glasses-distance").assertDoesNotExist()
         compose.onNodeWithTag("glasses-vr-fov").assertDoesNotExist()
         compose.onNodeWithText(text(R.string.glasses_screen_sbs_hint)).assertExists()
-        compose.onNodeWithText(text(R.string.glasses_screen_direct_hint)).assertDoesNotExist()
     }
 
-    @Test fun sideBySideTrackingWithoutSteamVrExplainsTheScopeAndHidesRecenter() {
+    @Test fun sideBySideTrackingExplainsTheScopeAndHidesRecenter() {
         show(settings = GlassesSettings(picture3d = GlassesSettings.PICTURE_SBS), stereo = true,
             tab = GlassesTab.TRACKING)
         compose.onNodeWithText(text(R.string.glasses_tracking_sbs_hint)).assertExists()
         compose.onNodeWithText(text(R.string.cardboard_recenter_button)).assertDoesNotExist()
     }
 
-    @Test fun homeVrCanConfigureResolutionAndFieldOfViewBeforeLaunching() {
-        show(inSession = false, tab = GlassesTab.VR)
-        compose.onNodeWithTag("setting-glasses-resolution-vr").assertExists()
-        compose.onNodeWithTag("glasses-vr-fov").assertIsEnabled()
-        compose.onNodeWithTag("setting-glasses-auto3d").assertExists()
-        compose.onNodeWithTag("setting-glasses-picture").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-resolution-two_d").assertDoesNotExist()
-    }
 
-    @Test fun displayKeepsVrAndHardwareControlsInTheirOwnTabs() {
-        show(inSession = false)
-        compose.onNodeWithTag("setting-glasses-auto3d").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-resolution-vr").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-sunblock").assertDoesNotExist()
-        compose.onNodeWithTag("setting-glasses-tracking").assertDoesNotExist()
-    }
 
     @Test fun recenterIsHiddenWhenHeadTrackingIsOff() {
         show(settings = GlassesSettings(headTracking = false, picture3d = GlassesSettings.PICTURE_SCREEN))
@@ -306,40 +238,13 @@ class GlassesPanelTest {
         compose.onNodeWithText(text(R.string.cardboard_recenter_button)).assertDoesNotExist()
     }
 
-    @Test fun spatialSteamVrIncludesHeadTrackingAndRestoresTheSavedVirtualScreenSwitch() {
-        val vrRunning = androidx.compose.runtime.mutableStateOf(true)
-        val saved = GlassesSettings(headTracking = false, positionalTracking = true,
-            picture3d = GlassesSettings.PICTURE_SCREEN)
-        show(settings = saved, supportsSpatial = true, tab = GlassesTab.TRACKING, observedSteamVr = vrRunning)
 
-        compose.onNodeWithTag("setting-glasses-tracking").assertIsNotEnabled().assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, text(R.string.widgets_on)))
-        compose.onNodeWithText(text(R.string.glasses_head_tracking_spatial_vr_hint)).assertExists()
-        compose.onNodeWithText(text(R.string.cardboard_recenter_button)).assertDoesNotExist()
-
-        compose.runOnIdle { vrRunning.value = false }
-
-        compose.onNodeWithTag("setting-glasses-tracking").assertIsEnabled().assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, text(R.string.widgets_off)))
-        compose.onNodeWithText(text(R.string.glasses_head_tracking_spatial_hint)).assertExists()
-        compose.onNodeWithText(text(R.string.cardboard_recenter_button)).assertDoesNotExist()
-    }
-
-    @Test fun rotationOnlySteamVrKeepsTheHeadTrackingSwitchOptional() {
-        show(settings = GlassesSettings(headTracking = false), supportsSpatial = true,
-            steamVrRunning = true, tab = GlassesTab.TRACKING)
-
-        compose.onNodeWithTag("setting-glasses-tracking").assertIsEnabled().assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, text(R.string.widgets_off)))
-        compose.onNodeWithText(text(R.string.glasses_head_tracking_hint)).assertExists()
-        compose.onNodeWithText(text(R.string.cardboard_recenter_button)).assertDoesNotExist()
-    }
 
     @Test fun spatialPreferencesDoNotClaimHeadTrackingForPhoneOutput() {
         val noDisplay = androidx.compose.runtime.mutableStateOf(GlassesState(present = true,
             connected = true, controllable = true, supportsSpatial = true))
         show(settings = GlassesSettings(headTracking = false, positionalTracking = true),
-            steamVrRunning = true, outputActive = false, tab = GlassesTab.TRACKING, observedState = noDisplay)
+            outputActive = false, tab = GlassesTab.TRACKING, observedState = noDisplay)
 
         compose.onNodeWithTag("setting-glasses-tracking").assertIsEnabled().assert(
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, text(R.string.widgets_off)))
@@ -407,7 +312,6 @@ class GlassesPanelTest {
     private fun show(
         settings: GlassesSettings = GlassesSettings(),
         stereo: Boolean = false,
-        steamVrRunning: Boolean = false,
         inSession: Boolean = true,
         outputActive: Boolean = inSession,
         controlAvailable: Boolean = true,
@@ -418,7 +322,6 @@ class GlassesPanelTest {
         sbs90: Boolean = true,
         tab: String? = GlassesTab.DISPLAY,
         observedState: androidx.compose.runtime.State<GlassesState>? = null,
-        observedSteamVr: androidx.compose.runtime.State<Boolean>? = null,
         onRecenter: (() -> Unit)? = {},
     ) {
         val state = GlassesState(present = true, connected = controlAvailable, controllable = true,
@@ -438,8 +341,7 @@ class GlassesPanelTest {
                                 else -> Modifier
                             }
                         }, onRecenter = onRecenter,
-                        inSession = inSession, outputActive = outputActive,
-                        steamVrRunning = observedSteamVr?.value ?: steamVrRunning, tab = tab)
+                        inSession = inSession, outputActive = outputActive, tab = tab)
                 }
             }
         }

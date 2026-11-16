@@ -1187,12 +1187,11 @@ object SessionPrefs {
     }
 
     const val STARTUP_OFF = ""
-    const val STARTUP_STEAM = "steam"
     const val STARTUP_DESKTOP = "desktop"
 
     fun startupSession(context: Context): String {
         val p = prefs(context)
-        return p.getString("startupSession", null) ?: if (p.getBoolean("runSteamAtStartup", false)) STARTUP_STEAM else STARTUP_OFF
+        return p.getString("startupSession", null) ?: STARTUP_OFF
     }
 
     fun setStartupSession(context: Context, id: String) {
@@ -1457,12 +1456,6 @@ object SessionPrefs {
 
     fun setCardboard(context: Context, cardboard: Cardboard) {
         prefs(context).edit().putString(CARDBOARD_KEY, cardboard.encode().toString()).apply()
-    }
-
-    fun cardboardSourceBeforeSteamVr(context: Context): Int = prefs(context).getInt("cardboardSourceBeforeSteamVr", -1)
-
-    fun setCardboardSourceBeforeSteamVr(context: Context, source: Int) {
-        prefs(context).edit().putInt("cardboardSourceBeforeSteamVr", source).apply()
     }
 
     fun sessionPrefs(context: Context): android.content.SharedPreferences = prefs(context)

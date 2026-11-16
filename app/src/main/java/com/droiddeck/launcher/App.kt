@@ -27,7 +27,7 @@ class App : Application() {
         val process = if (android.os.Build.VERSION.SDK_INT >= 28) Application.getProcessName()
             else (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager)
                 .runningAppProcesses?.firstOrNull { it.pid == android.os.Process.myPid() }?.processName
-        if (process == "$packageName:vr_recovery" || process == "$packageName:rgb_diagnostic" ||
+        if (process == "$packageName:rgb_diagnostic" ||
             process == "$packageName:shortcuts_sync" || process == "$packageName:bottom_desktop") return
         CrashHandler.install(this)
         com.droiddeck.launcher.agent.AgentHost.refresh(this)

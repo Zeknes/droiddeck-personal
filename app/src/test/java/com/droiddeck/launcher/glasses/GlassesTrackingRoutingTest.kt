@@ -6,9 +6,7 @@ import android.view.Display
 import androidx.compose.runtime.MutableState
 import com.droiddeck.launcher.SessionActivity
 import com.droiddeck.launcher.gpu.Cardboard
-import com.droiddeck.launcher.gpu.SteamVr
 import com.droiddeck.launcher.input.ControllerPrefs
-import com.droiddeck.launcher.input.JoyConVr
 import com.droiddeck.launcher.session.LoadingState
 import com.droiddeck.launcher.session.SessionState
 import java.io.File
@@ -38,7 +36,6 @@ class GlassesTrackingRoutingTest {
 
     @Before fun setUp() {
         val running = SessionState.running
-        val steamVr = SessionState.steamVr
         val fields = listOf("context", "publisherAttached").associateWith {
             SpatialTracking::class.java.getDeclaredField(it).apply { isAccessible = true }
         }
@@ -48,7 +45,6 @@ class GlassesTrackingRoutingTest {
         restore = {
             fields.forEach { (name, field) -> field.set(null, values[name]) }
             SessionState.running = running
-            SessionState.steamVr = steamVr
         }
         activity = Robolectric.buildActivity(SessionActivity::class.java).get()
         ReflectionHelpers.setField(activity, "loading", LoadingState(activity).apply { visible = false })
@@ -56,9 +52,7 @@ class GlassesTrackingRoutingTest {
         ReflectionHelpers.setField(activity, "activeCardboard", Cardboard.OFF)
         state("glasses", ultra)
         state("glassesSettings", saved)
-        state("steamVrStatus", SteamVr.Status.RUNNING)
         SessionState.running = true
-        SessionState.steamVr = true
         SpatialTracking.setOutputUsesGlasses(true)
         SpatialTracking.connect(0, 81, null, true, 1.6f, true)
     }
@@ -114,50 +108,6 @@ class GlassesTrackingRoutingTest {
         assertNull(recovery())
     }
 
-    @Test @Config(sdk = [31]) fun displayLossReleasesSpatialControllerOverridesWhileUsbRemainsConnected() {
-        val previousJoyConVr = ControllerPrefs.joyConVr(activity)
-        ControllerPrefs.setJoyConVr(activity, false)
-        val joyCon = JoyConVr(activity, File(activity.cacheDir, "routing-joycons")) { _, _ -> }
-        ReflectionHelpers.setField(activity, "joyConVr", joyCon)
-        val worker = ReflectionHelpers.getField<HandlerThread>(joyCon, "thread")
-        fun updateInputs(): Boolean {
-            ReflectionHelpers.callInstanceMethod<Void>(activity, "updateJoyConTracking")
-            shadowOf(worker.looper).idle()
-            return ReflectionHelpers.getField(joyCon, "wanted")
-        }
-        try {
-            for (joyCons in listOf(false, true)) {
-                val selected = saved.copy(handControllers = !joyCons, joyConTracking = joyCons)
-                state("glassesSettings", selected)
-                for (displayLost in listOf(ultra.copy(noSignal = true), ultra.copy(displayId = Display.INVALID_DISPLAY))) {
-                    state("glasses", ultra)
-                    assertTrue(ReflectionHelpers.callInstanceMethod(activity, "usesSpatialControllers"))
-                    assertEquals(joyCons, updateInputs())
-
-                    state("glasses", displayLost)
-                    updateRouting()
-                    assertTrue(displayLost.spatialConnected)
-                    assertEquals(0, modes())
-                    assertFalse("The phone camera must not be suppressed by a missing display",
-                        ReflectionHelpers.callInstanceMethod(activity, "usesSpatialControllers"))
-                    assertFalse("Saved glasses Joy-Cons must not override the phone preference", updateInputs())
-                    assertEquals(selected, stateValue<GlassesSettings>("glassesSettings"))
-                    ControllerPrefs.setJoyConVr(activity, true)
-                    assertTrue("The phone Joy-Con preference must still apply", updateInputs())
-                    ControllerPrefs.setJoyConVr(activity, false)
-
-                    state("glasses", ultra)
-                    updateRouting()
-                    assertTrue(ReflectionHelpers.callInstanceMethod(activity, "usesSpatialControllers"))
-                    assertEquals(joyCons, updateInputs())
-                }
-            }
-        } finally {
-            ReflectionHelpers.setField(activity, "joyConVr", null)
-            joyCon.close()
-            ControllerPrefs.setJoyConVr(activity, previousJoyConVr)
-        }
-    }
 
     @Test fun anotherGlassesModelDoesNotActivateSavedUltraTracking() {
         SpatialTracking.disconnect()

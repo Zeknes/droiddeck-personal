@@ -76,42 +76,13 @@ internal fun rememberGlasses(): Pair<GlassesState, GlassesSettings> {
 
 internal object GlassesTab {
     const val DISPLAY = "display"
-    const val VR = "vr"
     const val HARDWARE = "hardware"
     const val TRACKING = "tracking"
-    const val CONTROLLERS = "controllers"
-}
-
-@Composable
-internal fun VrControllerGroups(host: MenuHost, track: (String) -> Modifier = { Modifier }) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(Unit) { com.droiddeck.launcher.input.VrControllers.load(context) }
-    val c by com.droiddeck.launcher.input.VrControllers.settings.collectAsState()
-    val emulate = com.droiddeck.launcher.input.VrControllers.Emulate.entries
-    SettingsGroup(stringResource(R.string.vr_controllers_group)) {
-        ChoiceRow(host, "vr-emulate", stringResource(R.string.vr_controllers_emulate), stringResource(R.string.vr_controllers_emulate_hint),
-            emulate.map { it to stringResource(when (it) {
-                com.droiddeck.launcher.input.VrControllers.Emulate.OFF -> R.string.vr_controllers_off
-                com.droiddeck.launcher.input.VrControllers.Emulate.INDEX -> R.string.vr_controllers_index
-                com.droiddeck.launcher.input.VrControllers.Emulate.TOUCH -> R.string.vr_controllers_touch
-                com.droiddeck.launcher.input.VrControllers.Emulate.VIVE -> R.string.vr_controllers_vive
-            }) }, c.emulate, chipModifier = track("vr-emulate")) { com.droiddeck.launcher.input.VrControllers.setEmulate(context, it) }
-        if (c.emulate != com.droiddeck.launcher.input.VrControllers.Emulate.OFF) ChoiceRow(host, "vr-sticks",
-            stringResource(R.string.vr_controllers_sticks), stringResource(R.string.vr_controllers_sticks_hint),
-            listOf(false to stringResource(R.string.vr_controllers_sticks_game), true to stringResource(R.string.vr_controllers_sticks_hands)),
-            c.sticksMoveHands, chipModifier = track("vr-sticks")) { com.droiddeck.launcher.input.VrControllers.setSticksMoveHands(context, it) }
-        SettingsRow(stringResource(R.string.vr_controllers_buttons), stringResource(when (c.emulate) {
-            com.droiddeck.launcher.input.VrControllers.Emulate.OFF -> R.string.vr_controllers_buttons_off
-            com.droiddeck.launcher.input.VrControllers.Emulate.VIVE -> R.string.vr_controllers_buttons_vive
-            else -> R.string.vr_controllers_buttons_stick
-        }), hintLines = 6) {}
-    }
 }
 
 @Composable
 internal fun glassesTabs(g: GlassesState): List<Pair<String, String>> = buildList {
     add(GlassesTab.DISPLAY to stringResource(R.string.glasses_display))
-    if (g.canControl || g.hasDisplay) add(GlassesTab.VR to stringResource(R.string.glasses_vr))
     if (g.canControl) {
         add(GlassesTab.TRACKING to stringResource(R.string.glasses_tracking))
         if (g.hardwareControls) add(GlassesTab.HARDWARE to stringResource(R.string.glasses_hardware))
@@ -127,21 +98,17 @@ internal fun GlassesGroups(
     onRecenter: (() -> Unit)? = null,
     inSession: Boolean = true,
     outputActive: Boolean = inSession,
-    steamVrRunning: Boolean = false,
     tab: String? = null,
-    steamVr: @Composable () -> Unit = {},
 ) {
     val display = tab == null || tab == GlassesTab.DISPLAY
-    val vr = tab == null || tab == GlassesTab.VR
-    val picture = GlassesRendering.picture(s, g.sbs, steamVrRunning)
-    val usesGlasses = GlassesRendering.usesGlasses(g, outputActive, steamVrRunning)
+    val picture = GlassesRendering.picture(s, g.sbs)
+    val usesGlasses = GlassesRendering.usesGlasses(g, outputActive)
     val spatialTracking = g.spatialConnected && s.positionalTracking
-    val spatialVr = spatialTracking && usesGlasses && steamVrRunning
     val flatPicture = picture == GlassesRendering.Picture.FLAT || picture == GlassesRendering.Picture.DUPLICATED
     val virtualScreen = usesGlasses && picture == GlassesRendering.Picture.VIRTUAL_SCREEN
     val directView = usesGlasses && picture == GlassesRendering.Picture.STEREO
     val menuScreen = !inSession && g.usable && s.gameOnGlasses && s.screen3dof
-    if (g.canControl && onRecenter != null && s.headTracking && (virtualScreen || menuScreen || (directView && steamVrRunning))) {
+    if (g.canControl && onRecenter != null && s.headTracking && (virtualScreen || menuScreen)) {
         SettingsGroup(stringResource(R.string.glasses_quick_actions), compact = true) {
             ActionRow(stringResource(R.string.glasses_recenter),
                 if (virtualScreen || menuScreen) stringResource(R.string.glasses_recenter_screen_hint) else null,
@@ -179,7 +146,7 @@ internal fun GlassesGroups(
         }
     }
     if (display && g.canControl && g.supportsDisplayModeControl) {
-        val profiles = if (inSession) listOf(GlassesDisplayModes.profile(g.sbs, false))
+        val profiles = if (inSession) listOf(GlassesDisplayModes.profile(g.sbs))
             else listOf(GlassesDisplayProfile.TWO_D, GlassesDisplayProfile.THREE_D)
         for (profile in profiles) SettingsGroup(stringResource(if (profile == GlassesDisplayProfile.TWO_D)
             R.string.glasses_output_2d else R.string.glasses_output_3d)) {
@@ -204,7 +171,7 @@ internal fun GlassesGroups(
                 stringResource(R.string.glasses_picture_screen), stringResource(R.string.glasses_screen_flat_hint),
                 stringResource(R.string.glasses_screen_use), { Glasses.setPicture3d(GlassesSettings.PICTURE_SCREEN) })
             directView -> SettingsRow(stringResource(R.string.glasses_picture_screen),
-                stringResource(if (steamVrRunning) R.string.glasses_screen_direct_hint else R.string.glasses_screen_sbs_hint)) {}
+                stringResource(R.string.glasses_screen_sbs_hint)) {}
         }
         if (virtualScreen || (!inSession && s.picture3d != GlassesSettings.PICTURE_SBS)) {
             SliderRow(stringResource(R.string.glasses_screen_size), null, s.screenWidthDm, 5..60, step = 1,
@@ -213,30 +180,17 @@ internal fun GlassesGroups(
                 format = { SpatialMeasurements.distance(it / 10f) }, modifier = track("glasses-distance")) { Glasses.setScreenDistanceDm(it) }
         }
     }
-    if (vr && (g.canControl || g.hasDisplay)) SettingsGroup(stringResource(R.string.cardboard_steamvr)) {
-        steamVr()
-        if (g.supportsDisplayModeControl) ToggleRow(host, "glasses-auto3d", stringResource(R.string.glasses_auto3d),
-            stringResource(R.string.glasses_auto3d_hint), s.auto3d, chipModifier = track("glasses-auto3d")) { Glasses.setAuto3d(it) }
-        if (g.canControl && g.supportsDisplayModeControl) {
-            GlassesResolutionRow(host, g, s, GlassesDisplayProfile.VR, track)
-            if (steamVrRunning && tab != null) GlassesRefreshRow(host, g, s, track)
-        }
-        SliderRow(stringResource(R.string.glasses_vr_fov), stringResource(R.string.glasses_vr_fov_hint), s.vrFovDeg,
-            GlassesSettings.VR_FOV_MIN..GlassesSettings.VR_FOV_MAX, step = 1,
-            format = { "$it°" }, modifier = track("glasses-vr-fov")) { Glasses.setVrFovDeg(it) }
-    }
     if ((tab == null || tab == GlassesTab.TRACKING) && g.canControl) {
         SettingsGroup(stringResource(R.string.glasses_head_tracking)) {
             val trackingHint = when {
                 inSession && !usesGlasses -> R.string.glasses_screen_no_output
-                spatialVr -> R.string.glasses_head_tracking_spatial_vr_hint
                 spatialTracking -> R.string.glasses_head_tracking_spatial_hint
                 inSession && flatPicture -> R.string.glasses_tracking_flat_hint
-                inSession && directView && !steamVrRunning -> R.string.glasses_tracking_sbs_hint
+                inSession && directView -> R.string.glasses_tracking_sbs_hint
                 else -> R.string.glasses_head_tracking_hint
             }
             ToggleRow(host, "glasses-tracking", stringResource(R.string.glasses_head_tracking), stringResource(trackingHint),
-                s.headTracking || spatialVr, enabled = !spatialVr,
+                s.headTracking, enabled = true,
                 chipModifier = track("glasses-tracking")) { Glasses.setHeadTracking(it) }
         }
         val calibration by Glasses.calibration.collectAsState()
@@ -295,10 +249,8 @@ private fun GlassesResolutionRow(host: MenuHost, g: GlassesState, s: GlassesSett
     val label = when (profile) {
         GlassesDisplayProfile.TWO_D -> R.string.glasses_resolution_2d
         GlassesDisplayProfile.THREE_D -> R.string.glasses_resolution_3d
-        GlassesDisplayProfile.VR -> R.string.glasses_resolution_vr
     }
-    val choices = listOf("" to stringResource(if (profile == GlassesDisplayProfile.VR)
-        R.string.glasses_resolution_inherit else R.string.glasses_resolution_auto)) +
+    val choices = listOf("" to stringResource(R.string.glasses_resolution_auto)) +
         g.resolutions.map { it.key to "${it.width} × ${it.height}" }
     val saved = GlassesDisplayModes.choice(s, profile)
     val key = "glasses-resolution-${profile.name.lowercase()}"

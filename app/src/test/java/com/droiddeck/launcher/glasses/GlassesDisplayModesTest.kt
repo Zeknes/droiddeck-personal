@@ -10,25 +10,16 @@ class GlassesDisplayModesTest {
     private val state = GlassesState(resolutions = ultra.resolutions)
 
     @Test fun separateProfilesRetainTheirOwnResolutions() {
-        val settings = GlassesSettings(resolution2d = fullHd.key, resolution3d = tall.key, resolutionVr = fullHd.key)
+        val settings = GlassesSettings(resolution2d = fullHd.key, resolution3d = tall.key)
         assertEquals(fullHd, GlassesDisplayModes.selected(settings, state))
         assertEquals(tall, GlassesDisplayModes.selected(settings, state.copy(sbs = true)))
-        for (stereo in listOf(false, true))
-            assertEquals(fullHd, GlassesDisplayModes.selected(settings, state.copy(sbs = stereo, vrActive = true)))
-    }
-
-    @Test fun automaticVrInheritsTheActiveLayoutAndDefaultsKeepNativeBehavior() {
-        val settings = GlassesSettings(resolution2d = fullHd.key, resolution3d = tall.key)
-        assertEquals(fullHd, GlassesDisplayModes.selected(settings, state.copy(vrActive = true)))
-        assertEquals(tall, GlassesDisplayModes.selected(settings, state.copy(sbs = true, vrActive = true)))
-        assertNull(GlassesDisplayModes.selected(GlassesSettings(), state))
-        assertNull(GlassesDisplayModes.selected(GlassesSettings(), state.copy(sbs = true, vrActive = true)))
+        assertEquals(null, GlassesDisplayModes.selected(GlassesSettings(), state))
     }
 
     @Test fun anotherHeadsetDoesNotReceiveAnUnsupportedSavedResolution() {
-        val settings = GlassesSettings(resolution2d = tall.key, resolutionVr = tall.key)
+        val settings = GlassesSettings(resolution2d = tall.key)
         assertNull(GlassesDisplayModes.selected(settings, state.copy(resolutions = listOf(fullHd))))
-        assertNull(GlassesDisplayModes.selected(settings, state.copy(resolutions = emptyList(), vrActive = true)))
+        assertNull(GlassesDisplayModes.selected(settings, state.copy(resolutions = emptyList())))
         assertEquals(tall, GlassesDisplayModes.selected(settings, state))
     }
 

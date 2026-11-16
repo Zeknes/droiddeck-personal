@@ -26,7 +26,7 @@ SOURCE_PATHS = ['app/build.gradle', 'app/src/main/cpp/fakeinput_steam.cpp', 'app
                 'tools/msitools', 'tools/pipewire', 'tools/comet', 'tools/xbox', 'tools/dirt-ws2', 'tools/ubisoft-launcher', 'tools/rockstar-launcher', 'tools/components', 'tools/ci', 'tools/build_local.sh',
                 'tools/powervr', 'tools/hybris', 'tools/dxvk', 'tools/vulkan-wsi',
                 'tools/release/runtime_inputs.py', 'app/src/main/assets/desktop-removal',
-                'tools/a6xx-driver', 'tools/vr/src', 'tools/vr/driver_droiddeck', 'tools/vr/layer', 'tools/vr/build.sh',
+                'tools/a6xx-driver',
                 'tools/gpuload', 'app/src/main/resources/rockstar/legacy-cipher.bin',
                 'app/src/main/cpp/waylandcomp/src/headpose_shm.h',
                 'app/src/main/cpp/venc/venc_proto.h',
@@ -85,19 +85,9 @@ def required():
               ['msiinfo', 'cabextract', '7z', '7z.so', 'libmsi-1.0.so.0', 'libgsf-1.so.114', 'libgcab-1.0.so.0']]
     paths += ['assets/linuxfs/usr/local/lib/droiddeck-xclipse/' + name for name in
               ['libVkLayer_droiddeck_xclipse.so', 'VkLayer_droiddeck_xclipse.json']]
-    paths += ['assets/linuxfs/usr/local/lib/droiddeck-vr/' + name for name in
-              ['droiddeck/bin/linuxarm64/driver_droiddeck.so', 'droiddeck/bin/linuxarm64/xr-display-mode',
-               'droiddeck/driver.vrdrivermanifest',
-               'droiddeck/resources/settings/default.vrsettings', 'layer/libVkLayer_droiddeck_vr.so',
-               'layer/VK_LAYER_DROIDDECK_vr.json', 'layer/VK_LAYER_DROIDDECK_vr_implicit.json',
-               'layer/libdroiddeck_vr_scheduling.so']]
     paths += ['assets/linuxfs/usr/local/lib/droiddeck-gpuload/' + name for name in
               ['libVkLayer_droiddeck_gpuload.so', 'VK_LAYER_DROIDDECK_gpu_load.json',
                'libVkLayer_droiddeck_vramcap.so', 'VK_LAYER_DROIDDECK_vram_cap.json']]
-    for side in ['left', 'right']:
-        paths += [f'assets/linuxfs/usr/local/lib/droiddeck-vr/droiddeck/resources/rendermodels/droiddeck_hand_{side}/{name}'
-                  for name in [f'droiddeck_hand_{side}.json', 'hand.mtl', 'hand.png', 'hand_open.obj', 'hand_fist.obj',
-                               'thumb_index_open.obj', 'thumb_index_pinch.obj']]
     for driver in ['linux-wine11', 'linux-wine11-systhread']:
         paths += ['assets/directaudio/' + driver + '/' + name for name in
                   ['aarch64-unix/winedirectaudio.so', 'aarch64-windows/winedirectaudio.drv',

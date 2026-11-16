@@ -7,7 +7,6 @@ import android.view.Display
 import androidx.compose.runtime.MutableState
 import com.droiddeck.launcher.SessionActivity
 import com.droiddeck.launcher.gpu.Cardboard
-import com.droiddeck.launcher.gpu.SteamVr
 import com.droiddeck.launcher.runtime.FlatpakManager
 import com.droiddeck.launcher.session.LoadingState
 import com.droiddeck.launcher.session.SessionService
@@ -47,7 +46,6 @@ class GlassesSessionModesTest {
 
     @Before fun setUp() {
         val running = SessionState.running
-        val steamVr = SessionState.steamVr
         val mode = SessionState.mode
         val fields = listOf("context", "publisherAttached").associateWith {
             SpatialTracking::class.java.getDeclaredField(it).apply { isAccessible = true }
@@ -58,13 +56,11 @@ class GlassesSessionModesTest {
         restore = {
             fields.forEach { (name, field) -> field.set(null, values[name]) }
             SessionState.running = running
-            SessionState.steamVr = steamVr
             SessionState.mode = mode
         }
         val id = ShadowDisplayManager.addDisplay("w1920dp-h1080dp")
         display = RuntimeEnvironment.getApplication().getSystemService(DisplayManager::class.java).getDisplay(id)
         SessionState.running = true
-        SessionState.steamVr = false
     }
 
     @After fun tearDown() {
@@ -131,7 +127,6 @@ class GlassesSessionModesTest {
             state(it, "glassesOutputActive", output)
             state(it, "glasses", glasses())
             state(it, "glassesSettings", settings)
-            state(it, "steamVrStatus", SteamVr.Status.READY)
         }
     }
 

@@ -12,7 +12,6 @@
       "tools/wlroots/release.env",
       "tools/msitools",
       "tools/pipewire",
-      "tools/vr",
       "tools/gpuload",
       "app/src/main/cpp/waylandcomp/generated",
       "app/src/main/cpp/waylandcomp/src/headpose_shm.h",
@@ -21,7 +20,6 @@
     ],
     "outputs": [
       "app/src/main/assets/linuxfs/usr/local/bin/gamescope",
-      "app/src/main/assets/linuxfs/usr/local/lib/droiddeck-vr/droiddeck/bin/linuxarm64/driver_droiddeck.so",
       "app/src/main/assets/linuxfs/usr/local/lib/droiddeck-gpuload/libVkLayer_droiddeck_gpuload.so",
       "app/src/main/assets/linuxfs/usr/local/lib/droiddeck-gpuload/libVkLayer_droiddeck_vramcap.so"
     ],

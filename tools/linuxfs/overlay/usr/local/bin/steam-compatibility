@@ -82,9 +82,6 @@ bl_store_launch() {
 }
 
 bl_run() {
-  if [ -x /usr/local/bin/droiddeck-steamvr-flat ] && /usr/local/bin/droiddeck-steamvr-flat "${verb:-}"; then
-    set -- /usr/local/bin/droiddeck-steamvr-game "$@"
-  fi
   if [ -n "${BL_STORE_EXIT:-}" ]; then
     "$@"
     rc=$?
@@ -534,9 +531,6 @@ case $verb in
 esac
 """ + BL_DESKTOP_GPU_SETUP + BL_GAME_CPUS_SETUP + """
 bl_game_cpus
-if [ -x /usr/local/bin/droiddeck-steamvr-flat ] && /usr/local/bin/droiddeck-steamvr-flat "$verb"; then
-  exec /usr/local/bin/droiddeck-steamvr-game ${BL_TASKSET:-} /usr/local/bin/droiddeck-fex steam "$verb" "$@"
-fi
 exec ${BL_TASKSET:-} /usr/local/bin/droiddeck-fex steam "$verb" "$@"
 """
 

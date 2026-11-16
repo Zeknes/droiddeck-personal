@@ -151,7 +151,6 @@ import com.droiddeck.launcher.gpu.FrameGen
 import com.droiddeck.launcher.gpu.Lossless
 import com.droiddeck.launcher.gpu.ScreenEffectLooks
 import com.droiddeck.launcher.gpu.Cardboard
-import com.droiddeck.launcher.gpu.SteamVr
 import com.droiddeck.launcher.gpu.ScreenEffects
 import com.droiddeck.launcher.session.SessionPrefs
 import com.droiddeck.launcher.session.ComponentsManager
@@ -170,7 +169,6 @@ private val SessionDrawerPage.title: Int get() = when (this) {
     SessionDrawerPage.SECOND_SCREEN -> R.string.drawer_second_screen
     SessionDrawerPage.DISPLAY -> R.string.drawer_page_display
     SessionDrawerPage.HUD -> R.string.drawer_hud
-    SessionDrawerPage.VR -> R.string.vr_title
     SessionDrawerPage.EFFECTS -> R.string.drawer_page_effects
     SessionDrawerPage.GAMES -> R.string.game_settings_title
     SessionDrawerPage.AGENT -> R.string.rail_agent
@@ -183,7 +181,6 @@ private val SessionDrawerPage.icon get() = when (this) {
     SessionDrawerPage.SECOND_SCREEN -> Icons.Outlined.ScreenShare
     SessionDrawerPage.DISPLAY -> Icons.Outlined.DesktopWindows
     SessionDrawerPage.HUD -> Icons.Outlined.Speed
-    SessionDrawerPage.VR -> VrHeadsetIcon
     SessionDrawerPage.EFFECTS -> Icons.Outlined.AutoFixHigh
     SessionDrawerPage.GAMES -> Icons.Outlined.Layers
     SessionDrawerPage.AGENT -> Icons.Outlined.AutoAwesome
@@ -245,7 +242,6 @@ class DrawerActions(
     val effects: ScreenEffects = ScreenEffects.OFF,
     val cardboard: Cardboard = Cardboard.OFF,
     val cardboardSensor: Boolean = false,
-    val steamVr: SteamVr.Status? = null,
     val glassesPresent: Boolean = false,
     val glassesOutput: Boolean = false,
     val textureAnisotropy: Int? = 0,
@@ -308,7 +304,6 @@ class DrawerActions(
     val onCardboard: (Cardboard) -> Unit = {},
     val onCardboardRecenter: () -> Unit = {},
     val onGlassesRecenter: () -> Unit = {},
-    val onSteamVr: (String) -> Unit = {},
     val onTextureAnisotropy: (Int?) -> Unit = {},
     val onTextureLodBias: (String?) -> Unit = {},
     val onSecondScreenMode: (SecondScreenMode) -> Unit,
@@ -373,7 +368,7 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
     val pal = LocalPalette.current
     val host = rememberMenuHost()
     val (glasses, glassesSettings) = rememberGlasses()
-    val glassesPages = glassesTabs(glasses).filter { it.first != GlassesTab.VR && it.first != GlassesTab.CONTROLLERS }
+    val glassesPages = glassesTabs(glasses)
     var selectedGlassesTab by rememberSaveable { mutableStateOf(GlassesTab.DISPLAY) }
     val glassesTab = selectedGlassesTab.takeIf { key -> glassesPages.any { it.first == key } } ?: GlassesTab.DISPLAY
     var androidAppsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -609,10 +604,6 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                             ScreenEffectsGroup(host, a, advancedEffectsExpanded,
                                 onAdvancedToggle = { advancedEffectsExpanded = !advancedEffectsExpanded }) { key -> focus.track(page, key) }
                         }
-                        SessionDrawerPage.VR -> {
-                            SteamVrGroup(a) { key -> focus.track(page, key) }
-                            if (!a.glassesOutput) CardboardGroup(host, a) { key -> focus.track(page, key) }
-                        }
                         SessionDrawerPage.CONTROLLER -> {
                             SettingsGroup(stringResource(R.string.drawer_page_controller)) {
                                 InputQuickSettings(host, desktop = a.desktop, onChanged = a.onInputSelection, onEdit = a.onInputSettings) { key -> focus.track(page, key) }
@@ -733,13 +724,8 @@ internal fun SessionDrawer(open: Boolean, requestedPage: SessionDrawerPage, cont
                         SessionDrawerPage.SECOND_SCREEN -> {
                             SecondScreenGroup(host, a) { key -> focus.track(page, key) }
                         }
-                        SessionDrawerPage.GLASSES -> if (glassesTab == GlassesTab.CONTROLLERS) {
-                            VrControllerGroups(host) { key -> focus.track(page, key) }
-                        } else {
-                            GlassesGroups(host, glasses, glassesSettings, { key -> focus.track(page, key) }, onRecenter = a.onGlassesRecenter,
-                                tab = glassesTab, outputActive = a.glassesOutput, steamVrRunning = a.steamVr == SteamVr.Status.RUNNING,
-                                steamVr = { SteamVrRow(a) })
-                        }
+                        SessionDrawerPage.GLASSES -> GlassesGroups(host, glasses, glassesSettings, { key -> focus.track(page, key) },
+                            onRecenter = a.onGlassesRecenter, tab = glassesTab, outputActive = a.glassesOutput)
                         SessionDrawerPage.GAMES -> {
                             if (a.steam || a.direct) SelectedGameProfileGroup(host, a) { key -> focus.track(page, key) }
                             Text(stringResource(R.string.fex_next_launch), fontSize = 12.sp,
@@ -1096,78 +1082,6 @@ private fun ScreenEffectsGroup(
     }
 }
 
-@Composable
-private fun CardboardGroup(host: MenuHost, a: DrawerActions, track: (String) -> Modifier) {
-    val c = a.cardboard
-    SettingsGroup(stringResource(R.string.cardboard_title)) {
-        ToggleRow(host, "cardboard", stringResource(R.string.cardboard_mode), stringResource(R.string.cardboard_mode_hint),
-            c.enabled, chipModifier = track("cardboard")) { a.onCardboard(c.copy(enabled = it)) }
-        if (!c.enabled) return@SettingsGroup
-        ChoiceRow(host, "cardboard-source", stringResource(R.string.cardboard_source), null,
-            listOf(Cardboard.SOURCE_SCREEN to stringResource(R.string.cardboard_source_screen),
-                Cardboard.SOURCE_SBS to stringResource(R.string.cardboard_source_sbs)),
-            c.source, chipModifier = track("cardboard-source")) { a.onCardboard(c.copy(source = it)) }
-        ChoiceRow(host, "cardboard-viewer", stringResource(R.string.cardboard_viewer), null,
-            listOf(Cardboard.Viewer.CARDBOARD_V2.id to stringResource(R.string.cardboard_viewer_v2),
-                Cardboard.Viewer.CARDBOARD_V1.id to stringResource(R.string.cardboard_viewer_v1),
-                Cardboard.Viewer.NONE.id to stringResource(R.string.cardboard_viewer_none)),
-            c.viewer, chipModifier = track("cardboard-viewer")) { a.onCardboard(c.copy(viewer = it)) }
-        SliderRow(stringResource(R.string.cardboard_ipd), null, c.ipdMm, 50..80, step = 1,
-            format = { "$it mm" }, modifier = track("cardboard-ipd")) { a.onCardboard(c.copy(ipdMm = it)) }
-        if (c.source == Cardboard.SOURCE_SCREEN) {
-            SliderRow(stringResource(R.string.cardboard_screen_width), null, c.screenWidthDm, 5..200, step = 5,
-                format = { String.format(Locale.US, "%.1f m", it / 10f) }, modifier = track("cardboard-width")) { a.onCardboard(c.copy(screenWidthDm = it)) }
-            SliderRow(stringResource(R.string.cardboard_screen_distance), null, c.screenDistanceDm, 5..200, step = 5,
-                format = { String.format(Locale.US, "%.1f m", it / 10f) }, modifier = track("cardboard-distance")) { a.onCardboard(c.copy(screenDistanceDm = it)) }
-        }
-        ToggleRow(host, "cardboard-tracking", stringResource(R.string.cardboard_head_tracking),
-            if (a.cardboardSensor) null else stringResource(R.string.cardboard_no_sensor),
-            c.headTracking && a.cardboardSensor, enabled = a.cardboardSensor, chipModifier = track("cardboard-tracking")) {
-            a.onCardboard(c.copy(headTracking = it))
-        }
-        if (c.headTracking && a.cardboardSensor)
-            ActionRow(stringResource(R.string.cardboard_recenter), null, stringResource(R.string.cardboard_recenter_button), a.onCardboardRecenter)
-    }
-}
-
-@Composable
-private fun SteamVrGroup(a: DrawerActions, track: (String) -> Modifier) {
-    SettingsGroup(stringResource(R.string.steamvr_title)) {
-        val vrLabel = stringResource(R.string.cardboard_steamvr)
-        val enterLabel = stringResource(R.string.cardboard_steamvr_start)
-        @Composable fun button(label: String, text: String, action: String) {
-            SettingsRow(label, null) {
-                SecondaryButton(text, modifier = track("steamvr"), onClick = { a.onSteamVr(action) })
-            }
-        }
-        when (a.steamVr) {
-            SteamVr.Status.NOT_INSTALLED -> button(vrLabel, stringResource(R.string.cardboard_steamvr_install), "install")
-            SteamVr.Status.INSTALLING -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_installing)) {}
-            SteamVr.Status.READY -> button(vrLabel, enterLabel, "start")
-            SteamVr.Status.RUNNING -> {
-                SettingsRow(vrLabel, null) {
-                    SecondaryButton(stringResource(R.string.cardboard_steamvr_stop),
-                        modifier = track("steamvr"), onClick = { a.onSteamVr("stop") })
-                }
-            }
-            SteamVr.Status.UNAVAILABLE -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_unavailable)) {}
-            null -> SettingsRow(vrLabel, stringResource(R.string.steamvr_checking)) {}
-        }
-    }
-}
-
-@Composable
-private fun SteamVrRow(a: DrawerActions) {
-    val vrLabel = stringResource(R.string.cardboard_steamvr)
-    when (a.steamVr) {
-        SteamVr.Status.NOT_INSTALLED -> ActionRow(vrLabel, null, stringResource(R.string.cardboard_steamvr_install), { a.onSteamVr("install") })
-        SteamVr.Status.INSTALLING -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_installing)) {}
-        SteamVr.Status.READY -> ActionRow(vrLabel, null, stringResource(R.string.cardboard_steamvr_start), { a.onSteamVr("start") })
-        SteamVr.Status.RUNNING -> ActionRow(vrLabel, null, stringResource(R.string.cardboard_steamvr_stop), { a.onSteamVr("stop") })
-        SteamVr.Status.UNAVAILABLE -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_unavailable)) {}
-        null -> {}
-    }
-}
 
 internal fun secondScreenModes(none: Boolean, deckPad: Boolean, dashboard: Boolean, desktop: Boolean): List<SecondScreenMode> =
     (if (none) listOf(SecondScreenMode.NONE) else emptyList()) + listOf(SecondScreenMode.KEYBOARD_TRACKPAD, SecondScreenMode.TERMINAL) +

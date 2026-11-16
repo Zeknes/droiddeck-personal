@@ -51,35 +51,7 @@ class CardboardTest {
         assertEquals(0f, Cardboard.lensInset(150f, 0f), eps)
     }
 
-    @Test fun steamVrStatusFollowsTheAgentAnswer() {
-        fun answer(vararg pairs: Pair<String, Boolean>) = JSONObject().apply { pairs.forEach { put(it.first, it.second) } }
-        assertEquals(SteamVr.Status.UNAVAILABLE, SteamVr.parse(answer("ok" to false, "installed" to true, "driver" to true)))
-        assertEquals(SteamVr.Status.UNAVAILABLE, SteamVr.parse(answer("ok" to true, "installed" to true, "driver" to false)))
-        assertEquals(SteamVr.Status.NOT_INSTALLED, SteamVr.parse(answer("ok" to true, "driver" to true)))
-        assertEquals(SteamVr.Status.INSTALLING, SteamVr.parse(answer("ok" to true, "installing" to true)))
-        assertEquals(SteamVr.Status.READY, SteamVr.parse(answer("ok" to true, "installed" to true, "driver" to true)))
-        assertEquals(SteamVr.Status.RUNNING,
-            SteamVr.parse(answer("ok" to true, "installed" to true, "driver" to true, "running" to true)))
-        assertEquals(SteamVr.Status.UNAVAILABLE,
-            SteamVr.parse(answer("ok" to true, "installed" to true, "driver" to true).put("exitCode", 1)))
-    }
 
-    @Test fun steamVrActionsSucceedOnlyWhenTheHelperDid() {
-        fun answer(ok: Boolean, exitCode: Int? = null, started: Boolean? = null) = JSONObject().apply {
-            put("ok", ok)
-            exitCode?.let { put("exitCode", it) }
-            started?.let { put("started", it) }
-        }
-        assertTrue(SteamVr.succeeded("start", answer(true, exitCode = 0)))
-        assertTrue(SteamVr.succeeded("stop", answer(true, exitCode = 0)))
-        assertFalse(SteamVr.succeeded("start", answer(true, exitCode = 1)))
-        assertFalse(SteamVr.succeeded("stop", answer(true, exitCode = 2)))
-        assertFalse(SteamVr.succeeded("start", answer(true)))
-        assertFalse(SteamVr.succeeded("start", answer(false, exitCode = 0)))
-        assertTrue(SteamVr.succeeded("install", answer(true, started = true)))
-        assertFalse(SteamVr.succeeded("install", answer(true)))
-        assertFalse(SteamVr.succeeded("install", answer(false, started = true)))
-    }
 
     @Test fun quaternionMatchesKnownRotations() {
         val m = matrix(quat(0f, 0f, 1f, 90.0))
