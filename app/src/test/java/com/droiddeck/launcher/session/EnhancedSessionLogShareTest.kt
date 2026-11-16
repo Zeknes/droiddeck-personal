@@ -63,6 +63,25 @@ class EnhancedSessionLogShareTest {
         })
     }
 
+    @Test fun thePlainShareCarriesSessionLogWithoutEnhancedDiagnostics() {
+        val session = tmp.newFolder("2026-11-16-06-desktop")
+        session.resolve("session.log").writeText("== DroidDeck GNOME on wayland-0\n")
+        session.resolve("events.jsonl").writeText("{}\n")
+        session.resolve("gnome-stage.jsonl").writeText("{\"stage\":\"shell\",\"exit\":\"starting\"}\n")
+        session.resolve("pipewire.log").writeText("pipewire ok\n")
+
+        val zip = EnhancedSessionLogShare.createLegacy(app, session)
+        requireNotNull(zip)
+        ZipFile(zip).use { archive ->
+            val names = archive.entries().asSequence().map { it.name }.toSet()
+            assertTrue("${session.name}/session.log" in names)
+            assertTrue("${session.name}/events.jsonl" in names)
+            assertTrue("${session.name}/gnome-stage.jsonl" in names)
+            assertTrue("${session.name}/pipewire.log" in names)
+        }
+        SessionLogShare.clear(app)
+    }
+
     @Test fun diagnosticsAreSplitIntoManifestedArchivesWithOneSessionIdentity() {
         val session = tmp.newFolder("2026-11-04-01-steam")
         session.resolve("session.log").writeText("startup ok\n")
