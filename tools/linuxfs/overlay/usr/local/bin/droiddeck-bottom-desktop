@@ -1,5 +1,5 @@
 #!/bin/bash
-# KDE Plasma on a dual-screen handheld's bottom screen, next to the session on the top one.
+# Plasma Mobile on a dual-screen handheld's bottom screen, next to the top session.
 set -u
 export HOME=${HOME:-/root}
 if [ -n "${BL_DEBUG_DIR:-}" ]; then

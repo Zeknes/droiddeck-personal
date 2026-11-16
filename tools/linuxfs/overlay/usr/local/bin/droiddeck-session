@@ -617,7 +617,7 @@ fi
 
 case $mode in
   desktop)
-    exec pcmanfm
+    exec /usr/local/bin/droiddeck-desktop
     ;;
   run)
     target=${1:?program path}

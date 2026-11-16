@@ -31,8 +31,9 @@ object DesktopCatalog {
             val pageSize = try {
                 android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE).toString()
             } catch (e: Exception) { "4096" }
-            (0 until arr.length()).map { i ->
+            (0 until arr.length()).mapNotNull { i ->
                 val o = arr.getJSONObject(i)
+                if (!offeredPackage(o.getString("id"), o.optString("kind", "tar"))) return@mapNotNull null
                 val file = o.optJSONObject("pages")?.optJSONObject(pageSize) ?: o
                 Entry(
                     o.getString("id"), o.getString("name"), o.optInt("tier", 1), o.optString("version", ""),
@@ -116,6 +117,16 @@ object DesktopCatalog {
     const val EMULATORS_ID = "emulators"
     private const val EMULATORS_SCRIPT = "/usr/local/bin/droiddeck-emulators"
 
+    internal fun offeredPackage(id: String, kind: String): Boolean =
+        kind == "appimage" || id == EMULATORS_ID || id == PROTON_SEED_ID
+
+    internal fun installablePackage(entry: Entry): Boolean =
+        offeredPackage(entry.id, entry.kind) || (entry.id == DESKTOP_ID && entry.kind == "tar" &&
+            ((entry.url == BuildConfig.DESKTOP_KDE_URL && entry.sha256 == BuildConfig.DESKTOP_KDE_SHA256) ||
+                (entry.version == "ubuntu-r1-rc5-desktop" &&
+                    entry.url == "https://github.com/Droid-Deck/DroidDeck-Components/releases/download/ubuntu-r1-rc5/ubuntu-r1-rc5-desktop.tar.zst" &&
+                    entry.sha256 == "e676968a8dc5f3817061731008f877be860e29cc6d017b3170d192513d584de2")))
+
     fun desktopEntry(context: Context): Entry {
         val pack = DesktopPack.info(LinuxRuntime.rootDir(context))
         return if (pack != null) Entry(
@@ -179,6 +190,7 @@ object DesktopCatalog {
 
     private fun installLocked(context: Context, entry: Entry, cancelled: Downloader.Cancellation?,
                               listener: LinuxRuntimeInstaller.ProgressListener?): String? {
+        if (!installablePackage(entry)) return "DroidDeck Pure only supports Plasma Mobile"
         val root = LinuxRuntime.rootDir(context)
         if (!root.isDirectory) return context.getString(R.string.deskpkg_runtime_missing)
         if (entry.id == EMULATORS_ID && desktopFromPack(root)) return installEmulators(context, entry, cancelled, listener)

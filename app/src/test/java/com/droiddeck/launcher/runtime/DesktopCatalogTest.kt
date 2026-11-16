@@ -15,6 +15,30 @@ import org.robolectric.RobolectricTestRunner
 class DesktopCatalogTest {
     @get:Rule val temporary = TemporaryFolder()
 
+    @Test fun onlyThePinnedPlasmaSupportPackCanInstallAsADesktop() {
+        for (id in listOf("desktop", "desktop-kde", "desktop-gnome", "gnome", "lxqt", "xfce")) {
+            assertFalse(DesktopCatalog.offeredPackage(id, "tar"))
+            val foreign = DesktopCatalog.Entry(id, "Other desktop", 1, "other", "tar",
+                "https://example.invalid/other-desktop.tar.zst", "a".repeat(64), 1L, "", "", "")
+            assertFalse(DesktopCatalog.installablePackage(foreign))
+        }
+        assertTrue(DesktopCatalog.offeredPackage("terminal-app", "appimage"))
+        assertTrue(DesktopCatalog.offeredPackage(DesktopCatalog.PROTON_SEED_ID, "tar"))
+        val current = DesktopCatalog.Entry(DesktopCatalog.DESKTOP_ID, "Plasma Mobile", 1,
+            "ubuntu-r1-rc5-desktop", "tar",
+            "https://github.com/Droid-Deck/DroidDeck-Components/releases/download/ubuntu-r1-rc5/ubuntu-r1-rc5-desktop.tar.zst",
+            "e676968a8dc5f3817061731008f877be860e29cc6d017b3170d192513d584de2", 898306226, "", "", "")
+        assertTrue(DesktopCatalog.installablePackage(current))
+    }
+
+    @Test fun aForeignDesktopInstallIsRejectedBeforeAnyRuntimeOrDownloadWork() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val foreign = DesktopCatalog.Entry("desktop-gnome", "GNOME", 1, "1", "tar",
+            "https://example.invalid/gnome.tar.zst", "a".repeat(64), 1L, "", "", "")
+        assertEquals("DroidDeck Pure only supports Plasma Mobile", DesktopCatalog.install(app, foreign, null))
+        assertEquals("Plasma Mobile", app.getString(com.droiddeck.launcher.R.string.content_linux_desktop))
+    }
+
     @Test fun desktopNeedsTheCompleteCurrentPinnedPackage() {
         val root = temporary.root
         val kwin = File(root, "usr/bin/kwin_wayland").apply {
