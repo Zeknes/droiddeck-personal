@@ -35,6 +35,42 @@ object SessionLogShare {
         }, "share-logs").start()
     }
 
+    internal fun exportDownloadArchive(context: Context, folder: File, write: (File) -> Boolean): Boolean =
+        runCatching { zipFolder(context, folder)?.let(write) == true }.getOrDefault(false)
+
+    fun saveToDownloads(context: Context, folder: File, done: (Boolean) -> Unit) {
+        if (progress != null) return
+        progress = 0f
+        Thread({
+            val saved = exportDownloadArchive(context, folder) { zip -> saveArchiveToDownloads(context, zip) }
+            main.post { progress = null; done(saved) }
+        }, "save-session-download").start()
+    }
+
+    internal fun saveArchiveToDownloads(context: Context, zip: File): Boolean = runCatching {
+        val resolver = context.contentResolver
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, zip.name)
+            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/zip")
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/DroidDeck")
+            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: return@runCatching false
+        try {
+            val output = resolver.openOutputStream(uri) ?: error("Could not open destination")
+            output.use { dest -> zip.inputStream().buffered().use { it.copyTo(dest) } }
+            check(resolver.update(uri, android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            }, null, null) == 1)
+            true
+        } catch (e: Exception) {
+            Log.w("SessionLogShare", "could not save session logs to Downloads", e)
+            runCatching { resolver.delete(uri, null, null) }
+            false
+        }
+    }.getOrDefault(false)
+
     fun latest(context: Context): File? = sessions(context).lastOrNull()
 
     fun sessions(context: Context): List<File> {

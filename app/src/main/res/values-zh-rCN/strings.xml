@@ -895,6 +895,7 @@
     <string name="setup_log_delete_title">删除会话日志？</string>
     <string name="setup_log_delete_message">删除 %1$s？此操作无法撤销。</string>
     <string name="setup_log_export_saved">会话日志已保存。</string>
+    <string name="setup_log_download_saved">会话日志已保存到 Download/DroidDeck。</string>
     <string name="setup_log_export_failed">无法保存会话日志。</string>
     <string name="setup_log_delete_failed">无法删除会话日志。</string>
     <string name="setup_reset_settings">重置所有设置</string>

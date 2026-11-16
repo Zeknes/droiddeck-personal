@@ -66,6 +66,70 @@ class SessionLogShareZipTest {
         }
     }
 
+    @Test fun downloadExportUsesTheRedactedSessionArchive() {
+        val session = File(LinuxRuntime.logDir(app), "2026-11-16-30-desktop").apply { mkdirs() }
+        val out = File(app.cacheDir, "download-export-test").apply { mkdirs() }
+        try {
+            File(session, "events.jsonl").writeText("{\"t\":1,\"event\":\"ime.changed\",\"textField\":true}\n")
+            File(session, "session.log").writeText("token=supersecretvalue123456789\n")
+            val target = File(out, "saved.zip")
+            assertTrue(SessionLogShare.exportDownloadArchive(app, session) { zip -> zip.copyTo(target); true })
+            ZipFile(target).use { zip ->
+                val contents = zip.entries().toList().associate { it.name.substringAfterLast('/') to zip.getInputStream(it).bufferedReader().readText() }
+                assertTrue(contents.getValue("events.jsonl").contains("ime.changed"))
+                assertFalse(contents.getValue("session.log").contains("supersecretvalue123456789"))
+            }
+            assertFalse(SessionLogShare.exportDownloadArchive(app, session) { false })
+        } finally {
+            session.deleteRecursively()
+            out.deleteRecursively()
+            SessionLogShare.clear(app)
+        }
+    }
+
+    @Test fun mediaStoreDownloadPublishesOnlyAfterWritingAndDeletesFailures() {
+        val output = File(app.cacheDir, "media-store-export.zip")
+        val source = File(app.cacheDir, "media-store-source.zip").apply { writeText("zip bytes") }
+        val provider = DownloadProvider(output)
+        provider.attachInfo(app, android.content.pm.ProviderInfo().apply { authority = "media"; exported = true })
+        org.robolectric.shadows.ShadowContentResolver.registerProviderInternal("media", provider)
+        try {
+            val saved = SessionLogShare.saveArchiveToDownloads(app, source)
+            assertTrue("insert=${provider.inserted} update=${provider.updated} deleted=${provider.deleted}", saved)
+            assertEquals("zip bytes", output.readText())
+            assertEquals("Download/DroidDeck", provider.inserted!!.getAsString("relative_path"))
+            assertEquals(1, provider.inserted!!.getAsInteger("is_pending").toInt())
+            assertEquals(0, provider.updated!!.getAsInteger("is_pending").toInt())
+            provider.failUpdate = true
+            assertFalse(SessionLogShare.saveArchiveToDownloads(app, source))
+            assertTrue(provider.deleted)
+        } finally {
+            source.delete()
+            output.delete()
+        }
+    }
+
+    private class DownloadProvider(private val output: File) : android.content.ContentProvider() {
+        var inserted: android.content.ContentValues? = null
+        var updated: android.content.ContentValues? = null
+        var deleted = false
+        var failUpdate = false
+        override fun onCreate() = true
+        override fun insert(uri: android.net.Uri, values: android.content.ContentValues?): android.net.Uri {
+            inserted = values
+            return android.content.ContentUris.withAppendedId(uri, 1)
+        }
+        override fun openFile(uri: android.net.Uri, mode: String): android.os.ParcelFileDescriptor =
+            android.os.ParcelFileDescriptor.open(output, android.os.ParcelFileDescriptor.MODE_CREATE or android.os.ParcelFileDescriptor.MODE_WRITE_ONLY or android.os.ParcelFileDescriptor.MODE_TRUNCATE)
+        override fun update(uri: android.net.Uri, values: android.content.ContentValues?, selection: String?, args: Array<out String>?): Int {
+            updated = values
+            return if (failUpdate) 0 else 1
+        }
+        override fun delete(uri: android.net.Uri, selection: String?, args: Array<out String>?): Int { deleted = true; return 1 }
+        override fun getType(uri: android.net.Uri): String? = null
+        override fun query(uri: android.net.Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, sort: String?): android.database.Cursor? = null
+    }
+
     @Test fun anArchiveCanBeWrittenOutsideTheShareFolder() {
         SessionLogShare.clear(app)
         val session = File(LinuxRuntime.logDir(app), "2026-11-03-01-steam").apply { mkdirs() }

@@ -1392,8 +1392,16 @@ class FrontEndActivity : ComponentActivity(), com.droiddeck.launcher.ui.AgentPet
                             }
                         },
                         onSaveSessionLog = { folder ->
-                            pendingSessionLogExport = folder
-                            pickSessionLogExport.launch("DroidDeck-${folder.name}.zip")
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                SessionLogShare.saveToDownloads(this, folder) { saved ->
+                                    android.widget.Toast.makeText(this,
+                                        if (saved) R.string.setup_log_download_saved else R.string.setup_log_export_failed,
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                pendingSessionLogExport = folder
+                                pickSessionLogExport.launch("DroidDeck-${folder.name}.zip")
+                            }
                         },
                         onDeleteSessionLog = { folder, done ->
                             Thread({

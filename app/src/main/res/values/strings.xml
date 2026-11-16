@@ -960,6 +960,7 @@
     <string name="setup_log_delete_title">Delete session logs?</string>
     <string name="setup_log_delete_message">Delete %1$s? This cannot be undone.</string>
     <string name="setup_log_export_saved">Session logs saved.</string>
+    <string name="setup_log_download_saved">Session logs saved to Download/DroidDeck.</string>
     <string name="setup_log_export_failed">Could not save session logs.</string>
     <string name="setup_log_delete_failed">Could not delete session logs.</string>
     <string name="setup_reset_settings">Reset all settings</string>
