@@ -44,8 +44,8 @@
       "tools/linuxfs/ssbs/ssbs_adapter.c": "9e4e0fe637f7b8f91f12d8151f02e8d31bcb4294be2b2c62d3cd3ce76f200306",
       "tools/proot/fastpath/audit.c": "bfe347a2ddaceef40a78d7d590e4e679724ee4c82f3f1f1e3c7017a18ad536d4",
       "tools/proot/fastpath/fastpath.c": "4cd07b25ba14f6faa6bac5091ae323ded6b646dbb34b9e5a92ea6385e4d37cb5",
-      "tools/quest/kgsl_compat.c": "111afffda7a6df2469610f6c342ae086b1a97a559c586efc4a28015b86efd6bd",
-      "tools/quest/kgsl_compat.h": "2e9e0eb647530a35277954b7e61a22ee958067fe46056a608fb32f40f273f1bf"
+      "tools/linuxfs/kgsl_compat.c": "111afffda7a6df2469610f6c342ae086b1a97a559c586efc4a28015b86efd6bd",
+      "tools/linuxfs/kgsl_compat.h": "2e9e0eb647530a35277954b7e61a22ee958067fe46056a608fb32f40f273f1bf"
     },
     "x86": {
       "@runner": "84f825635599f81ed33f62c5fc4c73f66044d1468b060d65f83855eb9c8bfe77",
@@ -90,8 +90,8 @@
       "tools/linuxfs/preload/writewatch.c": "61e395d1caa184d329dead0e36c4e92cb1069b1154ac36581f37406c1c242240",
       "tools/linuxfs/preload/xmode.c": "9a09995bf52d40b07f16828bcc545b59b8fb1ba60d9cb09f14f7f31dba1e65a6",
       "tools/linuxfs/preload/zram.c": "12bcf07459728d4a7ede6fa0fea8deb330f7c5d0f0dd61e610e81b9efecd4262",
-      "tools/quest/kgsl_compat.c": "111afffda7a6df2469610f6c342ae086b1a97a559c586efc4a28015b86efd6bd",
-      "tools/quest/kgsl_compat.h": "2e9e0eb647530a35277954b7e61a22ee958067fe46056a608fb32f40f273f1bf"
+      "tools/linuxfs/kgsl_compat.c": "111afffda7a6df2469610f6c342ae086b1a97a559c586efc4a28015b86efd6bd",
+      "tools/linuxfs/kgsl_compat.h": "2e9e0eb647530a35277954b7e61a22ee958067fe46056a608fb32f40f273f1bf"
     }
   },
   "origin": {
