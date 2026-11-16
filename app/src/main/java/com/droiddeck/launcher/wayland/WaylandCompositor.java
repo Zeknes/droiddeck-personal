@@ -184,6 +184,9 @@ public final class WaylandCompositor {
     /** Drops seat and surface references the previous session left in the running compositor. */
     public static native void nativeSessionReset();
 
+    /** Points the compositor's file log at this session, since it outlives the previous one. */
+    public static native void nativeSetSessionLogFile(String path);
+
     public static native void nativeSetClockControl(String path);
 
     public static native int nativeCompositorTid();

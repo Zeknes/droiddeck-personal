@@ -71,6 +71,24 @@ void droiddeck_log(const char *tag, const char *fmt, ...) {
     pthread_mutex_unlock(&g_log_lock);
 }
 
+/* The compositor outlives a session, and BL_WAYLAND_LOG is read once, so a second session in the
+ * same process kept writing into the first one's file. The app points this at the current
+ * session's log when the session starts, and the native evidence (input, client disconnect,
+ * stall) then belongs to the session it happened in. */
+void droiddeck_set_session_log(const char *path) {
+    FILE *f = path && *path ? fopen(path, "a") : NULL;
+    pthread_mutex_lock(&g_log_lock);
+    if (f) {
+        setvbuf(f, NULL, _IOLBF, 0);
+        fprintf(f, "\n---- compositor attached to this session ----\n");
+        if (g_log) fclose(g_log);
+        for (int i = 0; i < g_prelog_n; i++) { fputs(g_prelog[i], f); free(g_prelog[i]); g_prelog[i] = NULL; }
+        g_prelog_n = 0;
+        g_log = f;
+    }
+    pthread_mutex_unlock(&g_log_lock);
+}
+
 static void open_session_log(void) {
     char path[256], stamp[32];
     time_t now = time(NULL);

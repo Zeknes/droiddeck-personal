@@ -497,6 +497,7 @@ class SessionService : Service() {
         val runtimeDir = File(filesDir, ".wayland-rt").apply { mkdirs() }
         killStragglers()
         OrphanReaper.beginSession()
+        runCatching { com.droiddeck.launcher.wayland.WaylandCompositor.nativeSetSessionLogFile(File(SessionState.logDirectory ?: runtimeDir, "wayland.log").path) }
         runCatching { com.droiddeck.launcher.wayland.WaylandCompositor.nativeSessionReset() }
                 val staleSockets = if (BuildConfig.DESKTOP_GNOME && SessionState.mode == MODE_DESKTOP)
             GnomeLaunchReport.clearStaleServiceSockets(runtimeDir) else emptyList()
