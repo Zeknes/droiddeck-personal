@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import select
 import socket
 import struct
+import subprocess
+import threading
 import sys
 import time
 
@@ -78,6 +81,31 @@ class TextRequests:
         self.seen = max(self.seen, seq)
 
 
+def focus_diagnostic(seq):
+    def query(destination, path, method, args=()):
+        try:
+            result = subprocess.run([os.environ.get("DROIDDECK_IME_GDBUS", "gdbus"), "call", "--session",
+                                     "--dest", destination, "--object-path", path, "--method", method, *args],
+                                    capture_output=True, text=True, timeout=0.5, check=True)
+            return result.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return ""
+
+    def collect():
+        mobile = query("org.kde.plasmashell", "/Mobile", "org.kde.plasmashell.isTaskSwitcherVisible")
+        effects = query("org.kde.KWin", "/Effects", "org.freedesktop.DBus.Properties.Get",
+                        ("org.kde.kwin.Effects", "activeEffects"))
+        def boolean(value):
+            if value == "(true,)": return "true"
+            if value == "(false,)": return "false"
+            return "unknown"
+        effect = "unknown" if not re.fullmatch(r"\(<\[(?:'[^']*'(?:,\s*)?)*\]>,\)", effects) else str("'mobiletaskswitcher'" in effects).lower()
+        print(f"droiddeck-ime: focus provenance seq={seq} mobile_task_switcher={boolean(mobile)} mobile_effect={effect}",
+              file=sys.stderr, flush=True)
+
+    threading.Thread(target=collect, daemon=True).start()
+
+
 class Report:
     def __init__(self, directory):
         self.directory = directory
@@ -98,6 +126,8 @@ class Report:
             json.dump({"textField": field, "hint": hint, "purpose": purpose, "seq": self.seq}, handle)
         os.replace(temp, target)
         print(f"droiddeck-ime: text field {'focused' if field else 'left'}", file=sys.stderr, flush=True)
+        if field:
+            focus_diagnostic(self.seq)
 
 
 def connect():

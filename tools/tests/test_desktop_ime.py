@@ -90,6 +90,40 @@ class DesktopImeTest(unittest.TestCase):
         expected = message(100, 1, struct.pack('<I', 9) + wl_string('x'))
         self.assertEqual(self.read(len(expected)), expected)
 
+    def test_focus_records_the_mobile_task_switcher_state_without_text(self):
+        script = self.session / 'gdbus'
+        script.write_text('#!/bin/sh\ncase "$*" in *isTaskSwitcherVisible*) echo "(true,)" ;; *) echo "(<[\x27mobiletaskswitcher\x27]>,)" ;; esac\n')
+        script.chmod(0o755)
+        self.proc.terminate()
+        self.proc.wait(5)
+        self.proc.stderr.close()
+        self.server.close()
+        self.server, client = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(self.server.close)
+        env = dict(os.environ, BL_LAUNCH_DIR=str(self.session), WAYLAND_SOCKET=str(client.fileno()),
+                   DROIDDECK_IME_GDBUS=str(script))
+        self.proc = subprocess.Popen(['python3', str(IME)], env=env, pass_fds=[client.fileno()], stderr=subprocess.PIPE, text=True)
+        client.close()
+        self.server.settimeout(5)
+        self.read(12)
+        self.server.sendall(message(2, 0, struct.pack('<I', 7) + wl_string('zwp_input_method_v1') + struct.pack('<I', 1)))
+        self.read(8 + 4 + len(wl_string('zwp_input_method_v1')) + 8)
+        self.server.sendall(message(3, 0, struct.pack('<I', 100)))
+        self.assertTrue(self.state(1)['textField'])
+        import select
+        output = b''
+        deadline = time.monotonic() + 3
+        while output.count(b'\n') < 2 and time.monotonic() < deadline:
+            if select.select([self.proc.stderr], [], [], 0.2)[0]:
+                output += os.read(self.proc.stderr.fileno(), 4096)
+        lines = output.decode().splitlines()
+        self.assertEqual(len(lines), 2, lines)
+        self.assertIn('text field focused', lines[0])
+        line = lines[1]
+        self.assertIn('mobile_task_switcher=true', line)
+        self.assertIn('mobile_effect=true', line)
+        self.assertNotIn('password', line)
+
     def test_focus_and_blur_are_reported(self):
         self.server.sendall(message(3, 0, struct.pack('<I', 100)))
         self.assertTrue(self.state(1)['textField'])
