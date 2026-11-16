@@ -412,7 +412,7 @@ static int is_link_query(unsigned long request) {
 }
 
 void bl_kgsl_chip_id_fixup(unsigned long request, void *arg, int rc);
-#include "../../quest/kgsl_compat.h"
+#include "../kgsl_compat.h"
 int bl_kgsl_poll(int (*real)(int, unsigned long, void *), int fd, unsigned long request,
                  void *arg, int *rc) __attribute__((visibility("hidden")));
 void bl_kgsl_track(int (*real)(int, unsigned long, void *), int fd, unsigned long request,

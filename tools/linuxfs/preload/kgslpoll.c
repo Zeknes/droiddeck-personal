@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
-#include "../../quest/kgsl_compat.h"
+#include "../kgsl_compat.h"
 
 #define KGSL_CONTEXTS 1024
 
