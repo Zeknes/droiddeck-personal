@@ -119,10 +119,8 @@ object DesktopCatalog {
     fun desktopEntry(context: Context): Entry {
         val pack = DesktopPack.info(LinuxRuntime.rootDir(context))
         return if (pack != null) Entry(
-            DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, "ubuntu-r1-rc5", "tar",
-            "https://github.com/Droid-Deck/DroidDeck-Components/releases/download/ubuntu-r1-rc5/ubuntu-r1-rc5-desktop.tar.zst",
-            "e676968a8dc5f3817061731008f877be860e29cc6d017b3170d192513d584de2",
-            898306226L, "", "", "",
+            DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1, pack.tag, "tar",
+            pack.url, pack.sha256, pack.size, "", "", "",
         ) else Entry(DESKTOP_ID, context.getString(R.string.content_linux_desktop), 1,
             BuildConfig.DESKTOP_KDE_TAG, "tar", BuildConfig.DESKTOP_KDE_URL, BuildConfig.DESKTOP_KDE_SHA256,
             BuildConfig.DESKTOP_KDE_SIZE, "", "", "")
@@ -132,11 +130,16 @@ object DesktopCatalog {
 
     fun desktopFromPack(root: File): Boolean = DesktopPack.info(root) != null
 
-    fun desktopInstalled(root: File): Boolean =
-        !File(root, DesktopRemoval.PENDING).exists() &&
-        File(root, "usr/bin/kwin_wayland").isFile &&
-            FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_ID"))?.trim() ==
-                (DesktopPack.info(root)?.tag ?: BuildConfig.DESKTOP_KDE_TAG)
+    // The first Plasma Mobile probes recorded the runtime tag here while installing the same pack.
+    private const val PACK_INSTALLED_BY_PROBE = "ubuntu-r1-rc5"
+
+    fun desktopInstalled(root: File): Boolean {
+        if (File(root, DesktopRemoval.PENDING).exists() || !File(root, "usr/bin/kwin_wayland").isFile) return false
+        val pack = DesktopPack.info(root)
+        val marker = FileUtils.readString(File(root, ".droiddeck-pkg-$DESKTOP_ID"))?.trim()
+        if (marker == (pack?.tag ?: BuildConfig.DESKTOP_KDE_TAG)) return true
+        return pack != null && marker == PACK_INSTALLED_BY_PROBE && DesktopPack.installed(root)
+    }
 
     fun desktopPresent(context: Context): Boolean {
         val root = LinuxRuntime.rootDir(context)

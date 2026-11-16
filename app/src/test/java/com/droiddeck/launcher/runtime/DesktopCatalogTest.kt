@@ -35,6 +35,39 @@ class DesktopCatalogTest {
         assertFalse(DesktopCatalog.desktopInstalled(root))
     }
 
+    @Test fun anInstalledPackIsRecognisedByTheMarkerItsOwnEntryWrites() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val root = LinuxRuntime.rootDir(app)
+        val pack = File(root, "usr/share/droiddeck/desktop-pack.json").apply { parentFile.mkdirs() }
+        val manifest = File(root, "usr/share/droiddeck/desktop/files.tsv.gz").apply { parentFile.mkdirs() }
+        val kwin = File(root, "usr/bin/kwin_wayland").apply {
+            parentFile.mkdirs()
+            writeText("fixture")
+        }
+        val marker = File(root, ".droiddeck-pkg-${DesktopCatalog.DESKTOP_ID}")
+        try {
+            pack.writeText(
+                """{"tag":"ubuntu-r1-rc5-desktop","url":"https://example.invalid/ubuntu-r1-rc5-desktop.tar.zst",""" +
+                    """"sha256":"${"b".repeat(64)}","size":898306226}"""
+            )
+            manifest.writeBytes(byteArrayOf())
+            val entry = DesktopCatalog.desktopEntry(app)
+            assertEquals("ubuntu-r1-rc5-desktop", entry.version)
+            assertEquals("https://example.invalid/ubuntu-r1-rc5-desktop.tar.zst", entry.url)
+            marker.writeText(entry.version)
+            assertTrue("the marker the install writes must satisfy desktopInstalled", DesktopCatalog.desktopInstalled(root))
+            marker.writeText("ubuntu-r1-rc5")
+            assertTrue("a pack installed by the first probes is already complete", DesktopCatalog.desktopInstalled(root))
+            marker.writeText("older-package")
+            assertFalse(DesktopCatalog.desktopInstalled(root))
+        } finally {
+            marker.delete()
+            pack.delete()
+            manifest.delete()
+            kwin.delete()
+        }
+    }
+
     @Test fun anInterruptedInstallIsFoundAgainWithEverythingNeededToFinishIt() {
         val root = temporary.root
         val entry = DesktopCatalog.Entry(
