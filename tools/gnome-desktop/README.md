@@ -291,3 +291,10 @@ return a line), which left bundles holding only the header of `app.log`. If no
 line arrives within four seconds the capture restarts unfiltered and keeps the
 lines whose pid column is this process, so the file covers the session either
 way.
+
+`OrphanReaper.reap("session starting")` ends every process of this app's uid it
+does not know, and a reap still running from the previous session could end the
+new session's own `logcat` before the keep registration happened (r8: app.log
+held 700 lines, all written at the session's first second). The reaper now
+records when the session began and never ends a process that started after it,
+so only real leftovers are reaped.

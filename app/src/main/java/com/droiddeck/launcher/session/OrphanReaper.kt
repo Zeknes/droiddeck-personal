@@ -7,6 +7,28 @@ object OrphanReaper {
     private const val TAG = "OrphanReaper"
     private val kept = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
+    /** Uptime of the moment the current session began; nothing younger than it is a leftover. */
+    @Volatile
+    private var epochSeconds = -1L
+
+    fun beginSession() { epochSeconds = uptimeSeconds() }
+
+    /** A process that started after the session did belongs to it, not to an earlier one. */
+    internal fun startedBeforeEpoch(startSeconds: Long): Boolean =
+        epochSeconds <= 0 || startSeconds < epochSeconds - 1
+
+    private fun uptimeSeconds(): Long = runCatching {
+        File("/proc/uptime").readText().trim().substringBefore(' ').toDouble().toLong()
+    }.getOrDefault(-1L)
+
+    private fun processStartSeconds(pid: Int): Long? = runCatching {
+        val stat = File("/proc/$pid/stat").readText()
+        val close = stat.lastIndexOf(')')
+        if (close < 0) return null
+        val fields = stat.substring(close + 2).trim().split(Regex("\\s+"))
+        fields[19].toLong() / 100L
+    }.getOrNull()
+
     fun keep(pid: Int) { if (pid > 0) kept.add(pid) }
 
     fun release(pid: Int) { kept.remove(pid) }
@@ -39,6 +61,7 @@ object OrphanReaper {
             val pid = entry.name.toIntOrNull() ?: return@forEach
             if (pid == me || pid <= 1 || pid in spared) return@forEach
             if (uidOf(pid) != uid) return@forEach
+            processStartSeconds(pid)?.let { if (!startedBeforeEpoch(it)) return@forEach }
             val name = try { File(entry, "cmdline").readText().substringBefore('\u0000') } catch (e: Exception) { "?" }
             if (!matching(name)) return@forEach
             try {
