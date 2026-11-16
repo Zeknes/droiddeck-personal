@@ -262,3 +262,26 @@ Do not set `PROOT_NO_SECCOMP=1` in this image: it makes the Rust coreutils
 multicall see proot's trampoline name as its program and fail. The run reaches
 `OUTER_TO_SHELL_TO_GTK PASS`, prints `INTEGRATION_PASS` and exits 0; the
 harness reaps only the PIDs it started (recursively), never processes by name.
+
+## State that outlives a session
+
+The compositor and the app process outlive a desktop session, and two pieces of
+state from the previous one used to reach the next:
+
+- the compositor kept the desktop surface, the IME-click surface, the grab, the
+  keyboard target, the cursor surface and the seat focus resources of a session
+  that had ended. `droiddeck_session_reset()` drops them when a session starts,
+  so input can never be routed through a reference the new session does not own.
+- `teardown(prootPid)` ran on a thread with no start time, so a pid the new
+  session had already reused could be signalled by the previous session's
+  cleanup. The guest's start time is captured when it starts and every teardown
+  now checks it before signalling anything.
+
+The session log capture was also being killed by the session start itself:
+`OrphanReaper.reap("session starting")` ends every process of this app's uid it
+does not know, and the `logcat` that writes `app.log` was one of them, which is
+why bundles held only the first seconds of it. It is kept while it runs.
+
+The first 24 pointer events of a session log their target pid and serial
+(`event N: button|motion -> pid N serial S`), so a client that goes away right
+after an event can be tied to the event it received.

@@ -611,6 +611,7 @@ static struct surface *g_grab;
 static void publish_query_state(void);
 static struct surface *g_key_target;
 static struct surface *g_ime_click;
+static int g_input_trace;
 static int g_input_pipe[2] = {-1, -1};
 struct input_msg { int type; int p1; int p2; int p3; int p4; };
 
@@ -3239,6 +3240,15 @@ static void pointer_input(double x, double y, int relative, uint32_t button, int
         if (clicked) g_ime_click = clicked;
         droiddeck_text_input_refocus();
     }
+    /* The first events of a session are logged, because a client that goes away right after one
+     * has to be tied to the event it received: the target's pid and the serial name it. */
+    if (g_input_trace < 24) {
+        pid_t cpid = 0; uid_t cuid = 0; gid_t cgid = 0;
+        wl_client_get_credentials(client, &cpid, &cuid, &cgid);
+        g_input_trace++;
+        droiddeck_log("input", "event %d: %s%s -> pid %d serial %u at %.0f,%.0f", g_input_trace,
+                      relative ? "relative " : "", button ? "button" : "motion", (int)cpid, t, g_ptr_x, g_ptr_y);
+    }
     wl_display_flush_clients(g_display);
 }
 
@@ -3763,6 +3773,23 @@ void droiddeck_wayland_set_cursor_composite(int on) {
 
 const char *droiddeck_client_name(struct wl_client *client) { return client_name(client); }
 struct wl_display *droiddeck_get_display(void) { return g_display; }
+
+/* A compositor outlives a session here: the next one attaches to the same display. Seat and
+ * surface references left behind by the previous session must not be used to route the new one's
+ * input, so they are dropped before it starts. */
+void droiddeck_session_reset(void) {
+    int stale = 0, i;
+    if (g_desktop) { g_desktop = NULL; stale++; }
+    if (g_ime_click) { g_ime_click = NULL; stale++; }
+    if (g_grab) { g_grab = NULL; stale++; }
+    if (g_key_target) { g_key_target = NULL; stale++; }
+    if (g_cursor_surface) { g_cursor_surface = NULL; stale++; }
+    for (i = 0; i < g_nptrs; i++) if (g_ptrs[i].focus) { g_ptrs[i].focus = NULL; stale++; }
+    for (i = 0; i < g_nkbs; i++) if (g_kbs[i].focus) { g_kbs[i].focus = NULL; stale++; }
+    for (i = 0; i < g_ntouches; i++) if (g_touches[i].focus) { g_touches[i].focus = NULL; stale++; }
+    g_input_trace = 0;
+    droiddeck_log("program", "session reset: %d stale seat/surface references cleared", stale);
+}
 void droiddeck_request_redraw(void) { schedule_render(); }
 
 struct wl_resource *droiddeck_ime_target(void) {

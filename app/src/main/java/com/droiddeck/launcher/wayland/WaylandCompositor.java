@@ -181,6 +181,9 @@ public final class WaylandCompositor {
     /** Milliseconds since the last scene that reached the screen, or -1 when nothing was drawn. */
     public static native long nativeMillisSinceLastFrame();
 
+    /** Drops seat and surface references the previous session left in the running compositor. */
+    public static native void nativeSessionReset();
+
     public static native void nativeSetClockControl(String path);
 
     public static native int nativeCompositorTid();

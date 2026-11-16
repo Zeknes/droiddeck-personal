@@ -40,7 +40,11 @@ object SessionLogCapture {
                     }
                 }
             }
-            if (pid == -1) {
+            if (pid != -1) {
+                // The session start reaps every process of this app's uid that it does not know,
+                // which used to take this capture down a moment after it began.
+                com.droiddeck.launcher.session.OrphanReaper.keep(pid)
+            } else {
                 out.write("logcat could not be started; this ROM may not hand an app its own entries.\n")
                 out.flush()
             }
@@ -70,6 +74,7 @@ object SessionLogCapture {
         syncer = null
         target = null
         if (pid != -1) {
+            com.droiddeck.launcher.session.OrphanReaper.release(pid)
             try {
                 Process.killProcess(pid)
             } catch (e: Exception) {

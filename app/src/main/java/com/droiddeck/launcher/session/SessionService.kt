@@ -68,6 +68,8 @@ class SessionService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var sessionPid = -1
+    /** Start time of the guest that pid names, so a reused pid is never signalled. */
+    private var sessionStartTime: Long? = null
     private val auxiliaryProcesses = HashMap<Int, Long>()
     private val auxiliaryProcessesLock = Any()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -494,7 +496,8 @@ class SessionService : Service() {
         val sessionRoot = LinuxRuntime.sessionRoot(this).apply { mkdirs() }
         val runtimeDir = File(filesDir, ".wayland-rt").apply { mkdirs() }
         killStragglers()
-        val staleSockets = if (BuildConfig.DESKTOP_GNOME && SessionState.mode == MODE_DESKTOP)
+        runCatching { com.droiddeck.launcher.wayland.WaylandCompositor.nativeSessionReset() }
+                val staleSockets = if (BuildConfig.DESKTOP_GNOME && SessionState.mode == MODE_DESKTOP)
             GnomeLaunchReport.clearStaleServiceSockets(runtimeDir) else emptyList()
         if (staleSockets.isNotEmpty()) Log.w(TAG, "removed stale guest sockets: ${staleSockets.joinToString()}")
         val stillStarting = { gen == sessionGen && SessionState.running }
@@ -812,11 +815,12 @@ class SessionService : Service() {
                 components.reversed().forEach { runCatching { it.stop() } }
                 components.clear()
             }
-            if (pid > 1) Thread({ teardown(pid) }, "session-teardown").start()
+            if (pid > 1) Thread({ teardown(pid, sessionStartTime) }, "session-teardown").start()
             return
         }
         sessionPid = pid
         if (pid > 1) {
+            sessionStartTime = readStat(pid)?.second
             raiseTracer(pid, gen)
             SessionEvents.guestStarted(pid)
         } else {
@@ -2187,7 +2191,9 @@ class SessionService : Service() {
         syncWatcher?.stopWatching()
         syncWatcher = null
         val prootPid = sessionPid
+        val prootStartTime = sessionStartTime ?: readStat(prootPid)?.second
         sessionPid = -1
+        sessionStartTime = null
         val auxiliary = synchronized(auxiliaryProcessesLock) {
             auxiliaryProcesses.toMap().also { auxiliaryProcesses.clear() }
         }
@@ -2217,7 +2223,7 @@ class SessionService : Service() {
                 Thread({
                     if (prootPid > 1 && steamClientMayRun) askSteamToExit(prootPid)
                     auxiliary.forEach { (pid, started) -> teardown(pid, started) }
-                    if (prootPid > 1) teardown(prootPid)
+                    if (prootPid > 1) teardown(prootPid, prootStartTime)
                     killGuestLeftovers()
                     pruneSystemVulkanRuntime()
                     finishSessionStop(status, stoppedGen, collectEnded)
