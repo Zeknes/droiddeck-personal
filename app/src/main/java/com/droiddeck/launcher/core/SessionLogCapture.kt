@@ -28,7 +28,9 @@ object SessionLogCapture {
             writer = out
             this.target = target
             pid = HostProcess.start(
-                "/system/bin/logcat -v threadtime -T 1 --pid=" + Process.myPid(),
+                // A streaming capture: "-T <count>" tails that many lines and exits, which left the
+                // exported app.log with one line while the session ran for minutes.
+                "/system/bin/logcat -v threadtime --pid=" + Process.myPid(),
                 null, target.parentFile, null,
             ) { line ->
                 synchronized(this) {

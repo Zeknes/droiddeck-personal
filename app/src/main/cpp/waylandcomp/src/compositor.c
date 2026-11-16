@@ -148,7 +148,19 @@ static const char *client_name(struct wl_client *client) {
 
 static void on_client_destroyed(struct wl_listener *l, void *data) {
     struct client_info *ci = wl_container_of(l, ci, destroy), **pp;
-    droiddeck_log("program", "disconnected: %s (pid %d)", ci->name, (int)ci->pid);
+    /* Tell a client that died from a connection this side dropped: a process that is still there
+     * means the socket went first, a process that is gone means it was killed or crashed. */
+    char stat_path[32], stat[256] = "";
+    snprintf(stat_path, sizeof(stat_path), "/proc/%d/stat", (int)ci->pid);
+    int fd = open(stat_path, O_RDONLY | O_CLOEXEC);
+    if (fd >= 0) {
+        ssize_t n = read(fd, stat, sizeof(stat) - 1);
+        if (n > 0) stat[n] = 0;
+        close(fd);
+    }
+    const char *after = stat[0] ? strrchr(stat, ')') : NULL;
+    droiddeck_log("program", "disconnected: %s (pid %d): %s", ci->name, (int)ci->pid,
+                  !stat[0] ? "process gone" : after && after[1] ? (after[2] == 'Z' ? "process is a zombie" : "process still alive") : "process alive");
     droiddeck_color_client_gone(ci->client);
     for (pp = &g_clients; *pp; pp = &(*pp)->next)
         if (*pp == ci) { *pp = ci->next; break; }
@@ -286,6 +298,7 @@ static struct {
     const void *buffers[PACE_BUFFERS];
     uint64_t game_frames_seen;
     unsigned idle_frames;
+    unsigned commits;
 } g_pace;
 
 static void pace_note_buffer(const void *buffer) {
@@ -333,6 +346,7 @@ static int g_scene_w, g_scene_h;
 static int g_desktop_w, g_desktop_h;
 static unsigned g_stat_frames, g_stat_dmabuf, g_stat_shm;
 static int64_t g_last_present_ns;
+static int64_t g_last_commit_ns;
 
 static struct {
     unsigned ticks;
@@ -1301,6 +1315,8 @@ static void surface_commit(struct wl_client *c, struct wl_resource *r) {
         if (s->has_content) map_toplevel(s);
         else unmap_toplevel(s);
     }
+    g_pace.commits++;
+    g_last_commit_ns = now_ns();
     schedule_render();
 }
 static void surface_set_buffer_transform(struct wl_client *c, struct wl_resource *r, int32_t t) {}
@@ -3810,16 +3826,24 @@ static int on_stats_timer(void *data) {
     }
     const uint64_t game = g_game_frames - g_pace.game_frames_seen;
     if (g_pace.ticks || g_pace.renders || game || g_pace.reattaches || g_pace.null_attaches || g_pace.distinct ||
-        g_pace.presented || g_pace.replaced || g_pace.undrawn) {
+        g_pace.presented || g_pace.replaced || g_pace.undrawn || g_pace.commits || g_pace.idle_frames) {
         droiddeck_log("pacing", "last 10 s: tick reaches compositor %.2f/%.2f ms late (%u ticks, %u over 2 ms) | "
                    "new frame waits %.2f/%.2f ms to be drawn (%u scenes, %u on arrival) | %llu game frames, %u re-attached after an "
                    "empty attach, %u empty attaches, %u distinct buffers | feedback %u shown, %u replaced before drawing, "
-                   "%u not drawn | %u idle frame answers",
+                   "%u not drawn | %u idle frame answers | %u commits, %.1f s since the last commit, %.1f s since the last scene",
                    g_pace.ticks ? (double)g_pace.tick_late_ns / 1e6 / g_pace.ticks : 0.0, (double)g_pace.tick_late_max_ns / 1e6,
                    g_pace.ticks, g_pace.ticks_late_2ms,
                    g_pace.renders ? (double)g_pace.wait_ns / 1e6 / g_pace.renders : 0.0, (double)g_pace.wait_max_ns / 1e6,
                    g_pace.renders, g_pace.commit_renders, (unsigned long long)game, g_pace.reattaches, g_pace.null_attaches, g_pace.distinct,
-                   g_pace.presented, g_pace.replaced, g_pace.undrawn, g_pace.idle_frames);
+                   g_pace.presented, g_pace.replaced, g_pace.undrawn, g_pace.idle_frames,
+                   g_pace.commits,
+                   g_last_commit_ns ? (double)(now_ns() - g_last_commit_ns) / 1e9 : -1.0,
+                   g_last_present_ns ? (double)(now_ns() - g_last_present_ns) / 1e9 : -1.0);
+    }
+    if (g_last_commit_ns && !wl_list_empty(&g_toplevels) && now_ns() - g_last_commit_ns > 5000000000LL) {
+        droiddeck_log("guest", "no commit from any client for %.1f s (last scene %.1f s ago)",
+                      (double)(now_ns() - g_last_commit_ns) / 1e9,
+                      g_last_present_ns ? (double)(now_ns() - g_last_present_ns) / 1e9 : -1.0);
     }
     {
         const uint64_t seen = g_game_frames;
