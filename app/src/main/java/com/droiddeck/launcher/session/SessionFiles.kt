@@ -173,15 +173,6 @@ object SessionFiles {
             "usr/bin/steamos-polkit-helpers/jupiter-biosupdate" to "usr/bin/steamos-polkit-helpers/jupiter-biosupdate",
             "usr/bin/steamos-polkit-helpers/jupiter-dock-updater" to "usr/bin/steamos-polkit-helpers/jupiter-dock-updater",
         )
-        val mangoapp = listOf(
-            "usr/local/bin/mangoapp",
-            "usr/local/lib/mangoapp/mangoapp",
-            "usr/local/lib/mangoapp/libfmt.so.10",
-            "usr/local/lib/mangoapp/libspdlog.so.1.13",
-            "usr/local/lib/mangoapp/libglfw.so.3",
-            "usr/local/lib/mangoapp/libtraceevent.so.1",
-            "usr/local/lib/mangoapp/libtracefs.so.1",
-        ).map { it to it }
         val xclipse = listOf("libVkLayer_droiddeck_xclipse.so", "VkLayer_droiddeck_xclipse.json")
             .map { "usr/local/lib/droiddeck-xclipse/$it" }
         val msitools = listOf("msiinfo", "cabextract", "7z", "7z.so", "libmsi-1.0.so.0", "libgsf-1.so.114", "libgcab-1.0.so.0")
@@ -231,7 +222,7 @@ object SessionFiles {
             "usr/local/lib/droiddeck-pipewire.tzst" to "usr/local/lib/droiddeck-pipewire.tzst",
             "usr/local/share/licenses/uruntime/LICENSE" to "usr/local/share/licenses/uruntime/LICENSE",
             "usr/local/lib/droiddeck-dirt/ws2_32.dll" to "usr/local/lib/droiddeck-dirt/ws2_32.dll",
-        ) + mangoapp + xclipse.map { it to it } + maliCompat + msitools.map { it to it } + vr + gpuLoad + fexPreloads).filter { (asset, _) ->
+        ) + xclipse.map { it to it } + maliCompat + msitools.map { it to it } + vr + gpuLoad + fexPreloads).filter { (asset, _) ->
             val dir = asset.substringBeforeLast('/')
             runCatching { context.assets.list("linuxfs/$dir")?.contains(asset.substringAfterLast('/')) == true }.getOrDefault(false)
         }

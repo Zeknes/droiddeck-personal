@@ -289,24 +289,6 @@ for license in NOTICE GPL-2 GPL-3 LGPL-2.1 7zip-License 7zip-unRarLicense; do
         "${linuxfs_dir}/usr/local/share/licenses/droiddeck-msitools/${license}"
 done
 
-mango_dir="${linuxfs_dir}/usr/local/lib/mangoapp"
-mango_pkgs="${staging_dir}/mango-pkgs"
-mkdir -p "${mango_dir}" "${mango_pkgs}"
-while read -r package_sha256 package_url; do
-    [[ -n "${package_url}" ]] || continue
-    package_archive=$(cached "${package_sha256}" "$(basename "${package_url}")" \
-        bash -c 'curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o "$out" "$0"' "${package_url}")
-    zstd -dc "${package_archive}" | tar -xf - -C "${mango_pkgs}"
-done < <(grep -v '^#' "${repo_root}/tools/mangoapp/packages.txt")
-install -m644 "${mango_pkgs}/usr/bin/mangoapp" "${mango_dir}/mangoapp"
-for library in libfmt.so.10 libspdlog.so.1.13 libglfw.so.3 libtraceevent.so.1; do
-    cp -L "${mango_pkgs}/usr/lib/${library}" "${mango_dir}/${library}"
-done
-docker run --rm --platform "${docker_platform}" --user "$(id -u):$(id -g)" -v "${repo_root}:/src" -w /src "${image_name}" \
-    aarch64-linux-gnu-gcc -shared -fPIC -O2 -Wall -Wl,-soname,libtracefs.so.1 \
-    -o app/src/main/assets/linuxfs/usr/local/lib/mangoapp/libtracefs.so.1 tools/mangoapp/libtracefs-shim.c
-mkdir -p "${linuxfs_dir}/usr/local/bin"
-install -m644 "${repo_root}/tools/mangoapp/mangoapp" "${linuxfs_dir}/usr/local/bin/mangoapp"
 
 pw_pkgs="${staging_dir}/pw-pkgs"
 mkdir -p "${pw_pkgs}"

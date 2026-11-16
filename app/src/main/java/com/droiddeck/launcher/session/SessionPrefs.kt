@@ -457,10 +457,7 @@ object SessionPrefs {
     val HUD_OPACITY_RANGE = 30..100
     const val HUD_OPACITY_DEFAULT = 70
 
-    private fun hudKey(context: Context) = if (mangoappSession(context)) "hudDeck" else "hud"
-
-    private fun mangoappSession(context: Context) =
-        SessionState.mode == SessionService.MODE_STEAM && mangoapp(context)
+    private fun hudKey(context: Context) = "hud"
 
     fun lowLatency(context: Context): Boolean = prefs(context).getBoolean("lowLatency", true)
 
@@ -863,10 +860,8 @@ object SessionPrefs {
         else -> com.droiddeck.launcher.input.FakeInputWriter.PAD_TYPE_DECK
     }
 
-    fun mangoapp(context: Context): Boolean = prefs(context).getBoolean("mangoapp", true)
     fun vsyncThread(context: Context): Boolean = prefs(context).getBoolean("vsyncThread", true)
     fun renderOnCommit(context: Context): Boolean = prefs(context).getBoolean("renderOnCommit", true)
-    fun setMangoapp(context: Context, on: Boolean) { prefs(context).edit().putBoolean("mangoapp", on).apply() }
 
     fun zinkLazy(context: Context): Boolean = prefs(context).getBoolean("zinkLazy", true)
 
