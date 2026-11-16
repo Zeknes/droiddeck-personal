@@ -34,6 +34,10 @@ object SessionState {
     @Volatile
     var guestPid = -1
 
+    /** Uptime of the last touch or key the session received, so a death can be tied to input. */
+    @Volatile
+    var lastInputAt = 0L
+
     @Volatile
     var installing: String? = null
 

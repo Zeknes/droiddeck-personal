@@ -225,6 +225,23 @@ to connect pipewire context" - which is the loop a device showed after one
 failed run. The compositor's `wayland-0` and the app's `droiddeck-ime.sock` are
 left alone.
 
+## Frame callbacks while the scene is idle
+
+The compositor used to answer `wl_callback.done` only from a render, and a
+render only happened when the scene had damage. A nested compositor waits for
+that callback before it paints its next frame, so once a GNOME session settled
+(no cursor, no window moving) its frame clock never completed, and the shell
+tore the session down a moment later - the device showed the shell exiting 0, 1
+or 137 within 0.2-0.7 s of its first frame, and staying alive for 38-48 s while
+something kept drawing. `fire_waiting_frames()` now answers every pending
+callback on each vsync tick whether or not a scene was drawn, which is what an
+output does, and the pacing line counts those answers (`N idle frame answers`)
+so a log shows the change took effect.
+
+`events.jsonl` also records `session.exit` with the exit status, the signal it
+decodes to, and how long before the exit the last frame and the last input
+were, so a stopped guest and a starved one can be told apart without guessing.
+
 
 ## Unprivileged start
 

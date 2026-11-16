@@ -178,6 +178,9 @@ public final class WaylandCompositor {
 
     public static native void nativeVsync(long frameTimeNanos);
 
+    /** Milliseconds since the last scene that reached the screen, or -1 when nothing was drawn. */
+    public static native long nativeMillisSinceLastFrame();
+
     public static native void nativeSetClockControl(String path);
 
     public static native int nativeCompositorTid();

@@ -285,6 +285,7 @@ static struct {
     int64_t tick_late_ns, tick_late_max_ns, wait_ns, wait_max_ns;
     const void *buffers[PACE_BUFFERS];
     uint64_t game_frames_seen;
+    unsigned idle_frames;
 } g_pace;
 
 static void pace_note_buffer(const void *buffer) {
@@ -331,6 +332,7 @@ static struct wl_event_source *g_release_source;
 static int g_scene_w, g_scene_h;
 static int g_desktop_w, g_desktop_h;
 static unsigned g_stat_frames, g_stat_dmabuf, g_stat_shm;
+static int64_t g_last_present_ns;
 
 static struct {
     unsigned ticks;
@@ -347,6 +349,14 @@ static void on_commit_idle(void *data);
 static int64_t now_ns(void) {
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
     return (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
+/* -1 until a scene reaches the screen; afterwards the age of that scene, so a guest death can be
+ * told apart from a presentation stall without reading the log. */
+int64_t droiddeck_ms_since_last_frame(void) {
+    const int64_t last = g_last_present_ns;
+    if (last <= 0) return -1;
+    return (now_ns() - last) / 1000000LL;
 }
 
 static void perf_note_release(int64_t since_ns) {
@@ -1915,6 +1925,23 @@ static void fire_all_frames(void) {
     wl_list_for_each(s, &g_surfaces, link) fire_frames(&s->frames);
 }
 
+/* A nested compositor waits for wl_callback.done before it paints its next frame. Answering only
+ * from a render leaves that wait unanswered as soon as the scene has no damage, and GNOME Shell
+ * then tears the session down a moment later; answering every tick is what an output does. */
+static void fire_waiting_frames(void) {
+    struct surface *s;
+    int waiting = 0;
+    wl_list_for_each(s, &g_surfaces, link) {
+        if (wl_list_empty(&s->frames)) continue;
+        fire_frames(&s->frames);
+        waiting = 1;
+    }
+    if (waiting) {
+        g_pace.idle_frames++;
+        wl_display_flush_clients(g_display);
+    }
+}
+
 static void pace_without_output(void) {
     struct surface *s;
     wl_list_for_each(s, &g_surfaces, link) {
@@ -2389,6 +2416,7 @@ static void render_scene(void) {
     if (rendered) {
         int64_t t = presented_ns(t_scene);
         g_stat_frames++;
+        g_last_present_ns = t;
         if (g_hud_new) {
             g_hud_new = 0;
             hud_frame_shown(t);
@@ -2482,6 +2510,7 @@ static void on_vsync(int64_t frame_time_ns) {
     if (tick_change) g_dirty = 1;
     if (g_tick_held && g_dirty) g_hold_missed_ns = now;
     g_tick_held = 0;
+    fire_waiting_frames();
     if (!tick_change && commit_renders_on() && g_dirty_since_ns && now - g_dirty_since_ns < g_refresh_ns &&
         now - g_hold_missed_ns >= HOLD_RETRY_NS) {
         g_tick_held = 1;
@@ -3785,12 +3814,12 @@ static int on_stats_timer(void *data) {
         droiddeck_log("pacing", "last 10 s: tick reaches compositor %.2f/%.2f ms late (%u ticks, %u over 2 ms) | "
                    "new frame waits %.2f/%.2f ms to be drawn (%u scenes, %u on arrival) | %llu game frames, %u re-attached after an "
                    "empty attach, %u empty attaches, %u distinct buffers | feedback %u shown, %u replaced before drawing, "
-                   "%u not drawn",
+                   "%u not drawn | %u idle frame answers",
                    g_pace.ticks ? (double)g_pace.tick_late_ns / 1e6 / g_pace.ticks : 0.0, (double)g_pace.tick_late_max_ns / 1e6,
                    g_pace.ticks, g_pace.ticks_late_2ms,
                    g_pace.renders ? (double)g_pace.wait_ns / 1e6 / g_pace.renders : 0.0, (double)g_pace.wait_max_ns / 1e6,
                    g_pace.renders, g_pace.commit_renders, (unsigned long long)game, g_pace.reattaches, g_pace.null_attaches, g_pace.distinct,
-                   g_pace.presented, g_pace.replaced, g_pace.undrawn);
+                   g_pace.presented, g_pace.replaced, g_pace.undrawn, g_pace.idle_frames);
     }
     {
         const uint64_t seen = g_game_frames;

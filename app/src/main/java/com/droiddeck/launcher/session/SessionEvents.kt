@@ -26,6 +26,7 @@ object SessionEvents {
             SessionState.logFile = File(dir, "session.log")
             SessionState.eventsFile = File(dir, "events.jsonl")
             SessionState.guestPid = -1
+            SessionState.lastInputAt = 0L
             SessionState.installing = null
             SessionState.stopRequested = false
             SessionState.program = null

@@ -798,6 +798,7 @@ class SessionService : Service() {
             }
             val program = programStatus(sessionRoot)
             Log.i(TAG, "session ended: $status" + if (program != null) " (program $program)" else "")
+            recordExit(gen, status, program)
             stopSession(program ?: status ?: -1, gen)
         }, null, sessionLog.takeIf { "PROOT_PROFILE=1" in hostEnv.asArray() })
         Log.i(TAG, "session pid $pid, log ${sessionLog.path}")
@@ -2031,6 +2032,28 @@ class SessionService : Service() {
         synchronized(stopLock) {
             if (gen == sessionGen) SessionEvents.fail(code, message, status)
         }
+    }
+
+    /** The guest's exit as the app can see it: a shell-style 128 + signal and how long before it
+     * the last frame and the last input were, which is what separates a stopped guest from a
+     * starved one. */
+    private fun recordExit(gen: Int, status: Int?, program: Int?) {
+        if (gen != sessionGen) return
+        val code = status ?: -1
+        val signal = if (code in 129..192) code - 128 else 0
+        val frameAgeMs = runCatching {
+            com.droiddeck.launcher.wayland.WaylandCompositor.nativeMillisSinceLastFrame()
+        }.getOrDefault(-1L)
+        val inputAgeMs = SessionState.lastInputAt.takeIf { it > 0 }
+            ?.let { android.os.SystemClock.uptimeMillis() - it } ?: -1L
+        Log.i(TAG, "session exit: status $code, signal $signal, $frameAgeMs ms since the last frame, $inputAgeMs ms since the last input")
+        SessionEvents.record("session.exit", mapOf(
+            "status" to code,
+            "signal" to signal.takeIf { it > 0 },
+            "program" to program,
+            "sinceLastFrameMs" to frameAgeMs.takeIf { it >= 0 },
+            "sinceLastInputMs" to inputAgeMs.takeIf { it >= 0 },
+        ))
     }
 
     /** What the GNOME session runs on, recorded before the guest can fail on its own. */

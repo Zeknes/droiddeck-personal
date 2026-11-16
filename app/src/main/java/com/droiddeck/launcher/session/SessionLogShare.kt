@@ -26,6 +26,7 @@ object SessionLogShare {
         if (progress != null) return
         progress = 0f
         Thread({
+            SessionArtifacts.awaitCollections(5_000)
             val zip = runCatching { folder()?.let { dir -> zipFolder(context, dir) { p -> main.post { if (progress != null) progress = p } } } }
                 .onFailure { Log.w("SessionLogShare", "could not package session logs", it) }
                 .getOrNull()
@@ -62,6 +63,7 @@ object SessionLogShare {
         if (progress != null) return
         progress = 0f
         Thread({
+            SessionArtifacts.awaitCollections(5_000)
             val zips = runCatching {
                 folder()?.let { dir ->
                     EnhancedSessionLogShare.create(context, dir, onProgress = { p ->

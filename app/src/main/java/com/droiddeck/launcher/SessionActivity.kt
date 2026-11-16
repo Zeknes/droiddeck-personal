@@ -2916,6 +2916,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
 
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        SessionState.lastInputAt = SystemClock.uptimeMillis()
         if (com.droiddeck.launcher.ui.AgentPet.handleBack(this, event)) return true
         when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE -> {
@@ -3151,6 +3152,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (pipUi) return true
+        SessionState.lastInputAt = SystemClock.uptimeMillis()
         notePress(event)
         if (event.actionMasked == MotionEvent.ACTION_DOWN && event.isFromSource(InputDevice.SOURCE_TOUCHSCREEN)) {
             drawerControllerActive = false
