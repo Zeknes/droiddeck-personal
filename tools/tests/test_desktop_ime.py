@@ -101,6 +101,15 @@ class DesktopImeTest(unittest.TestCase):
         self.assertFalse(self.state(3)['textField'])
         self.assertEqual(oct((self.session / 'agent/ime.json').stat().st_mode & 0o777), '0o600')
 
+    def test_hint_only_changes_are_reported(self):
+        self.server.sendall(message(3, 0, struct.pack('<I', 100)))
+        self.assertTrue(self.state(1)['textField'])
+        self.server.sendall(message(100, 2, struct.pack('<II', 64, 0)))
+        snapshot = self.state(2, timeout=0.5)
+        self.assertEqual((snapshot['textField'], snapshot['hint'], snapshot['purpose']), (True, 64, 0))
+        self.server.sendall(message(100, 2, struct.pack('<II', 0, 0)))
+        self.assertEqual(self.state(3)['hint'], 0)
+
     def test_switching_fields_does_not_flicker(self):
         self.server.sendall(message(3, 0, struct.pack('<I', 100)))
         self.assertTrue(self.state(1)['textField'])

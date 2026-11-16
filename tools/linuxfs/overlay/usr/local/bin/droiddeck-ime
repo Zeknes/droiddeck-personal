@@ -85,7 +85,7 @@ class Report:
         self.sent = None
 
     def write(self, field, hint=0, purpose=0):
-        state = (field, purpose)
+        state = (field, hint, purpose)
         if state == self.sent or not self.directory:
             return
         self.sent = state
