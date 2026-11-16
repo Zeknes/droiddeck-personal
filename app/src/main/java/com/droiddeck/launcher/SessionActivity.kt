@@ -2839,12 +2839,34 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         ))
     }
 
+    /** A shell that exits 0 before the first frame leaves a normal-looking end screen; the faults
+     * it logged are the only reason, so they are named even on a successful exit. */
+    private fun gnomeFaultHint(): EndHint? {
+        if (!BuildConfig.DESKTOP_GNOME || SessionState.mode != SessionService.MODE_DESKTOP) return null
+        val folder = SessionState.logDirectory ?: return null
+        val faults = com.droiddeck.launcher.session.GnomeLaunchReport.faults(File(folder, "session.log"))
+        if (faults.isEmpty()) return null
+        val lines = ArrayList<String>()
+        if (com.droiddeck.launcher.session.GnomeLaunchReport.PIPEWIRE_CONTEXT in faults) {
+            lines += getString(R.string.session_end_gnome_pipewire)
+        } else if (com.droiddeck.launcher.session.GnomeLaunchReport.SHELL_SHUTDOWN in faults) {
+            lines += getString(R.string.session_end_gnome_shell_stopped, faults.joinToString(", "))
+        }
+        if (com.droiddeck.launcher.session.GnomeLaunchReport.RENDERER_SURFACELESS in faults) {
+            lines += getString(R.string.session_end_gnome_renderer)
+        }
+        if (lines.isEmpty()) return null
+        Log.w(TAG, "GNOME faults: ${faults.joinToString()}")
+        lines += getString(R.string.session_end_gnome_share)
+        return EndHint(lines.joinToString("\n"), evenOnSuccess = true)
+    }
+
     private fun presentationFaultHint(): EndHint? = presentationFault()?.let {
         EndHint(getString(R.string.session_end_present_fault, it), evenOnSuccess = true)
     }
 
-    private fun sessionExitHint(status: Int): EndHint? = if (status == 0) presentationFaultHint()
-        else runtimeDamageHint() ?: failureCodeHint() ?: gnomeStageHint(status) ?: sessionEndHint(SessionState.logFile)
+    private fun sessionExitHint(status: Int): EndHint? = if (status == 0) presentationFaultHint() ?: gnomeFaultHint()
+        else runtimeDamageHint() ?: failureCodeHint() ?: gnomeStageHint(status) ?: gnomeFaultHint() ?: sessionEndHint(SessionState.logFile)
 
     private fun sessionEndHint(log: File?): EndHint? {
         presentationFaultHint()?.let { return it }

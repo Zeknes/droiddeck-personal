@@ -3724,6 +3724,10 @@
     <string name="session_end_gnome_stage">GNOME 停在 %1$s 阶段%2$s。请在本页分享日志，以便确定具体步骤。</string>
     <string name="session_end_gnome_stalled">GNOME 没有启动起来：停在 %1$s 阶段，始终未创建自己的显示（缺少 %2$s）。请在本页分享日志。</string>
     <string name="session_end_gnome_unreached">GNOME 没有报告任何启动阶段（会话退出码 %1$d）。可能是桌面包缺失，或会话在它启动之前就失败了。请在本页分享日志。</string>
+    <string name="session_end_gnome_pipewire">GNOME Shell 连不上 PipeWire，它的 devkit 于是在出第一帧之前就把桌面关掉了。</string>
+    <string name="session_end_gnome_shell_stopped">GNOME Shell 在出第一帧之前就停止了（%1$s）。</string>
+    <string name="session_end_gnome_renderer">它同时是在没有 GPU 渲染器（surfaceless）的情况下运行的，这本身是第二个问题。</string>
+    <string name="session_end_gnome_share">请在本页分享日志，以便确定缺的是哪一环。</string>
     <string name="session_end_gpu_unsupported">当前配置缺少兼容这颗 GPU 的 Linux Vulkan 驱动，会话无法启动。Adreno Turnip 驱动不能为联发科／Mali GPU 增加支持。</string>
     <string name="setup_group_memory">内存</string>
     <string name="setup_clear_cached">会话前关闭缓存的应用</string>

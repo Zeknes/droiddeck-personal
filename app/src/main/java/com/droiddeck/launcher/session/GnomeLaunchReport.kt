@@ -24,6 +24,10 @@ object GnomeLaunchReport {
         "usr/local/bin/droiddeck-gnome-extension",
         "usr/local/share/droiddeck/gnome-input/droiddeck-ime-bridge",
         "usr/local/share/droiddeck/gnome-input/extension/extension.js",
+        "usr/bin/pipewire",
+        "usr/bin/wireplumber",
+        "usr/share/pipewire/pipewire.conf",
+        "usr/lib/aarch64-linux-gnu/pipewire-0.3/libpipewire-module-protocol-native.so",
     )
 
     private const val SCAN_BYTES = 256L * 1024
@@ -122,5 +126,57 @@ object GnomeLaunchReport {
                 .let { if (it.isNotEmpty()) parts += "missing ${it.joinToString(", ")}" }
         }
         return parts.joinToString("; ")
+    }
+
+    const val RENDERER_SURFACELESS = "renderer-surfaceless"
+    const val PIPEWIRE_CONTEXT = "pipewire-context"
+    const val SHELL_SHUTDOWN = "shell-shutdown"
+    const val IBUS_REFUSED = "ibus-refused"
+    const val GDM_MISSING = "gdm-missing"
+
+    /** Lines the shell writes when a subsystem it needs is missing. The devkit one is fatal: it
+     * shuts the shell down, and GNOME exits 0, so the status alone says nothing. */
+    private val FAULT_LINES = listOf(
+        RENDERER_SURFACELESS to "Created surfaceless renderer without GPU",
+        PIPEWIRE_CONTEXT to "Failed to connect pipewire context",
+        SHELL_SHUTDOWN to "Shutting down GNOME Shell",
+        IBUS_REFUSED to "Unable to connect to ibus",
+        GDM_MISSING to "Error registering session with GDM",
+    )
+
+    /** The guest's own service logs live in the runtime dir, outside the session folder the log
+     * browser exports; a failing launch needs them next to the session. */
+    val SERVICE_LOGS = listOf("pipewire.log", "wireplumber.log", "ibus.log", "session-bus.log", "droiddeck-ime.log")
+
+    fun faults(lines: Sequence<String>): List<String> {
+        val found = LinkedHashSet<String>()
+        lines.forEach { line ->
+            FAULT_LINES.forEach { (code, marker) -> if (line.contains(marker)) found += code }
+        }
+        return found.toList()
+    }
+
+    fun faults(log: File, maxBytes: Long = SCAN_BYTES): List<String> =
+        if (!log.isFile) emptyList() else faults(linesFromTail(log, maxBytes))
+
+    /** Copies what the guest services wrote into the session folder, keeping each file's head and
+     * tail when it is long. */
+    fun copyServiceLogs(runtimeDirectory: File, sessionDirectory: File, maxBytes: Long = 256L * 1024): List<String> {
+        val copied = ArrayList<String>()
+        SERVICE_LOGS.forEach { name ->
+            val source = File(runtimeDirectory, name)
+            if (!source.isFile || source.length() == 0L) return@forEach
+            val target = File(sessionDirectory, name)
+            runCatching {
+                val size = source.length()
+                if (size <= maxBytes) {
+                    source.copyTo(target, overwrite = true)
+                } else {
+                    val text = linesFromTail(source, maxBytes).joinToString("\n")
+                    target.writeText("(the first $size bytes are not included)\n" + text + "\n")
+                }
+            }.onSuccess { copied += name }
+        }
+        return copied
     }
 }

@@ -193,7 +193,16 @@ from the session folder and `SessionService` records each change in
   driver and Vulkan ICD, the pack tag, and any file the desktop pack should
   have installed but did not;
 - `gnome.launch.stage` per stage change, `gnome.launch.shell` once the shell's
-  own `inner` display socket exists;
+  own `inner` display socket exists, and `gnome.launch.fault` for the lines the
+  shell writes when a subsystem is missing: `renderer-surfaceless`
+  ("Created surfaceless renderer without GPU"), `pipewire-context`
+  ("Failed to connect pipewire context"), `shell-shutdown`, `ibus-refused`,
+  `gdm-missing`;
+- `gnome.launch.service_logs` and a copy of `pipewire.log`,
+  `wireplumber.log`, `ibus.log`, `session-bus.log` and `droiddeck-ime.log`
+  from the runtime dir into the session folder (each bounded to 256 KiB, head
+  kept), because those services write outside the folder the log browser
+  exports;
 - `gnome.launch.stalled` and a `GNOME_LAUNCH_STALLED` failure when, after
   180 s, nothing has been drawn, no `inner` socket exists and no stage
   reported a failure. The session then ends on the end screen, which names
@@ -201,8 +210,11 @@ from the session folder and `SessionService` records each change in
 
 A non-zero `shell` exit code or a stage with `exit=failed` is named on the end
 screen too, and a session that wrote no stage at all is named that way when the
-pack files are missing or the launcher exited 66. Both paths are non-secret:
-stage names, exit codes and socket names, no tokens or user data.
+pack files are missing or the launcher exited 66. A shell that exits 0 before
+the first frame (what mutter-devkit does when PipeWire is unreachable) still
+gets an end-screen reason from those faults, because the exit status says
+nothing there. All of it is non-secret: stage names, exit codes, socket names
+and the guest services' own logs, no tokens or user data.
 
 
 ## Unprivileged start

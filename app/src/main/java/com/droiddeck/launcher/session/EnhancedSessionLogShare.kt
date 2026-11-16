@@ -948,7 +948,8 @@ internal object EnhancedSessionLogShare {
         "droiddeck", "droiddeck-esync", "session.log", "app.log", "wayland.log", "audio.log",
         "device.txt", "network.txt", "events.jsonl", "memory.csv", "capture.json", "crash.log",
         "frame-trace.log", "process-trace.log", "game-lifecycle.log", "launches.log", "tools.tsv", "wanted.tsv", "prefixes.json",
-        "gnome-stage.jsonl", "gnome-launch.jsonl", "crash-app.txt",
+        "gnome-stage.jsonl", "gnome-launch.jsonl", "crash-app.txt", "pipewire.log", "wireplumber.log",
+        "ibus.log", "session-bus.log", "droiddeck-ime.log",
         "battlenet.log", "spawned.log", "flatpak-install.log", "cef_log.txt", "cef_log.previous.txt",
         "console_log.txt", "webhelper_js.txt", "controller_support.txt", "systemperfmanager.txt",
     )

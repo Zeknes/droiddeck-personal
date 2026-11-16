@@ -2045,12 +2045,31 @@ class SessionService : Service() {
 
     /** GNOME reports its stages in its own file and marks progress with sockets, and neither
      * survives a shell that hangs before its inner display exists: that is the signal that ends a
-     * session which would otherwise stay on a black screen with nothing to share. */
+     * session which would otherwise stay on a black screen with nothing to share.
+     *
+     * A shell that does create its display can still die before the first frame, which is what
+     * mutter-devkit does when PipeWire is unreachable; the guest's own service logs then hold the
+     * only reason, so this copies them into the session folder and records the faults once. */
     private fun watchGnomeLaunch(gen: Int, runtimeDir: File, sessionDir: File) {
         if (!sessionDir.isDirectory) return
         Thread({
             var recorded = ""
+            var shellRecorded = false
+            var faults: List<String> = emptyList()
+            var logsCopied = false
             val deadline = System.currentTimeMillis() + GNOME_LAUNCH_STALL_MS
+            fun recordFaults() {
+                val found = GnomeLaunchReport.faults(File(sessionDir, "session.log"))
+                if (found == faults) return
+                faults = found
+                if (found.isNotEmpty()) SessionEvents.record("gnome.launch.fault", mapOf("faults" to found.joinToString(",")))
+            }
+            fun copyServiceLogs() {
+                if (logsCopied) return
+                logsCopied = true
+                val copied = GnomeLaunchReport.copyServiceLogs(runtimeDir, sessionDir)
+                if (copied.isNotEmpty()) SessionEvents.record("gnome.launch.service_logs", mapOf("files" to copied.joinToString(",")))
+            }
             try {
                 while (gen == sessionGen && SessionState.running) {
                     val report = GnomeLaunchReport.report(sessionDir, runtimeDir)
@@ -2061,30 +2080,42 @@ class SessionService : Service() {
                             "stage" to report.stageName, "exit" to report.stageExit,
                         ))
                     }
-                    if (report.innerUp) {
-                        SessionEvents.record("gnome.launch.shell", mapOf("stage" to report.stageName))
-                        return@Thread
+                    if (report.innerUp && !shellRecorded) {
+                        shellRecorded = true
+                        SessionEvents.record("gnome.launch.shell", mapOf(
+                            "stage" to report.stageName, "sockets" to report.present.joinToString(","),
+                        ))
                     }
-                    if (report.failure != null) return@Thread
+                    recordFaults()
+                    if (report.failure != null) break
+                    val shellEnded = shellRecorded && report.last?.name == "shell" && report.last?.exit != "starting"
+                    if (shellEnded || GnomeLaunchReport.SHELL_SHUTDOWN in faults) {
+                        copyServiceLogs()
+                        break
+                    }
                     if (System.currentTimeMillis() > deadline) {
-                        if (!GnomeLaunchReport.stalled(report, SessionState.firstFrameSeen)) return@Thread
-                        if (GnomeLaunchReport.INNER in GnomeLaunchReport.present(runtimeDir)) return@Thread
+                        if (!GnomeLaunchReport.stalled(report, SessionState.firstFrameSeen)) break
+                        if (GnomeLaunchReport.INNER in GnomeLaunchReport.present(runtimeDir)) break
                         val missing = report.missing.joinToString(",")
                         Log.w(TAG, "GNOME did not create its inner display: stages ${report.stageName}=${report.stageExit}, missing $missing")
                         SessionEvents.record("gnome.launch.stalled", mapOf(
                             "stage" to report.stageName, "exit" to report.stageExit, "missing" to missing,
                         ))
+                        copyServiceLogs()
                         failSession(gen, "GNOME_LAUNCH_STALLED", getString(
                             R.string.session_end_gnome_stalled,
                             report.stageName.ifEmpty { getString(R.string.session_starting_desktop) }, missing,
                         ), -1)
                         stopSession(-1, gen)
-                        return@Thread
+                        break
                     }
                     Thread.sleep(GNOME_LAUNCH_POLL_MS)
                 }
             } catch (_: InterruptedException) {
                 // the session ended before the deadline
+            } finally {
+                recordFaults()
+                copyServiceLogs()
             }
         }, "gnome-launch-watch").start()
     }

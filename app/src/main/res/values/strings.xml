@@ -3904,6 +3904,10 @@
     <string name="session_end_gnome_stage">GNOME stopped at the %1$s stage%2$s. Share the logs from this screen so the exact step is known.</string>
     <string name="session_end_gnome_stalled">GNOME did not come up: it stayed at the %1$s stage and never created its display (missing %2$s). Share the logs from this screen.</string>
     <string name="session_end_gnome_unreached">GNOME reported no launch stage (session exit %1$d). The desktop package may be missing or the session failed before it started. Share the logs from this screen.</string>
+    <string name="session_end_gnome_pipewire">GNOME Shell could not reach PipeWire, so its devkit shut the desktop down before the first frame.</string>
+    <string name="session_end_gnome_shell_stopped">GNOME Shell stopped before the first frame (%1$s).</string>
+    <string name="session_end_gnome_renderer">It was also running without a GPU renderer (surfaceless), which is a second problem on its own.</string>
+    <string name="session_end_gnome_share">Share the logs from this screen so the missing piece is known.</string>
     <string name="session_end_gpu_unsupported">This session cannot start because this GPU has no compatible Linux Vulkan driver in the current setup. Adreno Turnip drivers cannot enable support for MediaTek/Mali GPUs.</string>
     <string name="setup_group_memory">Memory</string>
     <string name="setup_clear_cached">Clear cached apps before a session</string>

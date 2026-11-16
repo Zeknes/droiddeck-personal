@@ -131,8 +131,40 @@ class GnomeLaunchReportTest {
         assertEquals("exit 1", GnomeLaunchReport.detail(report))
     }
 
-    @Test fun aSessionWithNoStageIsUnreachedOnlyWhenThePackIsAbsentOrTheLauncherSaidSo() {
-        assertFalse(GnomeLaunchReport.unreached(emptyList(), emptyList(), 1))
+    @Test fun theFaultsOfTheLaunchAreNamedInTheOrderTheShellWroteThem() {
+        val faults = GnomeLaunchReport.faults(sequenceOf(
+            "libmutter-Message: 11:16:12.891: Created surfaceless renderer without GPU",
+            "GNOME Shell-Message: 11:16:13.246: Unable to connect to ibus: Could not connect: Connection refused",
+            "(mutter-devkit:22073): mdk-WARNING **: 11:16:13.929: Context got an error: Failed to connect pipewire context",
+            "** Message: 11:16:13.934: Shutting down GNOME Shell",
+        ))
+        assertEquals(
+            listOf(
+                GnomeLaunchReport.RENDERER_SURFACELESS,
+                GnomeLaunchReport.IBUS_REFUSED,
+                GnomeLaunchReport.PIPEWIRE_CONTEXT,
+                GnomeLaunchReport.SHELL_SHUTDOWN,
+            ),
+            faults,
+        )
+        assertEquals(emptyList<String>(), GnomeLaunchReport.faults(sequenceOf("Running GNOME Shell (using mutter 50.1) as a Wayland display server")))
+    }
+
+    @Test fun theServiceLogsAreCopiedIntoTheSessionFolderAndBounded() {
+        val runtime = tmp.newFolder("runtime")
+        val session = tmp.newFolder("session")
+        File(runtime, "pipewire.log").writeText("pipewire: started\n")
+        File(runtime, "wireplumber.log").writeText(("x".repeat(999) + "\n").repeat(50) + "wireplumber: last line\n")
+        val copied = GnomeLaunchReport.copyServiceLogs(runtime, session, maxBytes = 512)
+        assertEquals(listOf("pipewire.log", "wireplumber.log"), copied)
+        assertEquals("pipewire: started\n", File(session, "pipewire.log").readText())
+        val truncated = File(session, "wireplumber.log").readText()
+        assertTrue(truncated.startsWith("(the first "))
+        assertTrue(truncated.trimEnd().endsWith("wireplumber: last line"))
+        assertFalse(File(session, "ibus.log").exists())
+    }
+
+    @Test fun aSessionWithNoStageIsUnreachedOnlyWhenThePackIsAbsentOrTheLauncherSaidSo() {        assertFalse(GnomeLaunchReport.unreached(emptyList(), emptyList(), 1))
         assertTrue(GnomeLaunchReport.unreached(emptyList(), listOf("usr/bin/gnome-shell"), 1))
         assertTrue(GnomeLaunchReport.unreached(emptyList(), emptyList(), 66))
         assertFalse(GnomeLaunchReport.unreached(
@@ -150,6 +182,10 @@ class GnomeLaunchReportTest {
                 "usr/local/bin/droiddeck-gnome-extension",
                 "usr/local/share/droiddeck/gnome-input/droiddeck-ime-bridge",
                 "usr/local/share/droiddeck/gnome-input/extension/extension.js",
+                "usr/bin/pipewire",
+                "usr/bin/wireplumber",
+                "usr/share/pipewire/pipewire.conf",
+                "usr/lib/aarch64-linux-gnu/pipewire-0.3/libpipewire-module-protocol-native.so",
             ),
             GnomeLaunchReport.missingFiles(root),
         )
