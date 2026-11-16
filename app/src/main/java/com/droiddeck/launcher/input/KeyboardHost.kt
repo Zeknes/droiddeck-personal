@@ -99,11 +99,11 @@ class KeyboardHost(
 
     fun type(text: CharSequence?) {
         if (text.isNullOrEmpty()) return
-        val events = map.getEvents(text.toString().toCharArray())
-        if (events != null) {
-            for (event in events) sendKeyEvent(event)
-        } else {
-            for (ch in text) {
+        for (ch in text) {
+            val mapped = map.getEvents(charArrayOf(ch))
+            if (mapped != null && mapped.any { it.action == KeyEvent.ACTION_DOWN && it.getUnicodeChar() == ch.code }) {
+                for (event in mapped) sendKeyEvent(event)
+            } else {
                 val t = System.currentTimeMillis()
                 val down = KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_UNKNOWN, 0, 0,
                     KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, 0)
@@ -119,31 +119,65 @@ class KeyboardHost(
         sendKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_UP, keyCode, 0))
     }
 
+    // The IME's composing text only exists on the Android side: it is held here and sent as
+    // keystrokes once the IME commits or finishes it, so a preview never types into the guest.
     private inner class KeyConnection : BaseInputConnection(this, false) {
+        private var composing = ""
+
         override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            composing = ""
             type(text)
             return true
         }
 
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
-        override fun finishComposingText(): Boolean = true
+        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
+            composing = text?.toString().orEmpty()
+            return true
+        }
+
+        override fun finishComposingText(): Boolean {
+            flushComposing()
+            return true
+        }
 
         override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
-            repeat(beforeLength) { tap(KeyEvent.KEYCODE_DEL) }
+            val buffered = minOf(beforeLength, composing.length)
+            composing = composing.dropLast(buffered)
+            repeat(beforeLength - buffered) { tap(KeyEvent.KEYCODE_DEL) }
             repeat(afterLength) { tap(KeyEvent.KEYCODE_FORWARD_DEL) }
             return true
         }
 
-        override fun sendKeyEvent(event: KeyEvent): Boolean = this@KeyboardHost.sendKeyEvent(event)
+        override fun sendKeyEvent(event: KeyEvent): Boolean {
+            if (composing.isNotEmpty() && event.action == KeyEvent.ACTION_DOWN) {
+                when (event.keyCode) {
+                    KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> flushComposing()
+                    KeyEvent.KEYCODE_DEL -> {
+                        composing = composing.dropLast(1)
+                        return true
+                    }
+                }
+            }
+            return this@KeyboardHost.sendKeyEvent(event)
+        }
 
         override fun performEditorAction(actionCode: Int): Boolean {
+            flushComposing()
             tap(KeyEvent.KEYCODE_ENTER)
             return true
         }
 
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = ""
+        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence =
+            if (n <= 0) "" else composing.takeLast(n)
+
         override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = ""
         override fun getSelectedText(flags: Int): CharSequence? = null
+
+        private fun flushComposing() {
+            val pending = composing
+            composing = ""
+            if (pending.isNotEmpty()) type(pending)
+        }
     }
 
     private class CharKeyEvent(origin: KeyEvent, private val ch: Char) : KeyEvent(origin) {
