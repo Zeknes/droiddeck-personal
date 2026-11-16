@@ -66,7 +66,6 @@ object SettingsReset {
                 .onFailure { ok = false; Log.w(TAG, "Could not clear the Default profile's environment", it) }
         }
 
-        QuestExperimental.initialize(context)
         runCatching { OfflineMode.apply(context, LinuxRuntime.rootDir(context)) }
             .onFailure { ok = false; Log.w(TAG, "Could not turn offline mode off", it) }
         runCatching { GameEnvironmentStore.publish(context) }

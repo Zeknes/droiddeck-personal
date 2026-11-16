@@ -2,7 +2,6 @@ package com.droiddeck.launcher.gpu
 
 import android.os.Environment
 import android.os.Build
-import com.droiddeck.launcher.session.QuestExperimental
 import com.droiddeck.launcher.session.SessionPrefs
 import java.io.File
 import org.junit.After
@@ -36,15 +35,6 @@ class TurnipDriverAutoTest {
     private fun gpu(model: Int, adreno: Boolean = true) = GpuInfo(
         "test GPU", model, GpuInfo.familyOf(adreno, model), "", false,
     )
-
-    @Test fun questModelsUseTheirPatchedDriverAsTheFallback() {
-        val driver = TurnipDriver(RuntimeEnvironment.getApplication()) { error("Quest must not use generic GPU detection") }
-        for (model in listOf("Quest 3", "Quest 3S", "Quest 2")) {
-            ShadowBuild.setModel(model)
-            assertEquals(if (model == "Quest 2") QuestExperimental.DRIVER_A6XX else QuestExperimental.DRIVER,
-                driver.autoId())
-        }
-    }
 
     @Test fun aNonAdrenoDeviceDoesNotAutomaticallyLoadTurnip() {
         assertEquals(GpuInfo.Family.NOT_ADRENO, GpuInfo.detect().family)

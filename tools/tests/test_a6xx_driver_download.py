@@ -5,7 +5,7 @@ import urllib.error
 from pathlib import Path
 from unittest import mock
 
-SCRIPT = Path(__file__).resolve().parents[1] / "quest/build-driver.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "a6xx-driver/build-driver.py"
 spec = importlib.util.spec_from_file_location("build_driver", SCRIPT)
 driver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)

@@ -109,7 +109,6 @@ internal class GlassesMenuController(
         val owner = activity
         val eligible = owner != null && !owner.isFinishing && !owner.isDestroyed && !owner.isInPictureInPictureMode &&
             owner.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE == 0 &&
-            owner !is com.droiddeck.launcher.QuestXrActivity &&
             (owner !is SessionActivity || sessionMenus[owner] == true) &&
             settings.gameOnGlasses && settings.screen3dof && state.usable && state.canControl && state.supportsScreen3dof
         val target = if (eligible && !failed) display() else null

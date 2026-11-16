@@ -248,7 +248,6 @@ class DrawerActions(
     val steamVr: SteamVr.Status? = null,
     val glassesPresent: Boolean = false,
     val glassesOutput: Boolean = false,
-    val immersiveSteamVr: Boolean = false,
     val textureAnisotropy: Int? = 0,
     val textureLodBias: String? = TextureFiltering.LOD_BIAS_OFF,
     val secondScreenMode: SecondScreenMode,
@@ -1135,7 +1134,7 @@ private fun CardboardGroup(host: MenuHost, a: DrawerActions, track: (String) -> 
 private fun SteamVrGroup(a: DrawerActions, track: (String) -> Modifier) {
     SettingsGroup(stringResource(R.string.steamvr_title)) {
         val vrLabel = stringResource(R.string.cardboard_steamvr)
-        val enterLabel = stringResource(if (a.immersiveSteamVr) R.string.steamvr_enter else R.string.cardboard_steamvr_start)
+        val enterLabel = stringResource(R.string.cardboard_steamvr_start)
         @Composable fun button(label: String, text: String, action: String) {
             SettingsRow(label, null) {
                 SecondaryButton(text, modifier = track("steamvr"), onClick = { a.onSteamVr(action) })
@@ -1146,10 +1145,9 @@ private fun SteamVrGroup(a: DrawerActions, track: (String) -> Modifier) {
             SteamVr.Status.INSTALLING -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_installing)) {}
             SteamVr.Status.READY -> button(vrLabel, enterLabel, "start")
             SteamVr.Status.RUNNING -> {
-                if (a.immersiveSteamVr) button(vrLabel, enterLabel, "start")
                 SettingsRow(vrLabel, null) {
                     SecondaryButton(stringResource(R.string.cardboard_steamvr_stop),
-                        modifier = track(if (a.immersiveSteamVr) "steamvr-stop" else "steamvr"), onClick = { a.onSteamVr("stop") })
+                        modifier = track("steamvr"), onClick = { a.onSteamVr("stop") })
                 }
             }
             SteamVr.Status.UNAVAILABLE -> SettingsRow(vrLabel, stringResource(R.string.cardboard_steamvr_unavailable)) {}

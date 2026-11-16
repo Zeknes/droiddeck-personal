@@ -8,7 +8,6 @@ import android.util.Log;
 import com.droiddeck.launcher.R;
 import com.droiddeck.launcher.core.FileUtils;
 import com.droiddeck.launcher.core.TarZst;
-import com.droiddeck.launcher.session.QuestExperimental;
 import com.droiddeck.launcher.session.SessionPrefs;
 
 import org.json.JSONObject;
@@ -32,8 +31,7 @@ public final class TurnipDriver {
     private static final String DRIVER_A7XX = "turnip25.1.0";
     private static final String DRIVER_A8XX = "turnip-sdk36";
     public static final List<String> BUNDLED = Collections.unmodifiableList(Arrays.asList(
-            DRIVER_A7XX, DRIVER_A8XX, com.droiddeck.launcher.session.QuestExperimental.DRIVER,
-            DRIVER_A6XX, com.droiddeck.launcher.session.QuestExperimental.DRIVER_A6XX));
+            DRIVER_A7XX, DRIVER_A8XX, DRIVER_A6XX));
     private static final String OVERRIDE_FILE = "Download/droiddeck-driver";
     private static final String PREFS = "graphics_driver";
     private static final String KEY_HIDDEN = "hiddenBundled";
@@ -307,8 +305,6 @@ public final class TurnipDriver {
             if (forced.startsWith("a6")) return DRIVER_A6XX;
         }
         if (SystemVulkanDriver.isPowerVr()) return null;
-        String quest = QuestExperimental.INSTANCE.defaultAndroidDriver();
-        if (quest != null) return quest;
         if (com.droiddeck.launcher.core.DeviceSupport.INSTANCE.vkBridge(context)) {
             Log.i(TAG, "Mali bridge: the compositor uses the system Vulkan driver");
             return null;

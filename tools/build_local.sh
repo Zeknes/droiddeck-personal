@@ -393,7 +393,7 @@ mkdir -p "${repo_root}/app/build/prepared-assets"
 mv "${staging_dir}/pulseaudio.tzst" "${repo_root}/app/build/prepared-assets/pulseaudio.tzst"
 
 cd "${repo_root}"
-python3 tools/quest/build-driver.py "${NDK}"
+python3 tools/a6xx-driver/build-driver.py
 python3 tools/powervr/fetch.py
 bash tools/packs/build.sh app/build/packs
 python3 tools/release/runtime_inputs.py record

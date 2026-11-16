@@ -1267,7 +1267,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 com.droiddeck.launcher.glasses.GlassesMenuMirror.recenter()
             },
             steamVr = steamVrStatus,
-            immersiveSteamVr = com.droiddeck.launcher.session.QuestExperimental.isSupported(),
             onSteamVr = { action -> steamVrAction(action) },
             textureAnisotropy = if (drawerGameProfileId == null) textureAnisotropy else drawerTextureAnisotropy,
             textureLodBias = if (drawerGameProfileId == null) textureLodBias else drawerTextureLodBias,
@@ -5038,10 +5037,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     private fun steamVrAction(action: String) {
-        if (action == "start" && com.droiddeck.launcher.session.QuestExperimental.isSupported()) {
-            startActivity(android.content.Intent(this, QuestXrActivity::class.java))
-            return
-        }
         val request = ++steamVrRequestGeneration
         val session = SessionState.sessionId
         fun currentRequest() = request == steamVrRequestGeneration && session == SessionState.sessionId && !isDestroyed && !ended

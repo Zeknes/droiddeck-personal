@@ -62,9 +62,7 @@ REBUILT_SHA256 = {
 }
 JNI = ('libproot.so', 'libproot-loader.so', 'libdirectaudiorelay.so')
 PREPARED = ('pulseaudio.tzst',
-            'graphics_driver/adrenotools-turnip25.1.0-quest1.tzst',
-            'graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst',
-            'graphics_driver/adrenotools-turnip26.3.0-quest2.tzst')
+            'graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst')
 
 
 def git(*args):

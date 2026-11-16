@@ -104,18 +104,18 @@ class RuntimeInputsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'changed runtime input'):
             runtime.verify(self.root, stale_sources_ok=True)
 
-    def test_changed_quest_source_rejects_old_outputs(self):
-        source = self.root / 'tools/quest/kgsl_compat.c'
+    def test_changed_a6xx_driver_source_rejects_old_outputs(self):
+        source = self.root / 'tools/a6xx-driver/build-driver.py'
         source.parent.mkdir(parents=True)
-        source.write_text('old compatibility code')
+        source.write_text('old packaging code')
         runtime.record(self.root)
-        source.write_text('new compatibility code')
+        source.write_text('new packaging code')
         with self.assertRaisesRegex(ValueError, 'sources changed'):
             runtime.verify(self.root)
 
-    def test_missing_quest_driver_cannot_be_attested(self):
-        (self.root / 'app/build/prepared-assets/graphics_driver/adrenotools-turnip25.1.0-quest1.tzst').unlink()
-        with self.assertRaisesRegex(ValueError, 'quest1.tzst'):
+    def test_missing_a6xx_driver_cannot_be_attested(self):
+        (self.root / 'app/build/prepared-assets/graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst').unlink()
+        with self.assertRaisesRegex(ValueError, 'a6xx.tzst'):
             runtime.record(self.root)
 
     def test_changed_powervr_wrapper_rejects_old_outputs(self):

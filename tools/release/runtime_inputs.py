@@ -26,7 +26,7 @@ SOURCE_PATHS = ['app/build.gradle', 'app/src/main/cpp/fakeinput_steam.cpp', 'app
                 'tools/mangoapp', 'tools/msitools', 'tools/pipewire', 'tools/comet', 'tools/xbox', 'tools/dirt-ws2', 'tools/ubisoft-launcher', 'tools/rockstar-launcher', 'tools/components', 'tools/ci', 'tools/build_local.sh',
                 'tools/powervr', 'tools/hybris', 'tools/dxvk', 'tools/vulkan-wsi',
                 'tools/release/runtime_inputs.py', 'app/src/main/assets/desktop-removal',
-                'tools/quest', 'tools/vr/src', 'tools/vr/driver_droiddeck', 'tools/vr/layer', 'tools/vr/build.sh',
+                'tools/a6xx-driver', 'tools/vr/src', 'tools/vr/driver_droiddeck', 'tools/vr/layer', 'tools/vr/build.sh',
                 'tools/gpuload', 'app/src/main/resources/rockstar/legacy-cipher.bin',
                 'app/src/main/cpp/waylandcomp/src/headpose_shm.h',
                 'app/src/main/cpp/venc/venc_proto.h',
@@ -64,18 +64,13 @@ def outputs(root):
     for library in ['libproot.so', 'libproot-loader.so', 'libdirectaudiorelay.so']:
         result['lib/arm64-v8a/' + library] = 'app/src/main/jniLibs/arm64-v8a/' + library
     result['assets/pulseaudio.tzst'] = 'app/build/prepared-assets/pulseaudio.tzst'
-    result['assets/graphics_driver/adrenotools-turnip25.1.0-quest1.tzst'] = \
-        'app/build/prepared-assets/graphics_driver/adrenotools-turnip25.1.0-quest1.tzst'
-    for name in ['turnip26.3.0-a6xx', 'turnip26.3.0-quest2']:
-        result[f'assets/graphics_driver/adrenotools-{name}.tzst'] = \
-            f'app/build/prepared-assets/graphics_driver/adrenotools-{name}.tzst'
+    result['assets/graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst'] = \
+        'app/build/prepared-assets/graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst'
     return result
 
 
 def required():
-    paths = ['assets/graphics_driver/adrenotools-turnip25.1.0-quest1.tzst']
-    paths += [f'assets/graphics_driver/adrenotools-{name}.tzst'
-              for name in ['turnip26.3.0-a6xx', 'turnip26.3.0-quest2']]
+    paths = ['assets/graphics_driver/adrenotools-turnip26.3.0-a6xx.tzst']
     paths += ['assets/linuxfs/' + name for name in ['libfakeinput.so', 'libblsession.so',
              'libblfastpath.so', 'libddnatv-hook.so', 'libssbs.so', 'usr/local/bin/droiddeck-clipboard',
              'usr/local/bin/droiddeck-gog-maintenance',

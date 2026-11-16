@@ -320,9 +320,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/build/quest-inputs
-          key: quest-inputs-${{ hashFiles('tools/quest/build-driver.py') }}
+          key: quest-inputs-${{ hashFiles('tools/a6xx-driver/build-driver.py') }}
       - name: Prepare graphics driver variants
-        run: python3 tools/quest/build-driver.py "$ANDROID_HOME/ndk/$NDK_VERSION"
+        run: python3 tools/a6xx-driver/build-driver.py
       - name: Record and pack prepared components
         run: python3 tools/components/prepare.py pack
       - uses: actions/upload-artifact@v4

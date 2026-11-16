@@ -5,7 +5,6 @@ import android.app.Application
 import android.hardware.display.DisplayManager
 import android.view.Display
 import android.view.WindowManager
-import com.droiddeck.launcher.QuestXrActivity
 import com.droiddeck.launcher.SessionActivity
 import org.junit.After
 import org.junit.Assert.*
@@ -155,14 +154,11 @@ class GlassesMenuControllerTest {
         menus.pause(destroyed)
     }
 
-    @Test fun secureFinishingAndImmersiveQuestActivitiesCannotBeCaptured() {
+    @Test fun secureAndFinishingActivitiesCannotBeCaptured() {
         owner.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         menus.resume(owner)
         assertTrue(outputs.isEmpty())
         owner.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        val quest = Robolectric.buildActivity(QuestXrActivity::class.java).get()
-        menus.resume(quest)
-        assertTrue(outputs.isEmpty())
         owner.finish()
         menus.resume(owner)
         assertTrue(outputs.isEmpty())

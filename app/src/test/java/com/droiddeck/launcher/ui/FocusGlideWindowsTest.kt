@@ -1,6 +1,7 @@
 package com.droiddeck.launcher.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -16,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalView
-import com.droiddeck.launcher.stores.xbox.XboxMenuEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
@@ -45,7 +45,7 @@ class FocusGlideWindowsTest {
                     Switch(false, {}, modifier = Modifier.focusRequester(focus[2]).focusGlide())
                     Slider(0.5f, {}, modifier = Modifier.focusRequester(focus[3]).focusGlide())
                     OutlinedTextField("Value", {}, modifier = Modifier.focusRequester(focus[4]).focusGlide())
-                    XboxMenuEntry("Xbox action", null, focus = focus[5], onClick = {})
+                    Checkbox(false, {}, modifier = Modifier.focusRequester(focus[5]).focusGlide())
                 }
             }
         }
