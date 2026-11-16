@@ -285,3 +285,9 @@ why bundles held only the first seconds of it. It is kept while it runs.
 The first 24 pointer events of a session log their target pid and serial
 (`event N: button|motion -> pid N serial S`), so a client that goes away right
 after an event can be tied to the event it received.
+
+A pid-filtered `logcat` streams nothing on at least one ROM (the dump forms do
+return a line), which left bundles holding only the header of `app.log`. If no
+line arrives within four seconds the capture restarts unfiltered and keeps the
+lines whose pid column is this process, so the file covers the session either
+way.

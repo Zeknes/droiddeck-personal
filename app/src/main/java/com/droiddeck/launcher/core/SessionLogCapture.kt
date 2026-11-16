@@ -12,6 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger
 object SessionLogCapture {
     private const val TAG = "SessionLogCapture"
 
+    private const val HEADER_CHARS = 200L
+
     private var pid = -1
     private var writer: BufferedWriter? = null
     private var target: File? = null
@@ -40,6 +42,7 @@ object SessionLogCapture {
                     }
                 }
             }
+            startStrayCheck(target)
             if (pid != -1) {
                 // The session start reaps every process of this app's uid that it does not know,
                 // which used to take this capture down a moment after it began.
@@ -87,6 +90,43 @@ object SessionLogCapture {
         } catch (e: Exception) {
         }
         writer = null
+    }
+
+    /**
+     * A pid-filtered `logcat` streams nothing on some ROMs (the dump forms do work), and a bundle
+     * then holds only this file's header. If no line arrives within a few seconds, the capture
+     * restarts unfiltered and keeps the lines whose pid column is this process.
+     */
+    private fun startStrayCheck(file: File) {
+        Thread({
+            try { Thread.sleep(4000) } catch (e: InterruptedException) { return@Thread }
+            synchronized(this@SessionLogCapture) {
+                if (target !== file || pid == -1 || file.length() > HEADER_CHARS) return@synchronized
+                val stale = pid
+                pid = -1
+                com.droiddeck.launcher.session.OrphanReaper.release(stale)
+                try { Process.killProcess(stale) } catch (e: Exception) { }
+                val mine = Process.myPid().toString()
+                val unfiltered = HostProcess.start(
+                    "/system/bin/logcat -v threadtime", null, file.parentFile, null,
+                ) { line ->
+                    val fields = line.trim().split(' ', limit = 5)
+                    if (fields.size >= 3 && fields[2] == mine) writeLine(line)
+                }
+                pid = unfiltered
+                if (unfiltered != -1) com.droiddeck.launcher.session.OrphanReaper.keep(unfiltered)
+                writeLine("the pid-filtered logcat produced nothing; this capture keeps only this process's lines")
+            }
+        }, "session-log-check").apply { isDaemon = true; start() }
+    }
+
+    private fun writeLine(line: String) {
+        synchronized(this) {
+            try {
+                writer?.apply { write(line); newLine(); flush() }
+            } catch (e: Exception) {
+            }
+        }
     }
 
     fun dumpCrashBuffer(target: File) {
