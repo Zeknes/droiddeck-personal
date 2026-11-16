@@ -81,29 +81,20 @@ class TextRequests:
         self.seen = max(self.seen, seq)
 
 
-def focus_diagnostic(seq):
-    def query(destination, path, method, args=()):
-        try:
-            result = subprocess.run([os.environ.get("DROIDDECK_IME_GDBUS", "gdbus"), "call", "--session",
-                                     "--dest", destination, "--object-path", path, "--method", method, *args],
-                                    capture_output=True, text=True, timeout=0.5, check=True)
-            return result.stdout.strip()
-        except (OSError, subprocess.SubprocessError):
-            return ""
-
-    def collect():
-        mobile = query("org.kde.plasmashell", "/Mobile", "org.kde.plasmashell.isTaskSwitcherVisible")
-        effects = query("org.kde.KWin", "/Effects", "org.freedesktop.DBus.Properties.Get",
-                        ("org.kde.kwin.Effects", "activeEffects"))
-        def boolean(value):
-            if value == "(true,)": return "true"
-            if value == "(false,)": return "false"
-            return "unknown"
-        effect = "unknown" if not re.fullmatch(r"\(<\[(?:'[^']*'(?:,\s*)?)*\]>,\)", effects) else str("'mobiletaskswitcher'" in effects).lower()
-        print(f"droiddeck-ime: focus provenance seq={seq} mobile_task_switcher={boolean(mobile)} mobile_effect={effect}",
-              file=sys.stderr, flush=True)
-
-    threading.Thread(target=collect, daemon=True).start()
+def focus_source():
+    try:
+        result = subprocess.run([os.environ.get("DROIDDECK_IME_GDBUS", "gdbus"), "call", "--session",
+                                 "--dest", "org.kde.KWin", "--object-path", "/Effects", "--method",
+                                 "org.freedesktop.DBus.Properties.Get", "org.kde.kwin.Effects", "activeEffects"],
+                                capture_output=True, text=True, timeout=0.5, check=True)
+        effects = result.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if not re.fullmatch(r"\(<\[(?:(?:'[^']*'|@as \[\])(?:,\s*)?)*\]>,\)", effects):
+        if effects == "(<@as []>,)":
+            return "switcher-inactive"
+        return "unknown"
+    return "mobiletaskswitcher" if "'mobiletaskswitcher'" in effects else "switcher-inactive"
 
 
 class Report:
@@ -111,23 +102,61 @@ class Report:
         self.directory = directory
         self.seq = 0
         self.sent = None
+        self.lock = threading.Lock()
+        self.mobile = os.environ.get("DROIDDECK_MOBILE_IME") == "1"
+        self.pending = None
+        self.wake = threading.Event()
+        threading.Thread(target=self.worker, daemon=True).start()
 
-    def write(self, field, hint=0, purpose=0):
+    def write(self, field, hint=0, purpose=0, repeat=False):
         state = (field, hint, purpose)
-        if state == self.sent or not self.directory:
-            return
-        self.sent = state
-        self.seq += 1
+        with self.lock:
+            if (state == self.sent and not repeat) or not self.directory:
+                return
+            self.sent = state
+            self.seq += 1
+            seq = self.seq
+            if field and self.mobile:
+                self.publish(seq, state, "pending")
+                self.pending = (seq, state)
+                self.wake.set()
+            else:
+                self.pending = None
+                self.publish(seq, state, "legacy" if field else "none")
+        print(f"droiddeck-ime: text field {'focused' if field else 'left'}", file=sys.stderr, flush=True)
+
+    def worker(self):
+        while True:
+            self.wake.wait()
+            with self.lock:
+                request = self.pending
+                self.pending = None
+                self.wake.clear()
+            if request is None:
+                continue
+            seq, state = request
+            source = focus_source()
+            time.sleep(0.2)
+            with self.lock:
+                if seq != self.seq or state != self.sent:
+                    continue
+            confirmation = focus_source()
+            if source != confirmation:
+                source = "unknown"
+            with self.lock:
+                if seq == self.seq and state == self.sent:
+                    self.publish(seq, state, source)
+
+    def publish(self, seq, state, source):
+        field, hint, purpose = state
         os.makedirs(self.directory, exist_ok=True)
         target = os.path.join(self.directory, "ime.json")
         temp = target + ".tmp"
         fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as handle:
-            json.dump({"textField": field, "hint": hint, "purpose": purpose, "seq": self.seq}, handle)
+            json.dump({"textField": field, "hint": hint, "purpose": purpose, "seq": seq,
+                       "focusSource": source, "autoShow": source in ("switcher-inactive", "legacy")}, handle)
         os.replace(temp, target)
-        print(f"droiddeck-ime: text field {'focused' if field else 'left'}", file=sys.stderr, flush=True)
-        if field:
-            focus_diagnostic(self.seq)
 
 
 def connect():
@@ -199,6 +228,8 @@ def main():
             elif obj in contexts and opcode == 4:
                 (serial,) = struct.unpack_from("<I", payload)
                 serials[obj] = serial
+                if obj == current and report.mobile:
+                    report.write(True, *contexts[obj], repeat=True)
         if current is not None:
             text, seq = texts.peek()
             serial = serials.get(current, 0)

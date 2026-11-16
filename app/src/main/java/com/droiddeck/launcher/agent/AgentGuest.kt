@@ -28,6 +28,10 @@ object AgentGuest {
         private set
     var desktopHint by mutableIntStateOf(0)
         private set
+    var desktopAutoShow by mutableStateOf(false)
+        private set
+    var desktopRevision by mutableIntStateOf(0)
+        private set
     var keyboardRequests by mutableIntStateOf(0)
         private set
     var gameTextField by mutableStateOf(false)
@@ -52,7 +56,7 @@ object AgentGuest {
             observer?.stopWatching()
             observer = null
             lastFocusKey = null
-            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; gameTextField = false; gameProgram = null }
+            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; desktopAutoShow = false; gameTextField = false; gameProgram = null }
             val dir = dir(context)
             dir.deleteRecursively()
             dir.mkdirs()
@@ -82,7 +86,7 @@ object AgentGuest {
         synchronized(lock) {
             observer?.stopWatching()
             observer = null
-            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; gameTextField = false; gameProgram = null }
+            main.post { steamKeyboard = false; desktopTextField = false; desktopPurpose = 0; desktopHint = 0; desktopAutoShow = false; gameTextField = false; gameProgram = null }
         }
     }
 
@@ -137,9 +141,9 @@ object AgentGuest {
         val hint = snapshot.optInt("hint")
         synchronized(lock) {
             if (source !== observer) return
-            main.post { desktopTextField = focused; desktopPurpose = purpose; desktopHint = hint }
+            main.post { desktopAutoShow = snapshot.optBoolean("autoShow", false); desktopTextField = focused; desktopPurpose = purpose; desktopHint = hint; desktopRevision++ }
         }
-        SessionEvents.record("ime.changed", mapOf("textField" to focused, "purpose" to purpose, "hint" to hint, "seq" to snapshot.optInt("seq")))
+        SessionEvents.record("ime.changed", mapOf("textField" to focused, "purpose" to purpose, "hint" to hint, "seq" to snapshot.optInt("seq"), "focusSource" to snapshot.optString("focusSource", "unknown")))
     }
 
     private fun recordGameTextField(source: FileObserver, snapshot: JSONObject) {

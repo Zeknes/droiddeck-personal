@@ -982,7 +982,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
                 }
             }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.steamKeyboard) { updateOnScreenControls() }
-            androidx.compose.runtime.LaunchedEffect(AgentGuest.desktopTextField) { onDesktopTextField(AgentGuest.desktopTextField) }
+            androidx.compose.runtime.LaunchedEffect(AgentGuest.desktopTextField, AgentGuest.desktopAutoShow, AgentGuest.desktopRevision) { onDesktopTextField(AgentGuest.desktopTextField) }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.desktopPurpose, AgentGuest.desktopHint) {
                 keyboard?.content(AgentGuest.desktopPurpose, AgentGuest.desktopHint)
             }
@@ -4717,8 +4717,9 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private fun onDesktopTextField(focused: Boolean) {
         val host = keyboard
         if (host != null && desktopTextInput()) {
+            host.content(AgentGuest.desktopPurpose, AgentGuest.desktopHint)
             val tapped = android.os.SystemClock.uptimeMillis() - lastUserPressMs < TEXT_FIELD_TAP_MS
-            if (focused && tapped && resumed && !pcKeyboardOpen &&
+            if (focused && AgentGuest.desktopAutoShow && tapped && resumed && !pcKeyboardOpen &&
                 resources.configuration.hardKeyboardHidden != android.content.res.Configuration.HARDKEYBOARDHIDDEN_NO) host.show()
             else if (!focused && host.shown) host.hide()
         }

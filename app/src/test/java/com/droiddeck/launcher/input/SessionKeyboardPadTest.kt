@@ -28,10 +28,14 @@ class SessionKeyboardPadTest {
     private lateinit var activity: SessionActivity
     private lateinit var controls: OnScreenControls
     private val directory = Files.createTempDirectory("keyboard-pad").toFile()
+    private val previousRunning = SessionState.running
+    private val previousMode = SessionState.mode
+    private var previousHardKeyboardHidden = 0
 
     @Before fun setUp() {
         activity = Robolectric.buildActivity(SessionActivity::class.java).get()
         activity.getSharedPreferences("session", 0).edit().clear().commit()
+        previousHardKeyboardHidden = activity.resources.configuration.hardKeyboardHidden
         SessionState.mode = SessionService.MODE_STEAM
         controls = OnScreenControls(activity, null).apply { visibility = View.GONE }
         ReflectionHelpers.setField(activity, "onScreenControls", controls)
@@ -39,9 +43,13 @@ class SessionKeyboardPadTest {
 
     @After fun tearDown() {
         steamKeyboard(false)
+        AgentGuest.stop()
+        shadowOf(Looper.getMainLooper()).idle()
         SteamTouchDevice.release()
         directory.deleteRecursively()
-        SessionState.mode = SessionService.MODE_STEAM
+        SessionState.mode = previousMode
+        SessionState.running = previousRunning
+        activity.resources.configuration.hardKeyboardHidden = previousHardKeyboardHidden
     }
 
     @Test fun padStepsAsideWhileEitherKeyboardIsUpInSteam() {
@@ -100,6 +108,52 @@ class SessionKeyboardPadTest {
         AgentGuest.stop()
         shadowOf(Looper.getMainLooper()).idle()
         assertFalse(AgentGuest.steamKeyboard)
+    }
+
+    @Test fun desktopFocusAppliesThePasswordTypeBeforeShowingTheKeyboard() {
+        val host = desktopKeyboard()
+        desktopField(autoShow = true, purpose = ImeContentType.PURPOSE_PASSWORD, hint = ImeContentType.HINT_HIDDEN_TEXT)
+        assertTrue(host.shown)
+        assertEquals(ImeContentType.PURPOSE_PASSWORD, host.purpose)
+        assertEquals(ImeContentType.HINT_HIDDEN_TEXT, host.hint)
+    }
+
+    @Test fun suppressedMobileFocusDoesNotShowButRepeatedExplicitFieldRequestsDo() {
+        val host = desktopKeyboard()
+        desktopField(autoShow = false)
+        assertFalse(host.shown)
+        desktopField(autoShow = true)
+        assertTrue(host.shown)
+        host.hide()
+        desktopField(autoShow = true)
+        assertTrue(host.shown)
+        desktopField(autoShow = false, focused = false)
+        assertFalse(host.shown)
+    }
+
+    @Test fun aLateDesktopReportCannotOpenTheKeyboardWithoutARecentPress() {
+        val host = desktopKeyboard()
+        ReflectionHelpers.setField(activity, "lastUserPressMs", android.os.SystemClock.uptimeMillis() - 2_000L)
+        desktopField(autoShow = true, press = false)
+        assertFalse(host.shown)
+    }
+
+    private fun desktopKeyboard(): KeyboardHost {
+        SessionState.mode = SessionService.MODE_DESKTOP
+        SessionState.running = true
+        activity.resources.configuration.hardKeyboardHidden = android.content.res.Configuration.HARDKEYBOARDHIDDEN_YES
+        ReflectionHelpers.getField<MutableState<Boolean>>(activity, "resumed\$delegate").value = true
+        return KeyboardHost(activity) { true }.also { ReflectionHelpers.setField(activity, "keyboard", it) }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun desktopField(autoShow: Boolean, focused: Boolean = true, purpose: Int = 0, hint: Int = 0, press: Boolean = true) {
+        for ((name, value) in mapOf("desktopAutoShow" to autoShow, "desktopPurpose" to purpose, "desktopHint" to hint)) {
+            val field = AgentGuest::class.java.getDeclaredField("${name}\$delegate").apply { isAccessible = true }
+            (field.get(AgentGuest) as MutableState<Any>).value = value
+        }
+        if (press) ReflectionHelpers.setField(activity, "lastUserPressMs", android.os.SystemClock.uptimeMillis())
+        ReflectionHelpers.callInstanceMethod<Any?>(activity, "onDesktopTextField", ReflectionHelpers.ClassParameter.from(Boolean::class.javaPrimitiveType, focused))
     }
 
     private fun update() = ReflectionHelpers.callInstanceMethod<Any?>(activity, "updateOnScreenControls")
