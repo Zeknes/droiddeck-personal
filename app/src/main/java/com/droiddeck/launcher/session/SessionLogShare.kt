@@ -26,7 +26,9 @@ object SessionLogShare {
         if (progress != null) return
         progress = 0f
         Thread({
-            val zip = runCatching { folder()?.let { dir -> zipProbe(context, dir) } }
+            val zip = runCatching {
+                folder()?.let { dir -> zipFolder(context, dir) { p -> main.post { if (progress != null) progress = p } } }
+            }
                 .onFailure { Log.w("SessionLogShare", "could not package session logs", it) }
                 .getOrNull()
             main.post { progress = null; done(zip) }
@@ -63,7 +65,11 @@ object SessionLogShare {
         progress = 0f
         Thread({
             val zips = runCatching {
-                folder()?.let { dir -> listOfNotNull(zipProbe(context, dir)) }.orEmpty()
+                folder()?.let { dir ->
+                    EnhancedSessionLogShare.create(context, dir, onProgress = { p ->
+                        main.post { if (progress != null) progress = p }
+                    })
+                }.orEmpty()
             }.onFailure { Log.w("SessionLogShare", "could not package enhanced diagnostics", it) }
                 .getOrDefault(emptyList())
             main.post { progress = null; done(zips) }

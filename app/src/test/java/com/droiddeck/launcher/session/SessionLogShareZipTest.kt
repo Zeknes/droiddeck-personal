@@ -87,6 +87,41 @@ class SessionLogShareZipTest {
         }
     }
 
+    @Test fun theShareActionWorksForADesktopInstallThatFailedBeforeAnyFrame() {
+        SessionLogShare.clear(app)
+        val session = File(LinuxRuntime.logDir(app), "2026-11-16-01-desktop").apply { mkdirs() }
+        File(session, "events.jsonl").writeText(
+            """{"t":1,"event":"session.created","sessionId":"x"}""" + "\n" +
+                """{"t":2,"event":"desktop.installing","sessionId":"x","component":"desktop"}""" + "\n" +
+                """{"t":3,"event":"session.failed","sessionId":"x","code":"DESKTOP_INSTALL_FAILED","message":"Install failed (extract: IOException)"}""" + "\n"
+        )
+        File(session, "session.log").writeText("desktop.installing\nInstall failed (extract: IOException)\n")
+        try {
+            var offered: File? = null
+            SessionLogShare.prepare(app, { session }) { offered = it }
+            val deadline = System.currentTimeMillis() + 30_000
+            while (offered == null && System.currentTimeMillis() < deadline) {
+                org.robolectric.shadows.ShadowLooper.idleMainLooper()
+                Thread.sleep(20)
+            }
+            checkNotNull(offered) { "no archive was offered for a session that failed during the desktop install" }
+            val zip = checkNotNull(SessionLogShare.zipFolder(app, session)) { "the share action produced no archive" }
+            val manifest = ZipFile(zip).use { z ->
+                z.getEntry("diagnostics-manifest.json")?.let { e -> z.getInputStream(e).bufferedReader().readText() }.orEmpty()
+            }
+            val text = ZipFile(zip).use { z ->
+                z.entries().toList().associate { it.name.substringAfter('/') to z.getInputStream(it).bufferedReader().readText() }
+            }
+            assertTrue("entries=${text.keys} manifest=$manifest", text.containsKey("events.jsonl"))
+            assertTrue("entries=${text.keys} manifest=$manifest", text.containsKey("session.log"))
+            assertTrue(text.getValue("events.jsonl").contains("DESKTOP_INSTALL_FAILED"))
+            assertTrue(text.getValue("session.log").contains("extract: IOException"))
+        } finally {
+            SessionLogShare.clear(app)
+            session.deleteRecursively()
+        }
+    }
+
     @Test fun aLargeSteamLogIsRedactedInTheSharedArchive() {
         val session = File(LinuxRuntime.logDir(app), "2026-10-08-02-steam").apply { mkdirs() }
         val raw = File(session, "steam-42.log")
