@@ -117,6 +117,23 @@ object GnomeLaunchReport {
     fun unreached(stages: List<Stage>, missingFiles: List<String>, status: Int): Boolean =
         stages.isEmpty() && (missingFiles.isNotEmpty() || status == 66)
 
+    /** The guest services create these in XDG_RUNTIME_DIR, nothing removes them when a session
+     * dies, and the launcher starts each of them only when its socket is absent (`[ ! -S ... ]`).
+     * A stale socket from an earlier failed session therefore makes the next one skip PipeWire or
+     * the bus, and mutter-devkit then exits on "Failed to connect pipewire context". A new session
+     * starts with no guest process, so anything left behind is dead and safe to remove. */
+    val SERVICE_SOCKETS = listOf("pipewire-0", "pipewire-0.lock", "ibus.sock", "session-bus.sock", "system-bus.sock")
+
+    fun clearStaleServiceSockets(runtimeDirectory: File): List<String> {
+        val removed = ArrayList<String>()
+        SERVICE_SOCKETS.forEach { name ->
+            val file = File(runtimeDirectory, name)
+            if (!file.exists()) return@forEach
+            if (runCatching { file.delete() }.getOrDefault(false)) removed += name
+        }
+        return removed
+    }
+
     /** Non-secret detail for the end screen and the export: stage exit and the missing sockets. */
     fun detail(report: Report): String {
         val parts = ArrayList<String>()

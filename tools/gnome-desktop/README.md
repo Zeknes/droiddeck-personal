@@ -190,8 +190,8 @@ from the session folder and `SessionService` records each change in
 `events.jsonl`:
 
 - `gnome.launch.env` before the guest runs: proot or native launch, the Linux
-  driver and Vulkan ICD, the pack tag, and any file the desktop pack should
-  have installed but did not;
+  driver and Vulkan ICD, the pack tag, any file the desktop pack should have
+  installed but did not, and the stale guest sockets the app had to remove;
 - `gnome.launch.stage` per stage change, `gnome.launch.shell` once the shell's
   own `inner` display socket exists, and `gnome.launch.fault` for the lines the
   shell writes when a subsystem is missing: `renderer-surfaceless`
@@ -215,6 +215,15 @@ the first frame (what mutter-devkit does when PipeWire is unreachable) still
 gets an end-screen reason from those faults, because the exit status says
 nothing there. All of it is non-secret: stage names, exit codes, socket names
 and the guest services' own logs, no tokens or user data.
+
+A session also starts by removing the guest service sockets (`pipewire-0`,
+`pipewire-0.lock`, `ibus.sock`, `session-bus.sock`, `system-bus.sock`) left in
+`XDG_RUNTIME_DIR` by an earlier one. The launcher starts each of those services
+only when its socket is absent (`[ ! -S ... ]`), so a dead socket from a failed
+session makes the next one skip PipeWire and die in mutter-devkit with "Failed
+to connect pipewire context" - which is the loop a device showed after one
+failed run. The compositor's `wayland-0` and the app's `droiddeck-ime.sock` are
+left alone.
 
 
 ## Unprivileged start

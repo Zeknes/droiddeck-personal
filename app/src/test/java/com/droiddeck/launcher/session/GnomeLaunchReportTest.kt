@@ -131,6 +131,21 @@ class GnomeLaunchReportTest {
         assertEquals("exit 1", GnomeLaunchReport.detail(report))
     }
 
+    @Test fun staleGuestSocketsAreRemovedButTheCompositorAndImeOnesAreKept() {
+        val runtime = tmp.newFolder("rt")
+        listOf("pipewire-0", "pipewire-0.lock", "session-bus.sock", "wayland-0", "droiddeck-ime.sock").forEach {
+            File(runtime, it).createNewFile()
+        }
+        assertEquals(
+            listOf("pipewire-0", "pipewire-0.lock", "session-bus.sock"),
+            GnomeLaunchReport.clearStaleServiceSockets(runtime),
+        )
+        assertFalse(File(runtime, "pipewire-0").exists())
+        assertTrue(File(runtime, "wayland-0").exists())
+        assertTrue(File(runtime, "droiddeck-ime.sock").exists())
+        assertEquals(emptyList<String>(), GnomeLaunchReport.clearStaleServiceSockets(runtime))
+    }
+
     @Test fun theFaultsOfTheLaunchAreNamedInTheOrderTheShellWroteThem() {
         val faults = GnomeLaunchReport.faults(sequenceOf(
             "libmutter-Message: 11:16:12.891: Created surfaceless renderer without GPU",

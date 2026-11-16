@@ -494,6 +494,9 @@ class SessionService : Service() {
         val sessionRoot = LinuxRuntime.sessionRoot(this).apply { mkdirs() }
         val runtimeDir = File(filesDir, ".wayland-rt").apply { mkdirs() }
         killStragglers()
+        val staleSockets = if (BuildConfig.DESKTOP_GNOME && SessionState.mode == MODE_DESKTOP)
+            GnomeLaunchReport.clearStaleServiceSockets(runtimeDir) else emptyList()
+        if (staleSockets.isNotEmpty()) Log.w(TAG, "removed stale guest sockets: ${staleSockets.joinToString()}")
         val stillStarting = { gen == sessionGen && SessionState.running }
         val prootPack = LinuxRuntime.patchedProot(this) || AddonPack.PROOT.await(this, stillStarting)
         val directAudioPack = AddonPack.DIRECTAUDIO.await(this, stillStarting)
@@ -822,7 +825,7 @@ class SessionService : Service() {
             return
         }
         if (SessionState.mode == MODE_DESKTOP && BuildConfig.DESKTOP_GNOME) {
-            recordGnomeLaunch(root)
+            recordGnomeLaunch(root, staleSockets)
             watchGnomeLaunch(gen, runtimeDir, sessionDir)
         }
         if (gen == sessionGen && SessionState.running) {
@@ -2031,7 +2034,7 @@ class SessionService : Service() {
     }
 
     /** What the GNOME session runs on, recorded before the guest can fail on its own. */
-    private fun recordGnomeLaunch(root: File) {
+    private fun recordGnomeLaunch(root: File, staleSockets: List<String>) {
         val icd = runCatching { LinuxRuntime.vulkanIcd(this) }.getOrNull()
         SessionEvents.record("gnome.launch.env", mapOf(
             "launch" to if (SessionPrefs.nativeUserland(this)) "native" else "proot",
@@ -2040,6 +2043,7 @@ class SessionService : Service() {
             "icd" to icd?.name,
             "pack" to BuildConfig.DESKTOP_GNOME_TAG,
             "missing" to GnomeLaunchReport.missingFiles(root).joinToString(","),
+            "stale" to staleSockets.joinToString(","),
         ))
     }
 
