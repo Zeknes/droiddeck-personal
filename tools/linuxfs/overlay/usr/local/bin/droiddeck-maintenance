@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+import argparse
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import time
+
+
+def paths():
+    home = Path.home()
+    return home, home/'.config/droiddeck', home/'.local/state/droiddeck/maintenance'
+
+
+def listening(port):
+    try:
+        with socket.create_connection(('127.0.0.1',port),timeout=1):
+            return True
+    except OSError:
+        return False
+
+
+def start():
+    home, config, state = paths()
+    target=config/'sshd_config'
+    if target.exists() and shutil.which('sshd') and not listening(2226):
+        state.mkdir(parents=True,exist_ok=True)
+        subprocess.run(['sshd','-t','-f',str(target)],check=True)
+        subprocess.run(['sshd','-f',str(target),'-E',str(state/'sshd.log')],check=True)
+
+
+def configure(key):
+    home, config, state = paths()
+    if not key.startswith(('ssh-ed25519 ','ssh-rsa ','ecdsa-sha2-')) or '\n' in key:
+        raise ValueError('Pass one public SSH key, never a private key.')
+    if not shutil.which('sshd'):
+        raise RuntimeError('Install openssh-server first: sudo apt-get install --no-install-recommends openssh-server')
+    os.umask(0o077)
+    config.mkdir(parents=True,exist_ok=True); state.mkdir(parents=True,exist_ok=True)
+    target=config/'sshd_config'
+    if target.exists() and not (config/'usb-ssh-managed-v1').exists():
+        shutil.copy2(target,state/('sshd_config.before-'+str(time.time_ns())))
+    ssh=home/'.ssh';ssh.mkdir(exist_ok=True);ssh.chmod(0o700)
+    auth=ssh/'authorized_keys'
+    old=auth.read_text() if auth.exists() else ''
+    if key not in old.splitlines():
+        if auth.exists():shutil.copy2(auth,state/('authorized_keys.before-'+str(time.time_ns())))
+        auth.write_text(old+('' if not old or old.endswith('\n') else '\n')+key+'\n')
+    auth.chmod(0o600)
+    compat='/usr/local/lib/droiddeck/sftp-prctl.so'
+    if not Path(compat).is_file():
+        raise RuntimeError('The bundled SFTP compatibility library is missing; update DroidDeck.')
+    host=home/'.local/share/droiddeck/ssh/host_ed25519'
+    host.parent.mkdir(parents=True,exist_ok=True)
+    if not host.exists():
+        existing=Path('/etc/ssh/ssh_host_ed25519_key')
+        if existing.exists():
+            shutil.copy2(existing,host)
+            if existing.with_suffix('.pub').exists():shutil.copy2(existing.with_suffix('.pub'),host.with_suffix('.pub'))
+        else:
+            subprocess.run(['ssh-keygen','-q','-t','ed25519','-N','','-f',str(host)],check=True)
+    host.chmod(0o600)
+    target.write_text(f'''Port 2226
+ListenAddress 127.0.0.1
+AddressFamily inet
+HostKey {host}
+PidFile {state}/sshd.pid
+AuthorizedKeysFile {auth}
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+UsePAM no
+PermitRootLogin prohibit-password
+StrictModes yes
+AllowUsers root
+AllowTcpForwarding no
+AllowAgentForwarding no
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+PrintMotd no
+LogLevel INFO
+Subsystem sftp /usr/bin/env LD_PRELOAD={compat} /usr/lib/openssh/sftp-server
+''')
+    autostart=home/'.config/autostart';autostart.mkdir(parents=True,exist_ok=True)
+    (autostart/'droiddeck-usb-ssh.desktop').write_text('[Desktop Entry]\nType=Application\nName=DroidDeck USB SSH\nExec=droiddeck-maintenance --start\nTerminal=false\nX-KDE-autostart-after=panel\n')
+    (config/'usb-ssh-managed-v1').touch()
+    start()
+    print('Key-only SSH configured on device loopback 127.0.0.1:2226. Use adb -s SERIAL forward tcp:2226 tcp:2226; no LAN/public listener.')
+
+
+def main():
+    parser=argparse.ArgumentParser(description='Opt-in USB-only guest SSH, preserving keys and user data. Does not install packages or open network ports beyond loopback.')
+    parser.add_argument('--public-key',type=Path)
+    parser.add_argument('--start',action='store_true')
+    parser.add_argument('--install-menu',action='store_true')
+    args=parser.parse_args()
+    if args.public_key:configure(args.public_key.read_text().strip())
+    elif args.start:start()
+    elif args.install_menu:subprocess.run(['droiddeck-performance','--install'],check=True)
+    else:parser.print_help()
+    return 0
+
+
+if __name__=='__main__':
+    raise SystemExit(main())

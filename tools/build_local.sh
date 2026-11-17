@@ -151,6 +151,9 @@ docker run --rm --platform "${docker_platform}" \
         aarch64-linux-gnu-strip --strip-unneeded "$d/usr/local/bin/droiddeck-glprobe"
         aarch64-linux-gnu-gcc -O2 -Wall -Wextra -o "$d/usr/local/bin/droiddeck-clipboard" tools/linuxfs/clipboard/clipboard.c -ldl
         aarch64-linux-gnu-strip --strip-unneeded "$d/usr/local/bin/droiddeck-clipboard"
+        mkdir -p "$d/usr/local/lib/droiddeck"
+        aarch64-linux-gnu-gcc -shared -fPIC -O2 -Wall -o "$d/usr/local/lib/droiddeck/sftp-prctl.so" tools/linuxfs/sftp-prctl.c -ldl
+        aarch64-linux-gnu-strip --strip-unneeded "$d/usr/local/lib/droiddeck/sftp-prctl.so"
         for script in tools/linuxfs/overlay/usr/local/bin/droiddeck-* tools/linuxfs/overlay/usr/local/bin/steam-compatibility; do
             put "$script" "$d/usr/local/bin/$(basename "$script")"
         done

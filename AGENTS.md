@@ -4,6 +4,8 @@
 - The independent application ID is `com.zeknes.droiddeck.pure`. It coexists with the historical `com.zeknes.droiddeck.mobileprobe` app and has separate private data. Never uninstall, clear or automatically migrate the historical installation. Keep Pure's existing signing key for future Pure upgrades; its private signing-directory name is retained.
 - Use `DroidDeck Pure` for the application name. `tools/build_local.sh` produces `DroidDeck-Pure-<versionName>.apk`; build distributable packages from committed, clean `main` on ROG. GitHub Actions is disabled at repository level for local distribution. Do not change workflow files, re-enable cloud builds, or publish tags/releases without an explicit request.
 - The corner build watermark is hidden by default and after resetting settings. Preserve explicit user choices, its settings toggle, real source commit/branch metadata, version details and diagnostic copying.
+- `droiddeck-performance` provides bounded CPU/GPU diagnostics and an idempotent Plasma application entry. Do not equate guest benchmark FPS or KWin virtual refresh with Android panel presentation. Keep thermal limits and report unavailable measurements honestly. Android supplies networking; a missing guest Wi-Fi manager is not a connectivity defect.
+- USB guest SSH is opt-in through `droiddeck-maintenance --public-key`; bind only 127.0.0.1:2226 with public-key authentication, preserve existing keys and user data, and never embed private keys in builds. Keep the SFTP PRoot return-value adapter confined to that subsystem.
 - Preserve upstream copyright, licences and notices. Internal `com.droiddeck.launcher` namespaces and `droiddeck-*` runtime commands remain unchanged.
 
 # Rules
