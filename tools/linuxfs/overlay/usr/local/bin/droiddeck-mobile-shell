@@ -78,6 +78,7 @@ def main():
         if kept != lines:
             with open(conf, 'w', encoding='utf-8') as handle:
                 handle.write(''.join(line + '\n' for line in kept))
+            os.chmod(conf, 0o644)
     return subprocess.call(command, env=env)
 
 

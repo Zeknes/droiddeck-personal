@@ -84,6 +84,22 @@ class DesktopNavigationTest(unittest.TestCase):
             self.assertEqual(env.get('QT_QUICK_BACKEND'), 'software')
             self.assertNotIn('QT_OPENGL', env)
 
+    def test_the_rewritten_qt_settings_stay_readable_for_kwin(self):
+        # KWin starts as the session user, not root: a file rewritten with root's umask would hide the Qt
+        # settings from it, and a scene graph setting written back would land in the shell's next start.
+        setting = '[QtQuickRendererSettings]\nSceneGraphBackend=software\n'
+        with tempfile.TemporaryDirectory() as home:
+            path = Path(home) / '.config/QtProject.conf'
+            path.parent.mkdir(parents=True)
+            path.write_text(setting)
+            path.chmod(0o600)
+            env = {'HOME': home, 'DROIDDECK_GPU_NAME': 'Adreno (TM) 840', **SESSION}
+            run = subprocess.run([os.sys.executable, '-c', HARNESS, str(WRAPPER), repr(['-p', 'org.kde.plasma.mobileshell'])],
+                                 env=env, capture_output=True, text=True, timeout=60)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(0o644, path.stat().st_mode & 0o777)
+            self.assertNotIn('SceneGraphBackend=software', path.read_text())
+
     def test_line_command_arguments_are_kept(self):
         command, _, _ = self.shell('Adreno (TM) 840', argv=('-n', '-p', 'org.kde.plasma.mobileshell'))
         self.assertEqual(command, ['/usr/bin/plasmashell', '-n', '-p', 'org.kde.plasma.mobileshell'])
