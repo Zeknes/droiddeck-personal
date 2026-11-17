@@ -106,7 +106,7 @@ data class GpuInfo(
             val raw = FileUtils.readString(File("/sys/class/kgsl/kgsl-3d0/gpu_model"))?.trim()
             val chipId = FileUtils.readString(File("/sys/class/kgsl/kgsl-3d0/gpu_chipid"))?.trim().orEmpty()
             val soc = if (adreno) SocNames.label() else ""
-            val platformGpuModel = if (adreno) platformModel() else 0
+            val platformGpuModel = if (adreno) platformModel(hardware = Build.HARDWARE) else 0
             val (model, source) = if (adreno) modelFromNames(
                 raw,
                 { VulkanInfo.cachedOrNull()?.get("device") },
@@ -152,14 +152,17 @@ data class GpuInfo(
         private val PLATFORMS = mapOf(
             "msmnile" to 640, "kona" to 650, "lahaina" to 660, "taro" to 730, "cape" to 730,
             "kalama" to 740, "pineapple" to 750, "sun" to 830,
+            // ROG Phone 9 Pro reports Android's Build.HARDWARE as its device codename, not a Qualcomm board.
+            "canoe" to 830, "canoe-row" to 830,
         )
 
         internal fun platformModel(
             platform: String = systemProperty("ro.board.platform"),
             qtiSocName: String = systemProperty("ro.vendor.qti.soc_name"),
             socModel: String = SocNames.model(),
+            hardware: String = "",
         ): Int = if (SocNames.normalizedModel(socModel) == "SM8975" || SocNames.normalizedModel(qtiSocName) == "SM8975") 850
-            else PLATFORMS[platform.lowercase()] ?: PLATFORMS[qtiSocName.lowercase()] ?: 0
+            else PLATFORMS[platform.lowercase()] ?: PLATFORMS[qtiSocName.lowercase()] ?: PLATFORMS[hardware.lowercase()] ?: 0
 
         fun systemProperty(name: String): String = try {
             Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, name) as? String ?: ""

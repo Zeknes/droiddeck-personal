@@ -24,6 +24,15 @@ class GpuModelFallbackTest {
         assertEquals(830, GpuInfo.platformModel("sun", "", "unknown"))
     }
 
+    @Test fun aDeviceCodenameGivesItsAdrenoWhenNoBoardIsReported() {
+        // ROG Phone 9 Pro: ro.board.platform is "canoe", Build.HARDWARE is the device codename "canoe".
+        assertEquals(830, GpuInfo.platformModel("", "", "SM8850", "canoe"))
+        assertEquals(830, GpuInfo.platformModel("unknown", "", "", "CANOE"))
+        assertEquals(830, GpuInfo.platformModel("canoe-row"))
+        assertEquals(0, GpuInfo.platformModel("", "", "SM8850", "qcom"))
+        assertEquals(740, GpuInfo.platformModel("", "", "", "kalama"))
+    }
+
     @Test fun aKernelModelDoesNotNeedVulkanOrSocFallback() {
         assertEquals(850 to "kernel", GpuInfo.modelFromNames("Adreno850v2",
             { error("Vulkan must not be queried when the kernel identifies the GPU") },
