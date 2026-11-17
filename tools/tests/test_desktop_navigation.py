@@ -55,11 +55,15 @@ sys.argv = ['droiddeck-desktop-navigate', 'home']
 m['main']()
 print(json.dumps(calls))
 '''
-        run = subprocess.run([os.sys.executable, '-c', harness, str(BIN / 'droiddeck-desktop-navigate')],
-                             capture_output=True, text=True, timeout=10)
-        self.assertEqual(0, run.returncode, run.stderr)
-        self.assertEqual([['qdbus6', 'org.kde.plasmashell', '/Mobile',
-                           'org.kde.plasmashell.openHomeScreen']], json.loads(run.stdout))
+        home = ['qdbus6', 'org.kde.plasmashell', '/Mobile', 'org.kde.plasmashell.openHomeScreen']
+        for active in (False, True):
+            script = harness.replace("{'stdout': ''}", "{'stdout': 'mobiletaskswitcher\\n'}" if active else "{'stdout': ''}")
+            run = subprocess.run([os.sys.executable, '-c', script, str(BIN / 'droiddeck-desktop-navigate')],
+                                 capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, run.returncode, run.stderr)
+            expected = [['qdbus6', 'org.kde.kglobalaccel', '/component/kwin',
+                         'org.kde.kglobalaccel.Component.invokeShortcut', 'Mobile Task Switcher'], home] if active else [home]
+            self.assertEqual(expected, json.loads(run.stdout))
 
     def shell(self, gpu, argv=('-p', 'org.kde.plasma.mobileshell'), conf=''):
         with tempfile.TemporaryDirectory() as home:
