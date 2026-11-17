@@ -603,6 +603,7 @@ class SessionService : Service() {
             components.add(it)
         }
 
+        guest.add("DROIDDECK_GPU_NAME=" + com.droiddeck.launcher.core.DeviceSupport.gpuName(this))
         guest.add("BL_WIDTH=" + size.first)
         guest.add("BL_HEIGHT=" + size.second)
         if (noSteamGame()) runCatching {

@@ -28,3 +28,21 @@ class DesktopNavigationTest(unittest.TestCase):
             self.assertEqual('llvmpipe',call.call_args.kwargs['env']['GALLIUM_DRIVER'])
             self.assertNotIn('MESA_LOADER_DRIVER_OVERRIDE',call.call_args.kwargs['env'])
             self.assertEqual('zink',os.environ['GALLIUM_DRIVER'])
+
+    def shell(self, gpu):
+        module=runpy.run_path(str(BIN/'droiddeck-mobile-shell'))
+        with tempfile.TemporaryDirectory() as home, patch('subprocess.call',return_value=0) as call,\
+                patch('sys.argv',['droiddeck-mobile-shell']), patch.dict(os.environ,{'HOME':home,'DROIDDECK_GPU_NAME':gpu},clear=True):
+            module['main']()
+            conf=Path(home)/'.config/QtProject.conf'
+            return call.call_args.kwargs['env'], conf.read_text() if conf.exists() else None
+
+    def test_adreno_840_shell_has_no_paint_device_on_the_gpu(self):
+        env,conf=self.shell('Adreno (TM) 840')
+        self.assertIn('SceneGraphBackend=software',conf)
+        self.assertNotIn('QT_OPENGL',env)
+
+    def test_other_gpus_keep_the_shell_on_its_configured_backend(self):
+        env,conf=self.shell('Adreno (TM) 740')
+        self.assertIsNone(conf)
+        self.assertNotIn('QT_OPENGL',env)

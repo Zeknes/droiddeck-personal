@@ -121,7 +121,15 @@ if [ -f "$HOME/.droiddeck-remote-run" ]; then
     done
   ) &
 fi
-if [ "$(cat /usr/share/droiddeck/kwin-compositor 2>/dev/null)" = opengl ]; then
+compositor=$(cat /usr/share/droiddeck/kwin-compositor 2>/dev/null)
+# Adreno 840: Zink's 13-14 MB allocation failed while KWin painted at 2312x1520 and the OOM errors ended in a KWin crash;
+# QPainter at the same size ended in a double free. Neither is a GPU path the desktop can rely on, so it is left unset
+# (KWin's own OpenGL backend, not Zink) until the renderer handles one of them; programs keep the GPU launcher.
+if [[ ${DROIDDECK_GPU_NAME:-} == *'Adreno'*840* ]] && [ ! -e "$HOME/.config/droiddeck/allow-experimental-zink-compositor" ] && [ "$compositor" = opengl ]; then
+  compositor=
+  echo '== Plasma compositor: KWin OpenGL without Zink on Adreno 840 (Zink allocation failure, QPainter double free); programs keep their GPU launcher'
+fi
+if [ "$compositor" = opengl ]; then
   unset LIBGL_ALWAYS_SOFTWARE QT_QUICK_BACKEND
   export KWIN_COMPOSE=O2 MESA_LOADER_DRIVER_OVERRIDE=zink GALLIUM_DRIVER=zink LIBGL_KOPPER_DRI2=true
   if [ -z "${KWIN_RENDER_NODES:-}" ]; then

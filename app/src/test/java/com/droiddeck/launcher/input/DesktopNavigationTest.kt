@@ -34,6 +34,21 @@ class DesktopNavigationTest {
         assertEquals(listOf("home"), actions)
     }
 
+    @Test fun gripClickCollapsesAndEveryClickRequestsOneHaptic() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        navigation.gripButton.performClick()
+        assertTrue(navigation.collapsed)
+        assertEquals(1, navigation.hapticClicks)
+        navigation.wakeHandle.performClick()
+        assertFalse(navigation.collapsed)
+        assertEquals(2, navigation.hapticClicks)
+        navigation.homeButton.performClick()
+        assertEquals(3, navigation.hapticClicks)
+    }
+
     @Test fun clampsDragAndKeepsTouchTargetsWhenVisualsShrink() {
         assertEquals(0f, NavigationPlacement.clamp(-30f, 100f))
         assertEquals(100f, NavigationPlacement.clamp(130f, 100f))
@@ -44,5 +59,23 @@ class DesktopNavigationTest {
         assertTrue(navigation.homeButton.layoutParams.width >= (48 * activity.resources.displayMetrics.density).toInt())
         navigation.active(false)
         assertEquals(View.GONE, navigation.visibility)
+    }
+
+    @Test fun gripCollapsesWithoutAVisibleCapsuleAndWakesBackToTheSameSpot() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        navigation.x = 400f
+        navigation.y = 300f
+        navigation.gripButton.performClick()
+        assertTrue(navigation.collapsed)
+        assertEquals(View.VISIBLE, navigation.wakeHandle.visibility)
+        navigation.gripButton.performClick()
+        assertTrue(navigation.collapsed)
+        navigation.wakeHandle.performClick()
+        assertFalse(navigation.collapsed)
+        assertEquals(View.GONE, navigation.wakeHandle.visibility)
     }
 }

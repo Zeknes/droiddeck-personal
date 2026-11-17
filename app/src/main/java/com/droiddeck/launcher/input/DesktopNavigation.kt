@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
@@ -31,8 +32,16 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
     private var safeBottom = 0
     var collapsed = false
         private set
-    val wakeHandle = Icon(context, "wake", "Show desktop controls") { expand() }
-    val homeButton = Icon(context, "home", "Plasma desktop") { invoke("home") }
+    var hapticClicks = 0
+        private set
+    private fun icon(name: String, label: String, click: () -> Unit) = Icon(context, name, label) {
+        hapticClicks++
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        click()
+    }
+    val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
+    val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") { collapse(true) }
+    val homeButton = icon("home", "Plasma desktop") { invoke("home") }
 
     init {
         clipChildren = false
@@ -42,17 +51,16 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         wakeHandle.layoutParams = LayoutParams(dp(48), dp(48))
         bar.orientation = LinearLayout.HORIZONTAL
         bar.gravity = Gravity.CENTER
-        val grip = Icon(context, "grip", "Move controls; long press for options") {}
-        bar.addView(grip)
-        bar.addView(Icon(context, "back", "Back in desktop") { invoke("back") })
+        bar.addView(gripButton)
+        bar.addView(icon("back", "Back in desktop") { invoke("back") })
         bar.addView(homeButton)
-        bar.addView(Icon(context, "overview", "Desktop windows") { invoke("overview") })
-        bar.addView(Icon(context, "keyboard", "Show or hide keyboard") { invoke("keyboard") })
+        bar.addView(icon("overview", "Desktop windows") { invoke("overview") })
+        bar.addView(icon("keyboard", "Show or hide keyboard") { invoke("keyboard") })
         addView(bar)
         addView(wakeHandle)
         wakeHandle.visibility = GONE
         style()
-        grip.setOnTouchListener(object : OnTouchListener {
+        fun dragListener() = object : OnTouchListener {
             var downX = 0f
             var downY = 0f
             var startX = 0f
@@ -78,13 +86,15 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         removeCallbacks(options)
-                        if (moving) savePosition() else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) showOptions()
+                        if (moving) savePosition() else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
                         held = false; scheduleIdle()
                     }
                 }
                 return true
             }
-        })
+        }
+        gripButton.setOnTouchListener(dragListener())
+        wakeHandle.setOnTouchListener(dragListener())
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clamp() }
     }
 
@@ -107,15 +117,23 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         if (enabled && !held && !prefs.getBoolean("pinned", false)) postDelayed(idle, 6000)
     }
 
-    private fun collapse() {
-        if (!enabled || held || prefs.getBoolean("pinned", false)) return
+    private fun collapse(manual: Boolean = false) {
+        if (!enabled || (!manual && (held || prefs.getBoolean("pinned", false)))) return
+        // The handle's own frame is where it is left; the next restore puts it back there without a jump.
+        if (isShown) {
+            val host = parent as? View
+            val hx = (host?.width ?: 0) - wakeHandle.width - safeLeft - safeRight
+            val hy = (host?.height ?: 0) - wakeHandle.height - safeTop - safeBottom
+            prefs.edit().putFloat("x", ((x - safeLeft) / hx.coerceAtLeast(1)).coerceIn(0f, 1f))
+                .putFloat("y", ((y - safeTop) / hy.coerceAtLeast(1)).coerceIn(0f, 1f))
+                .putInt("left", (x - safeLeft).toInt()).putInt("top", (y - safeTop).toInt())
+                .putInt("width", wakeHandle.width).putInt("height", wakeHandle.height).apply()
+        }
         collapsed = true
         bar.visibility = GONE
         wakeHandle.visibility = VISIBLE
-        val parentWidth = (parent as? View)?.width ?: 0
-        x = if (x + width / 2 < parentWidth / 2) safeLeft.toFloat() else (parentWidth - safeRight - dp(48)).coerceAtLeast(safeLeft).toFloat()
         requestLayout()
-        post { clamp() }
+        post { restorePosition() }
     }
 
     private fun expand() {
@@ -131,17 +149,27 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         val host = parent as? View ?: return
         val availableX = (host.width - width - safeLeft - safeRight).coerceAtLeast(0)
         val availableY = (host.height - height - safeTop - safeBottom).coerceAtLeast(0)
-        x = safeLeft + availableX * prefs.getFloat("x", 1f)
-        y = safeTop + availableY * prefs.getFloat("y", 0.8f)
+        val left = prefs.getInt("left", Int.MIN_VALUE)
+        val top = prefs.getInt("top", Int.MIN_VALUE)
+        if (left != Int.MIN_VALUE && top != Int.MIN_VALUE) {
+            // Stored against the frame that was saved, which is wider than the handle: keep the north-east corner it was left at.
+            x = (safeLeft + left - prefs.getInt("width", width)).toFloat()
+            y = (safeTop + top).toFloat()
+        } else {
+            x = safeLeft + availableX * prefs.getFloat("x", 1f)
+            y = safeTop + availableY * prefs.getFloat("y", 0.8f)
+        }
         clamp()
     }
 
-    private fun savePosition() {
+    private fun savePosition(storedWidth: Int = width, storedHeight: Int = height, frameWidth: Int = width) {
         val host = parent as? View ?: return
-        val dx = (host.width - width - safeLeft - safeRight).coerceAtLeast(1)
-        val dy = (host.height - height - safeTop - safeBottom).coerceAtLeast(1)
+        val dx = (host.width - storedWidth - safeLeft - safeRight).coerceAtLeast(1)
+        val dy = (host.height - storedHeight - safeTop - safeBottom).coerceAtLeast(1)
         prefs.edit().putFloat("x", ((x - safeLeft) / dx).coerceIn(0f, 1f))
-            .putFloat("y", ((y - safeTop) / dy).coerceIn(0f, 1f)).apply()
+            .putFloat("y", ((y - safeTop) / dy).coerceIn(0f, 1f))
+            .putInt("left", (x - safeLeft + frameWidth).toInt()).putInt("top", (y - safeTop).toInt())
+            .putInt("width", storedWidth).putInt("height", storedHeight).apply()
     }
 
     private fun clamp() {
