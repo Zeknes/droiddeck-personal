@@ -22,6 +22,11 @@ def main():
         except (OSError,ValueError,UnicodeError):
             continue
     if sys.argv[1] == 'home':
+        effects = subprocess.run(['qdbus6', 'org.kde.KWin', '/Effects', 'org.kde.kwin.Effects.activeEffects'],
+                                 env=env, capture_output=True, text=True, timeout=3)
+        if 'mobiletaskswitcher' in effects.stdout.splitlines():
+            subprocess.call(['qdbus6', 'org.kde.kglobalaccel', '/component/kwin',
+                             'org.kde.kglobalaccel.Component.invokeShortcut', 'Mobile Task Switcher'], env=env)
         return subprocess.call(['qdbus6', 'org.kde.plasmashell', '/Mobile',
                                 'org.kde.plasmashell.openHomeScreen'], env=env)
     return subprocess.call(['qdbus6','org.kde.kglobalaccel','/component/kwin',

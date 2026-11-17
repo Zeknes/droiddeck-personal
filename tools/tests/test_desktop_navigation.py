@@ -50,6 +50,7 @@ m = runpy.run_path(sys.argv[1])
 m['Path'].iterdir = lambda self: iter(())
 calls = []
 m['subprocess'].call = lambda command, env: calls.append(command) or 0
+m['subprocess'].run = lambda *a, **k: type('Result', (), {'stdout': ''})()
 sys.argv = ['droiddeck-desktop-navigate', 'home']
 m['main']()
 print(json.dumps(calls))
