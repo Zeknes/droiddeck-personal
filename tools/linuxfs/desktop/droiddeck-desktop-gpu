@@ -76,6 +76,14 @@ def wrap(text, gpu_on=True):
         return None
     cats = set(filter(None, keys.get("Categories", "").split(";")))
     gpu = gpu_on and bool(cats & {"Game", "Emulator"})
+    program, arguments = split_program(exec_line)
+    gpu_name = os.environ.get("DROIDDECK_GPU_NAME", "")
+    if 'Adreno' in gpu_name and '840' in gpu_name and program.strip('"') in (
+            'systemsettings', '/usr/bin/systemsettings', 'plasma-settings', '/usr/bin/plasma-settings'):
+        target = '/usr/bin/' + os.path.basename(program.strip('"'))
+        out = ['Exec=/usr/local/bin/droiddeck-settings ' + target + arguments if line.startswith('Exec=') else line for line in group]
+        out.append(MARK)
+        return '\n'.join(head + out + rest) + '\n'
     browser = chromium(exec_line)
     if not gpu and not browser:
         return None

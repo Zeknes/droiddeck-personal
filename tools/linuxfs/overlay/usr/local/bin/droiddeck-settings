@@ -1,0 +1,20 @@
+#!/usr/bin/python3
+import os
+import sys
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] not in ('/usr/bin/systemsettings', '/usr/bin/plasma-settings'):
+        return 64
+    env = dict(os.environ)
+    gpu = env.get('DROIDDECK_GPU_NAME', '')
+    if 'Adreno' in gpu and '840' in gpu:
+        for key in ('MESA_LOADER_DRIVER_OVERRIDE', 'LIBGL_KOPPER_DRI2', 'mesa_glthread'):
+            env.pop(key, None)
+        env.update(QT_QUICK_BACKEND='rhi', QSG_RHI_BACKEND='opengl', QT_OPENGL='software',
+                   LIBGL_ALWAYS_SOFTWARE='1', GALLIUM_DRIVER='llvmpipe', QSG_RENDER_LOOP='basic')
+    os.execve(sys.argv[1], sys.argv[1:], env)
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

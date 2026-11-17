@@ -65,6 +65,17 @@ class DesktopChromiumAppsTest(unittest.TestCase):
         out = self.gpu["wrap"](self.entry('"%s" %%U' % self.electron))
         self.assertEqual(self.exec_lines(out), [PREFIX + '"%s"' % self.electron + FLAGS + " %U"])
 
+    def test_only_settings_get_the_adreno_840_renderer_compatibility_entry(self):
+        from unittest.mock import patch
+        with patch.dict(os.environ, {'DROIDDECK_GPU_NAME': 'Adreno (TM) 840'}):
+            out = self.gpu['wrap'](self.entry('systemsettings', categories='Settings;'))
+            self.assertEqual(['/usr/local/bin/droiddeck-settings /usr/bin/systemsettings'], self.exec_lines(out))
+            out = self.gpu['wrap'](self.entry('plasma-settings -x all %u', categories='Settings;'))
+            self.assertEqual(['/usr/local/bin/droiddeck-settings /usr/bin/plasma-settings -x all %u'], self.exec_lines(out))
+            self.assertIsNone(self.gpu['wrap'](self.entry('dolphin %U', categories='System;')))
+        with patch.dict(os.environ, {'DROIDDECK_GPU_NAME': 'Adreno (TM) 740'}):
+            self.assertIsNone(self.gpu['wrap'](self.entry('systemsettings', categories='Settings;')))
+
     def test_other_apps_are_left_alone(self):
         self.assertIsNone(self.gpu["wrap"](self.entry("%s %%F" % self.plain)))
         self.assertIsNone(self.gpu["wrap"](self.entry("missing-program %F")))
