@@ -27,8 +27,9 @@ class DeviceSupportTest {
         // This tablet's own fields: board "canoe", SM8850, qcom; the kernel says Adreno840v2 and the table agrees.
         assertEquals(840, com.droiddeck.launcher.gpu.GpuInfo.platformModel("canoe", "", "SM8850", "qcom"))
         assertEquals((840 to "kernel"), com.droiddeck.launcher.gpu.GpuInfo.modelFromNames("Adreno840v2", { null }, { 840 }))
-        // SM8850 alone maps to no Adreno in the platform table, so nothing here invents one.
-        assertEquals(0, com.droiddeck.launcher.gpu.GpuInfo.platformModel("", "", "SM8850", "qcom"))
+        // SM8850 is the tablet's chip: the table records its Adreno 840, and an unknown chip maps to nothing.
+        assertEquals(840, com.droiddeck.launcher.gpu.GpuInfo.platformModel("", "", "SM8850", "qcom"))
+        assertEquals(0, com.droiddeck.launcher.gpu.GpuInfo.platformModel("", "", "not-a-chip", "qcom"))
     }
 
     @Test fun anUnnamedGpuKeepsItsSocInsteadOfAGuess() {

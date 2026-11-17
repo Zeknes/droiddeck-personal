@@ -11,7 +11,7 @@ class GpuModelFallbackTest {
         assertEquals(0, GpuInfo.platformModel("somethingelse"))
         assertEquals(GpuInfo.Family.A7XX, GpuInfo.familyOf(true, GpuInfo.platformModel("pineapple")))
     }
-    @Test fun sm8975IsTheOnlyNewSocFallback() {
+    @Test fun sm8975IsTheOnlyExperimentalSocFallback() {
         assertEquals(850, GpuInfo.platformModel("unknown", "", "SM8975"))
         assertEquals(850, GpuInfo.platformModel("unknown", "", "QTI SM8975"))
         assertEquals(850, GpuInfo.platformModel("unknown", "QTI SM8975", ""))
@@ -19,19 +19,20 @@ class GpuModelFallbackTest {
         assertEquals(0, GpuInfo.platformModel("unknown", "", "SM89750"))
         assertEquals(0, GpuInfo.platformModel("unknown", "", "SM8975-PRO"))
         assertEquals(0, GpuInfo.platformModel("unknown", "", "Qualcomm SM8975"))
-        assertEquals(0, GpuInfo.platformModel("unknown", "", "SM8850"))
+        assertEquals(840, GpuInfo.platformModel("unknown", "", "SM8850"))
         assertEquals(850, GpuInfo.platformModel("sun", "", "SM8975"))
         assertEquals(830, GpuInfo.platformModel("sun", "", "unknown"))
     }
 
-    @Test fun aDeviceCodenameGivesItsAdrenoWhenNoBoardIsReported() {
-        // This tablet: ro.board.platform is "canoe" (SM8850, qcom) and the guest kernel names the GPU
-        // Adreno840v2; "canoe" alone is a tablet's platform, so the kernel's own name is preferred where it is.
-        assertEquals(840, GpuInfo.platformModel("", "", "SM8850", "canoe"))
-        assertEquals(840, GpuInfo.platformModel("CANOE"))
+    @Test fun aChipWithAKnownAdrenoNamesItWhateverTheBoardIsCalled() {
+        // This tablet: ro.board.platform "canoe" (a tablet's platform name), SM8850, qcom; the kernel says Adreno840v2.
+        assertEquals(840, GpuInfo.platformModel("canoe", "", "SM8850", "qcom"))
+        assertEquals(840, GpuInfo.platformModel("unknown", "", "SM8850"))
+        // A board name still maps for chips whose Adreno is recorded that way, and "qcom" maps to nothing.
         assertEquals(740, GpuInfo.platformModel("", "", "", "kalama"))
         assertEquals(740, GpuInfo.platformModel("KALAMA"))
         assertEquals(0, GpuInfo.platformModel("", "", "", "qcom"))
+        assertEquals(0, GpuInfo.platformModel("canoe", "", "not-a-chip", "qcom"))
     }
 
     @Test fun aKernelModelDoesNotNeedVulkanOrSocFallback() {

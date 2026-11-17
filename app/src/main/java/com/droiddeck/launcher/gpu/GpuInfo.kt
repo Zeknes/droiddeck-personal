@@ -152,17 +152,26 @@ data class GpuInfo(
         private val PLATFORMS = mapOf(
             "msmnile" to 640, "kona" to 650, "lahaina" to 660, "taro" to 730, "cape" to 730,
             "kalama" to 740, "pineapple" to 750, "sun" to 830,
-            // This tablet (iQOO Pad Pro 8.8, SM8850) reports "canoe" and the guest kernel's kgsl name Adreno840v2.
-            "canoe" to 840,
         )
+
+        /**
+         * Chips whose Adreno is known by the chip itself rather than by a board name: the tablet reports
+         * ro.board.platform "canoe", which is a tablet's platform name, not Qualcomm's board for the chip.
+         * SM8850 is Snapdragon 8 Elite Gen 5, whose Adreno is the 840, as the tablet's own kernel reports
+         * (kgsl gpu_model "Adreno840v2") and the guest Turnip driver does too.
+         */
+        private val SOC_MODELS = mapOf("SM8850" to 840)
 
         internal fun platformModel(
             platform: String = systemProperty("ro.board.platform"),
             qtiSocName: String = systemProperty("ro.vendor.qti.soc_name"),
             socModel: String = SocNames.model(),
             hardware: String = "",
-        ): Int = if (SocNames.normalizedModel(socModel) == "SM8975" || SocNames.normalizedModel(qtiSocName) == "SM8975") 850
-            else PLATFORMS[platform.lowercase()] ?: PLATFORMS[qtiSocName.lowercase()] ?: PLATFORMS[hardware.lowercase()] ?: 0
+        ): Int = when {
+            SocNames.normalizedModel(socModel) == "SM8975" || SocNames.normalizedModel(qtiSocName) == "SM8975" -> 850
+            SOC_MODELS[SocNames.normalizedModel(socModel)] != null -> SOC_MODELS.getValue(SocNames.normalizedModel(socModel))
+            else -> PLATFORMS[platform.lowercase()] ?: PLATFORMS[qtiSocName.lowercase()] ?: PLATFORMS[hardware.lowercase()] ?: 0
+        }
 
         fun systemProperty(name: String): String = try {
             Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, name) as? String ?: ""
