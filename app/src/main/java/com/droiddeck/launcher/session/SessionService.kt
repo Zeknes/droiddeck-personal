@@ -25,7 +25,6 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.hardware.display.DisplayManager
-import android.opengl.GLES20
 import android.view.Display
 import android.util.Log
 import android.widget.Toast
@@ -604,7 +603,7 @@ class SessionService : Service() {
             components.add(it)
         }
 
-        guest.add("DROIDDECK_GPU_NAME=" + com.droiddeck.launcher.core.DeviceSupport.gpuName(this, glRenderer()))
+        guest.add("DROIDDECK_GPU_NAME=" + com.droiddeck.launcher.core.DeviceSupport.gpuName(this))
         guest.add("BL_WIDTH=" + size.first)
         guest.add("BL_HEIGHT=" + size.second)
         if (noSteamGame()) runCatching {
@@ -1043,8 +1042,6 @@ class SessionService : Service() {
         }
         Log.i(TAG, "vkbridge: on (${com.droiddeck.launcher.core.DeviceSupport.gpuName(this)}, ${SessionPrefs.vkBridgeMode(this)} mode), socket $socket")
     }
-
-    private fun glRenderer(): String? = runCatching { GLES20.glGetString(GLES20.GL_RENDERER) }.getOrNull()
 
     private fun noSteamGame(): Boolean =
         SessionState.mode == MODE_RUN && SessionState.program in setOf(NoSteamLaunch.PROTON_RUN, NoSteamLaunch.EPIC, NoSteamLaunch.BATTLENET)

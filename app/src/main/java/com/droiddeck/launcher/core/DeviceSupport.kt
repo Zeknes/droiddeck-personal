@@ -41,10 +41,10 @@ object DeviceSupport {
     fun canDraw(context: Context): Boolean = graphicsAvailable() || openDriverActive(context) || vkBridge(context) ||
         com.droiddeck.launcher.session.VenusComponent.wanted(context)
 
-    fun gpuName(context: Context, glRenderer: String? = null): String {
-        val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeIf { it.isNotBlank() && it != Build.UNKNOWN } else null
-        return gpuName(soc, Build.HARDWARE, glRenderer, context.getString(R.string.gpu_this_gpu))
-    }
+    fun gpuName(context: Context): String = gpuName(
+        if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeIf { it.isNotBlank() && it != Build.UNKNOWN } else null,
+        Build.HARDWARE, gpuRenderer(), context.getString(R.string.gpu_this_gpu),
+    )
 
     internal fun gpuName(soc: String?, hardware: String, glRenderer: String?, fallback: String): String {
         // The Mobile shell and KWin rules key off the Adreno model, which neither SOC_MODEL ("SM8850") nor
@@ -54,6 +54,14 @@ object DeviceSupport {
         val known = soc?.takeUnless { it.isBlank() || it == Build.UNKNOWN }
         return if (known == null) hardware.ifBlank { fallback } else "$known (${hardware.ifBlank { fallback }})"
     }
+
+    // The GL renderer as SurfaceFlinger reports it: this process has no GL context, and glGetString without one aborts it.
+    private fun gpuRenderer(): String? = runCatching {
+        val process = ProcessBuilder("dumpsys", "SurfaceFlinger").redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        process.waitFor()
+        output.lineSequence().firstOrNull { it.trimStart().startsWith("GLES:") }
+    }.getOrNull()
 
     fun lowLatencyWifiSafe(): Boolean = Build.VERSION.SDK_INT < 31 || Build.SOC_MODEL != "CQ8725S"
 }
