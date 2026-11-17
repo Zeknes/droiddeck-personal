@@ -1872,7 +1872,6 @@
     <string name="drivers_installed_pick">Installed %1$s - pick it in the menu</string>
 
     <string name="session_wait_removal">Wait for runtime removal to finish</string>
-    <string name="session_not_picture_in_picture">The desktop keeps the whole screen; a session window cannot be made smaller</string>
     <string name="session_title_game">Game</string>
     <string name="session_touch_auto_touchpad">touchpad</string>
     <string name="session_touch_auto_direct">direct</string>

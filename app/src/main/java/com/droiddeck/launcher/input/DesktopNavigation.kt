@@ -78,19 +78,13 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         click()
     }
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
-    val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") {
-        // The button's own tap hides the bar under the pointer, so it always collapses and then keeps itself reachable.
-        collapse(woke = true)
-    }
+    val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") { collapse(manual = true) }
     val homeButton = icon("home", "Plasma desktop") { invoke("home") }
 
     init {
         clipChildren = false
         isFocusable = false
         visibility = GONE
-        // A FrameLayout sizes itself to the largest child, and only the child it shows decides that size: the hidden
-        // handle alone measured the capsule 120x120 and left the bar and every button at 0,0-0,0. It carries both
-        // states, so it is as wide as the bar's five buttons and as tall as one, and onMeasure keeps it there.
         layoutParams = LayoutParams(dp(48) * 5, dp(48), Gravity.TOP or Gravity.LEFT)
         wakeHandle.layoutParams = LayoutParams(dp(48), dp(48))
         bar.orientation = LinearLayout.HORIZONTAL
@@ -146,43 +140,52 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         }
         gripButton.setOnTouchListener(dragListener())
         wakeHandle.setOnTouchListener(dragListener())
-        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> if (!collapsed) clamp() }
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-    /** Both states of the capsule share one frame: the bar's five buttons while it shows, the handle while it is
-     * collapsed. A frame left to its children would be measured from the one child that is not GONE, so the hidden
-     * bar would never give the showing one its width. */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val target = dp(48)
         val showing = if (collapsed) wakeHandle else bar
-        for (i in 0 until childCount) {
-            val child = getChildAt(i)
-            if (child.visibility == GONE) continue
-            child.measure(
-                MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec).takeIf { MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED } ?: (dp(48) * bar.childCount), MeasureSpec.AT_MOST),
-                MeasureSpec.makeMeasureSpec(dp(48), MeasureSpec.AT_MOST),
-            )
-        }
-        setMeasuredDimension(
-            resolveSize(showing.measuredWidth, widthMeasureSpec),
-            resolveSize(showing.measuredHeight, heightMeasureSpec),
-        )
+        val desiredWidth = if (collapsed) target else target * bar.childCount
+        setMeasuredDimension(resolveSize(desiredWidth, widthMeasureSpec), resolveSize(target, heightMeasureSpec))
+        showing.measure(MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY))
     }
 
-    private fun requestParentLayout() {
-        var host: android.view.ViewParent? = parent
-        while (host is View && host.id == NO_ID && host.parent is View) host = host.parent
-        (host as? View)?.requestLayout()
+    private var placementPending = false
+    private val hostLayout = OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+        if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) restorePosition()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        (parent as? View)?.addOnLayoutChangeListener(hostLayout)
+        requestApplyInsets()
+    }
+
+    private fun resize() {
+        layoutParams = (layoutParams as LayoutParams).apply {
+            width = if (collapsed) dp(48) else dp(48) * bar.childCount
+            height = dp(48)
+        }
+        placementPending = true
+        requestLayout()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (placementPending) {
+            placementPending = false
+            restorePosition()
+        }
+        clamp()
     }
 
     fun active(on: Boolean) {
         if (enabled == on) return
         enabled = on
         visibility = if (on) VISIBLE else GONE
-        // The host arranges its children by this view's own frame, and nothing else marks that frame stale when the
-        // capsule changes size or goes away.
-        requestParentLayout()
         if (on) {
             // A session starts with the capsule; a handle saved by a collapse is restored at its side.
             val side = prefs.getString("edge", null)
@@ -190,8 +193,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                 collapsed = true
                 bar.visibility = GONE
                 wakeHandle.visibility = VISIBLE
-                requestLayout()
-                post { restorePosition() }
+                resize()
             } else {
                 expand()
             }
@@ -210,39 +212,31 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         if (enabled && !held && !prefs.getBoolean("pinned", false)) postDelayed(idle, 6000)
     }
 
-    private fun collapse(woke: Boolean = false) {
-        if (!enabled || (!woke && (held || prefs.getBoolean("pinned", false)))) return
+    private fun collapse(manual: Boolean = false) {
+        if (!enabled || collapsed || (!manual && (held || prefs.getBoolean("pinned", false)))) return
+        val host = parent as? View
+        val side = if (host == null || x + width / 2f < safeLeft + (host.width - safeLeft - safeRight) / 2f) "left" else "right"
+        prefs.edit().putString("edge", side).putInt("top", (y - safeTop).toInt()).apply()
         collapsed = true
         bar.visibility = GONE
         wakeHandle.visibility = VISIBLE
-        requestLayout()
-        // The handle wakes at the nearest side, at the height it was left at.
-        post { snapToEdge() }
+        resize()
     }
 
-    /** Ends a collapsed placement at the nearest side, keeping the vertical position the user chose.
-     * The frame follows x and y on the host's next layout pass. */
     internal fun snapToEdge() {
         if (!collapsed) return
         val host = parent as? View ?: return
-        val handleWidth = wakeHandle.width.takeIf { it > 0 } ?: width
-        toEdge(host, handleWidth)
+        val left = x + width / 2f < safeLeft + (host.width - safeLeft - safeRight) / 2f
+        x = if (left) safeLeft.toFloat() else (host.width - safeRight - width).coerceAtLeast(safeLeft).toFloat()
         clamp()
         savePosition()
     }
 
-    private fun toEdge(host: View, handleWidth: Int) {
-        x = if (x - safeLeft + handleWidth / 2f < (host.width - safeLeft - safeRight) / 2f) safeLeft.toFloat()
-            else (host.width - safeRight - handleWidth).coerceAtLeast(safeLeft).toFloat()
-    }
-
     private fun expand() {
-        if (collapsed) prefs.edit().remove("edge").apply()
         collapsed = false
         bar.visibility = VISIBLE
         wakeHandle.visibility = GONE
-        requestLayout()
-        post { restorePosition() }
+        resize()
         scheduleIdle()
     }
 
@@ -261,7 +255,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
             val left = prefs.getInt("left", Int.MIN_VALUE)
             if (left != Int.MIN_VALUE && top != Int.MIN_VALUE) {
                 // Stored against the frame that was saved, which is wider than the handle: keep the north-east corner it was left at.
-                x = (safeLeft + left - prefs.getInt("width", width)).toFloat()
+                x = (safeLeft + left - width).toFloat()
                 y = safeTop + NavigationPlacement.clamp(top.toFloat(), availableY.toFloat())
             } else {
                 x = safeLeft + availableX * prefs.getFloat("x", 1f)
@@ -280,6 +274,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
             .putInt("left", (x - safeLeft + frameWidth).toInt()).putInt("top", (y - safeTop).toInt())
             .putInt("width", storedWidth).putInt("height", storedHeight)
         if (collapsed) edit.putString("edge", if (x - safeLeft + width / 2f < (host.width - safeLeft - safeRight) / 2f) "left" else "right")
+        else edit.remove("edge")
         edit.apply()
     }
 
@@ -294,8 +289,8 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
             val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
             safeLeft = safe.left; safeTop = safe.top; safeRight = safe.right; safeBottom = safe.bottom
         }
-        post { clamp() }
-        return super.onApplyWindowInsets(insets)
+        restorePosition()
+        return insets
     }
 
     private fun style() {
@@ -319,7 +314,10 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         AlertDialog.Builder(context).setTitle("Desktop controls")
             .setMultiChoiceItems(labels, checked) { _, index, on ->
                 prefs.edit().putBoolean(keys[index], on).apply(); style()
-            }.setNeutralButton("Reset position") { _, _ -> prefs.edit().remove("x").remove("y").apply(); restorePosition() }
+            }.setNeutralButton("Reset position") { _, _ ->
+                prefs.edit().remove("x").remove("y").remove("left").remove("top").remove("edge").apply()
+                restorePosition()
+            }
             .setPositiveButton("Done", null).setOnDismissListener { held = false; scheduleIdle() }.show()
     }
 
@@ -332,12 +330,11 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         return handled
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        post { if (collapsed) clamp() else restorePosition() }
+    override fun onDetachedFromWindow() {
+        removeCallbacks(idle)
+        (parent as? View)?.removeOnLayoutChangeListener(hostLayout)
+        super.onDetachedFromWindow()
     }
-
-    override fun onDetachedFromWindow() { removeCallbacks(idle); super.onDetachedFromWindow() }
 
     class Icon(context: Context, private val icon: String, label: String, click: () -> Unit) : View(context) {
         var small = true
@@ -349,8 +346,6 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         init {
             contentDescription = label; isClickable = true
             val size = (48 * resources.displayMetrics.density).toInt()
-            // The bar is a LinearLayout: a FrameLayout.LayoutParams (what `layoutParams` holds in a FrameLayout)
-            // loses its width when the row lays it out, and the row then collapses onto its first button.
             layoutParams = LinearLayout.LayoutParams(size, size)
             setOnClickListener { click() }
         }

@@ -43,6 +43,7 @@ class DesktopNavigationTest {
             true
         }
         NavigationHaptics.systemSetting = null
+        activity().getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @After fun restore() {
@@ -254,6 +255,44 @@ class DesktopNavigationTest {
         assertTrue(navigation.bar.getChildAt(0).width >= (48 * navigation.resources.displayMetrics.density).toInt())
     }
 
+    @Test fun collapsedBoundsShrinkToOneTargetAndTheVacatedAreaPassesThrough() {
+        val activity = activity()
+        val host = FrameLayout(activity)
+        var underneath = 0
+        host.addView(View(activity).apply {
+            setOnTouchListener { _, event -> if (event.actionMasked == MotionEvent.ACTION_UP) underneath++; true }
+        }, FrameLayout.LayoutParams(-1, -1))
+        val navigation = DesktopNavigation(activity) {}
+        host.addView(navigation)
+        navigation.active(true)
+        fun layout() {
+            host.measure(View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(700, View.MeasureSpec.EXACTLY))
+            host.layout(0, 0, 1000, 700)
+        }
+        layout()
+        val target = (48 * activity.resources.displayMetrics.density).toInt()
+        assertEquals(target * 5, navigation.width)
+        assertEquals(target, navigation.height)
+        assertEquals(target * 5, navigation.bar.width)
+        navigation.x = 300f
+        navigation.y = 200f
+        navigation.gripButton.performClick()
+        layout()
+        assertEquals("collapsed host bounds must be one target", target, navigation.width)
+        assertEquals(target, navigation.wakeHandle.width)
+        assertEquals(0f, navigation.x, 0.01f)
+        assertEquals(200f, navigation.y, 0.01f)
+        val x = navigation.x + target + 10
+        host.dispatchTouchEvent(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, x, 210f, 0))
+        host.dispatchTouchEvent(MotionEvent.obtain(0, 20, MotionEvent.ACTION_UP, x, 210f, 0))
+        assertEquals("the old bar area belongs to the desktop", 1, underneath)
+        navigation.wakeHandle.performClick()
+        layout()
+        assertEquals(target * 5, navigation.width)
+        assertEquals(target, navigation.homeButton.width)
+    }
+
     @Test fun theGripTapCollapsesEvenWhileTheCapsuleIsPinnedOpen() {
         // Pinned keeps the idle timer from folding the bar; the grip is the user asking for it, and its own tap must not be swallowed.
         val prefs = Robolectric.buildActivity(Activity::class.java).setup().get().getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
@@ -275,19 +314,66 @@ class DesktopNavigationTest {
         }
     }
 
+    @Test fun rightEdgeAndHeightSurviveRotationInsetsAndRecreation() {
+        val activity = activity()
+        val host = FrameLayout(activity)
+        activity.setContentView(host)
+        val navigation = DesktopNavigation(activity) {}
+        host.addView(navigation)
+        navigation.active(true)
+        fun layout(w: Int, h: Int) {
+            host.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+            host.layout(0, 0, w, h)
+        }
+        layout(1000, 700)
+        navigation.x = 740f
+        navigation.y = 300f
+        navigation.gripButton.performClick()
+        layout(1000, 700)
+        assertEquals(952f, navigation.x, 0.01f)
+        navigation.wakeHandle.performClick()
+        layout(1000, 700)
+        assertEquals(760f, navigation.x, 0.01f)
+        navigation.gripButton.performClick()
+        layout(1000, 700)
+        layout(700, 1000)
+        assertEquals(652f, navigation.x, 0.01f)
+        assertEquals(300f, navigation.y, 0.01f)
+        val insets = android.view.WindowInsets.Builder().setInsets(
+            android.view.WindowInsets.Type.ime(), android.graphics.Insets.of(0, 0, 0, 750))
+            .setVisible(android.view.WindowInsets.Type.ime(), true).build()
+        assertEquals(750, insets.getInsets(android.view.WindowInsets.Type.ime()).bottom)
+        navigation.onApplyWindowInsets(insets)
+        val safeField = DesktopNavigation::class.java.getDeclaredField("safeBottom").apply { isAccessible = true }
+        assertEquals("IME reaches host controls", 750, safeField.getInt(navigation))
+        assertEquals("host=${host.width}x${host.height}, nav=${navigation.width}x${navigation.height}, combined=${insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout() or android.view.WindowInsets.Type.ime())}", 202f, navigation.y, 0.01f)
+        navigation.onApplyWindowInsets(android.view.WindowInsets.Builder().build())
+        assertEquals("removing the IME restores saved height", 300f, navigation.y, 0.01f)
+        host.removeView(navigation)
+        val restored = DesktopNavigation(activity) {}
+        host.addView(restored)
+        restored.active(true)
+        layout(700, 1000)
+        assertTrue(restored.collapsed)
+        assertEquals(48, restored.width)
+        assertEquals(652f, restored.x, 0.01f)
+        assertEquals(300f, restored.y, 0.01f)
+    }
+
     @Test fun theCollapsedHandleLandsOnTheNearestSideWithItsHeightKept() {
         // A collapsed handle is kept at the side it was left on, and its height survives the session it was left in.
         // The first frame a view is measured at is not the screen, so the side is read from where the handle is,
         // relative to the width it was saved against.
         for (collapsedOnLeft in listOf(true, false)) {
+            activity().getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE).edit().clear().commit()
             val (navigation, host) = session()
             val saved = host.context.getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
-            saved.edit().clear().commit()
             val width = navigation.width
             navigation.x = if (collapsedOnLeft) 0f else (host.width - width).toFloat()
             navigation.y = 300f
             navigation.gripButton.performClick()
-            ShadowLooper.idleMainLooper()
+            relayout(host, 800)
             assertTrue(navigation.collapsed)
             assertEquals("the handle keeps the height it was dragged to", 300, saved.getInt("top", -1))
             assertEquals("and the side it was left on", if (collapsedOnLeft) "left" else "right", saved.getString("edge", null))

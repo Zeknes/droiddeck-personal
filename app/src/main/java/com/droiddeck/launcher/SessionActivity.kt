@@ -261,12 +261,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
     private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopNavigation? = null
-    private var pictureInPicture = false
-    private val pictureInPictureListener = object : DisplayManager.DisplayListener {
-        override fun onDisplayAdded(displayId: Int) {}
-        override fun onDisplayRemoved(displayId: Int) {}
-        override fun onDisplayChanged(displayId: Int) { updatePictureInPictureMode() }
-    }
     private val desktopNavigationRefresh = object : Runnable {
         override fun run() {
             updateDesktopKeyboardButton()
@@ -753,12 +747,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         goFullscreen()
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
         displayManager = getSystemService(DISPLAY_SERVICE) as DisplayManager
-        // A session that lands in picture-in-picture is a small floating window: the desktop, the panels and their
-        // touch targets are all laid out for a fraction of the screen, and the guest is still told the panel's size.
-        // The host covers it with its own controls, so the only way out is leaving that window, which the session
-        // asks for itself.
-        displayManager.registerDisplayListener(pictureInPictureListener, uiHandler)
-        updatePictureInPictureMode()
         refreshSecondScreenDisplays()
 
         if (!LinuxRuntime.isInstalled(this)) Log.i(TAG, "the Linux runtime is not installed; the loading screen installs it")
@@ -4705,16 +4693,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         })
     }
 
-    private fun updatePictureInPictureMode() {
-        val windowed = isInPictureInPictureMode
-        if (!windowed) pictureInPicture = false
-        if (windowed == pictureInPicture) return
-        pictureInPicture = windowed
-        if (!windowed) return
-        android.widget.Toast.makeText(this, R.string.session_not_picture_in_picture, android.widget.Toast.LENGTH_LONG).show()
-        finishAndRemoveTask()
-    }
-
     private fun desktopTextInput() =
         SessionState.mode == SessionService.MODE_DESKTOP && SessionState.running && !pipUi
 
@@ -5011,7 +4989,6 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         uiHandler.removeCallbacks(desktopNavigationRefresh)
         uiHandler.post(desktopNavigationRefresh)
         updateDesktopKeyboardButton()
-        updatePictureInPictureMode()
         com.droiddeck.launcher.input.HomeButtonShortcuts.attach(this,
             enabled = {
                 resumed && window.decorView.hasWindowFocus() && !ended && !drawerOpen && !pcKeyboardOpen &&
