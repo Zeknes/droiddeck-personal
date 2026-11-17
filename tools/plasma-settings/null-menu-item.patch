@@ -1,0 +1,11 @@
+--- a/src/modulesproxymodel.cpp
++++ b/src/modulesproxymodel.cpp
+@@ -53,7 +53,7 @@ bool ModulesProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex &parent) const
+     auto mItem = index.data(Qt::UserRole).value<MenuItem *>();
+ 
+     // accept only systemsettings categories that have children
+-    if (mItem->children().isEmpty() && mItem->isSystemsettingsCategory()) {
++    if (!mItem || (mItem->children().isEmpty() && mItem->isSystemsettingsCategory())) {
+         return false;
+     } else {
+         return true; // Items matching the regexp are disabled, not hidden

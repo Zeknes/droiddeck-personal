@@ -164,6 +164,14 @@ docker run --rm --platform "${docker_platform}" \
         put tools/linuxfs/desktop/droiddeck-gpu "$d/usr/local/bin/droiddeck-gpu"
         put tools/linuxfs/desktop/droiddeck-desktop-gpu "$d/usr/local/bin/droiddeck-desktop-gpu"
         put tools/linuxfs/desktop/kwin_wayland_wrapper "$d/usr/local/bin/kwin_wayland_wrapper"
+        put tools/linuxfs/overlay/usr/local/bin/plasma-settings "$d/usr/local/bin/plasma-settings"
+        put tools/linuxfs/overlay/usr/local/bin/systemsettings "$d/usr/local/bin/systemsettings"
+        put tools/plasma-settings/plasma-settings.arm64 "$d/usr/local/lib/droiddeck-settings/plasma-settings"
+        put tools/plasma-settings/source.tar.xz "$d/usr/local/share/licenses/droiddeck-settings/source.tar.xz"
+        put tools/plasma-settings/null-menu-item.patch "$d/usr/local/share/licenses/droiddeck-settings/null-menu-item.patch"
+        put tools/plasma-settings/build.sh "$d/usr/local/share/licenses/droiddeck-settings/build.sh"
+        put tools/plasma-settings/NOTICE "$d/usr/local/share/licenses/droiddeck-settings/NOTICE"
+        put tools/plasma-settings/null-probe.cpp "$d/usr/local/share/licenses/droiddeck-settings/null-probe.cpp"
         put tools/linuxfs/desktop/firefox-droiddeck.js \
             "$d/usr/lib/firefox/defaults/pref/droiddeck.js"
 

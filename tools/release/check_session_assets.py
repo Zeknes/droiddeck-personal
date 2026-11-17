@@ -21,7 +21,7 @@ def check_extraction(overlay, source):
 
 def source_assets(overlay=OVERLAY):
     sources = list((overlay / 'usr/local/bin').glob('droiddeck-*'))
-    sources += [path for path in [overlay / 'usr/local/bin/steam-compatibility'] if path.is_file()]
+    sources += [path for path in [overlay / 'usr/local/bin' / name for name in ('steam-compatibility', 'plasma-settings', 'systemsettings')] if path.is_file()]
     sources += [path for path in (overlay / 'usr/bin').rglob('*') if path.is_file()]
     result = {source: 'assets/linuxfs/' + source.relative_to(overlay).as_posix() for source in sources}
     if overlay == OVERLAY:
@@ -31,6 +31,10 @@ def source_assets(overlay=OVERLAY):
         result[desktop / 'firefox-droiddeck.js'] = 'assets/linuxfs/usr/lib/firefox/defaults/pref/droiddeck.js'
         result[desktop / 'droiddeck-clipboard.desktop'] = 'assets/linuxfs/etc/xdg/autostart/droiddeck-clipboard.desktop'
         result[overlay.parent.parent / 'mangoapp/mangoapp'] = 'assets/linuxfs/usr/local/bin/mangoapp'
+        settings = overlay.parent.parent / 'plasma-settings'
+        result[settings / 'plasma-settings.arm64'] = 'assets/linuxfs/usr/local/lib/droiddeck-settings/plasma-settings'
+        for name in ('source.tar.xz', 'null-menu-item.patch', 'build.sh', 'NOTICE', 'null-probe.cpp'):
+            result[settings / name] = 'assets/linuxfs/usr/local/share/licenses/droiddeck-settings/' + name
     return result
 
 

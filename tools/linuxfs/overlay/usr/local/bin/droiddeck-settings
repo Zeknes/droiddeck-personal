@@ -13,7 +13,10 @@ def main():
             env.pop(key, None)
         env.update(QT_QUICK_BACKEND='rhi', QSG_RHI_BACKEND='opengl', QT_OPENGL='software',
                    LIBGL_ALWAYS_SOFTWARE='1', GALLIUM_DRIVER='llvmpipe', QSG_RENDER_LOOP='basic')
-    os.execve(sys.argv[1], sys.argv[1:], env)
+    target = sys.argv[1]
+    if target == '/usr/bin/plasma-settings' and 'Adreno' in gpu and '840' in gpu:
+        target = '/usr/local/lib/droiddeck-settings/plasma-settings'
+    os.execve(target, [target, *sys.argv[2:]], env)
 
 
 if __name__ == '__main__':

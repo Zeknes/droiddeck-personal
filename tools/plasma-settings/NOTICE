@@ -1,0 +1,11 @@
+Plasma Settings 25.12.0
+https://invent.kde.org/plasma/plasma-settings
+
+The bundled ARM64 executable is built from the complete upstream source archive
+source.tar.xz (SHA-256 bc286f2df392f377dbbacaa6e5629e8538500c3ed24ec6f45e6838cc6df62971)
+with null-menu-item.patch. The archive retains upstream copyright notices and
+LICENSES, including GPL-2.0-or-later, GPL-2.0-only, GPL-3.0-only,
+LicenseRef-KDE-Accepted-GPL, BSD-2-Clause, CC0-1.0 and CC-BY-4.0.
+The patch rejects an absent MenuItem before the categorized proxy dereferences it.
+Build on an isolated Ubuntu 26.04 ARM64 environment with deb-src enabled using
+build.sh. No original system executable is replaced.

@@ -115,8 +115,9 @@ class DesktopChromiumAppsTest(unittest.TestCase):
                     patch('sys.argv', [str(wrapper)] + argv), patch('os.execve') as execute:
                 main()
                 target, args, env = execute.call_args.args
-                self.assertEqual(argv[0], target)
-                self.assertEqual(argv, args)
+                expected = '/usr/local/lib/droiddeck-settings/plasma-settings' if program == 'plasma-settings' else argv[0]
+                self.assertEqual(expected, target)
+                self.assertEqual([expected, *argv[1:]], args)
                 self.assertEqual('rhi', env['QT_QUICK_BACKEND'])
                 self.assertEqual('opengl', env['QSG_RHI_BACKEND'])
                 self.assertEqual('software', env['QT_OPENGL'])
@@ -130,10 +131,16 @@ class DesktopChromiumAppsTest(unittest.TestCase):
                 self.assertEqual(inherited, dict(os.environ))
         for gpu in ('Adreno (TM) 740', 'Mali-G720', ''):
             env = dict(inherited, DROIDDECK_GPU_NAME=gpu)
-            with self.subTest(gpu=gpu), patch.dict(os.environ, env, clear=True), \
-                    patch('sys.argv', [str(wrapper), '/usr/bin/systemsettings']), patch('os.execve') as execute:
-                main()
-                self.assertEqual(env, execute.call_args.args[2])
+            for program in ('systemsettings', 'plasma-settings'):
+                target = '/usr/bin/' + program
+                with self.subTest(gpu=gpu, program=program), patch.dict(os.environ, env, clear=True), \
+                        patch('sys.argv', [str(wrapper), target]), patch('os.execve') as execute:
+                    main()
+                    self.assertEqual((target, [target], env), execute.call_args.args)
+        for program in ('systemsettings', 'plasma-settings'):
+            path = wrapper.parent / program
+            self.assertEqual('#!/bin/sh\nexec /usr/local/bin/droiddeck-settings /usr/bin/' + program + ' "$@"\n', path.read_text())
+            self.assertTrue(path.stat().st_mode & 0o111)
         for argv in ([], ['/usr/bin/dolphin']):
             with patch('sys.argv', [str(wrapper)] + argv), patch('os.execve') as execute:
                 self.assertEqual(64, main())
