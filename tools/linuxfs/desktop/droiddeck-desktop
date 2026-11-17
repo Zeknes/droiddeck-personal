@@ -134,6 +134,10 @@ if [ "$(cat /usr/share/droiddeck/kwin-compositor 2>/dev/null)" = opengl ]; then
   chmod 755 /run/droiddeck/kwin/kwin_wayland
   export PATH=/run/droiddeck/kwin:$PATH
 fi
+mkdir -p /run/droiddeck/mobile-shell
+printf '#!/bin/sh\nexec /usr/local/bin/droiddeck-mobile-shell "$@"\n' > /run/droiddeck/mobile-shell/plasmashell
+chmod 755 /run/droiddeck/mobile-shell/plasmashell
+export PATH=/run/droiddeck/mobile-shell:$PATH
 echo "== droiddeck-desktop: Plasma on $WAYLAND_DISPLAY"
 dbus-run-session -- startplasmamobile
 rc=$?

@@ -1140,6 +1140,15 @@ def handle(agent_dir, req):
         return {"pid": os.getpid(), "version": VERSION, "displays": displays()}
     if kind == "exec":
         return run_exec(req)
+    if kind == "desktop-navigation":
+        action = req.get("action")
+        if action not in ("home", "overview", "back"):
+            raise AgentError("INVALID_REQUEST", "Unknown desktop navigation action")
+        result = subprocess.run(["/usr/local/bin/droiddeck-desktop-navigate", action],
+                                capture_output=True, text=True, timeout=5)
+        if result.returncode:
+            raise AgentError("NAVIGATION_FAILED", result.stderr or result.stdout)
+        return {"action": action}
     if kind == "focus":
         return focus_snapshot()
     if kind == "cdp":

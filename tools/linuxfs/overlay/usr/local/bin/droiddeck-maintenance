@@ -101,7 +101,13 @@ def main():
     args=parser.parse_args()
     if args.public_key:configure(args.public_key.read_text().strip())
     elif args.start:start()
-    elif args.install_menu:subprocess.run(['droiddeck-performance','--install'],check=True)
+    elif args.install_menu:
+        subprocess.run(['droiddeck-performance','--install'],check=True)
+        source=Path('/etc/xdg/autostart/org.kde.plasmashell.desktop')
+        target=Path.home()/'.config/autostart/org.kde.plasmashell.desktop'
+        if source.exists() and (not target.exists() or 'X-DroidDeck-MobileShell=1' in target.read_text()):
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_text(source.read_text().replace('Exec=/usr/bin/plasmashell', 'Exec=/usr/local/bin/droiddeck-mobile-shell')+'\nX-DroidDeck-MobileShell=1\n')
     else:parser.print_help()
     return 0
 

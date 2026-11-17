@@ -77,6 +77,8 @@ object SessionFiles {
             "usr/local/bin/droiddeck-diagnostic-inventory" to "usr/local/bin/droiddeck-diagnostic-inventory",
             "usr/local/bin/droiddeck-performance" to "usr/local/bin/droiddeck-performance",
             "usr/local/bin/droiddeck-maintenance" to "usr/local/bin/droiddeck-maintenance",
+            "usr/local/bin/droiddeck-mobile-shell" to "usr/local/bin/droiddeck-mobile-shell",
+            "usr/local/bin/droiddeck-desktop-navigate" to "usr/local/bin/droiddeck-desktop-navigate",
             "usr/local/lib/droiddeck/sftp-prctl.so" to "usr/local/lib/droiddeck/sftp-prctl.so",
             "usr/local/bin/droiddeck-wincomponents" to "usr/local/bin/droiddeck-wincomponents",
             "usr/local/bin/droiddeck-wine-pe" to "usr/local/bin/droiddeck-wine-pe",

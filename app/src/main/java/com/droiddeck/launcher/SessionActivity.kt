@@ -260,7 +260,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var routedTouchMode = SessionPrefs.TOUCH_AUTO
     private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
-    private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopKeyboardButton? = null
+    private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopNavigation? = null
     private var lastUserPressMs = 0L
     private var pressDownX = 0f
     private var pressDownY = 0f
@@ -795,8 +795,14 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             host.onImeChanged = { updateDesktopKeyboardButton() }
             root.addView(host)
         }
-        desktopKeyboardButton = com.droiddeck.launcher.input.DesktopKeyboardButton(this) { keyboard?.show() }
-            .also { root.addView(it) }
+        desktopKeyboardButton = com.droiddeck.launcher.input.DesktopNavigation(this) { action ->
+            if (action == "keyboard") keyboard?.toggle()
+            else Thread({
+                runCatching {
+                    AgentGuest.call(this, org.json.JSONObject().put("kind", "desktop-navigation").put("action", action), 6_000, trusted = true)
+                }.onFailure { error -> uiHandler.post { android.widget.Toast.makeText(this, error.message, android.widget.Toast.LENGTH_SHORT).show() } }
+            }, "desktop-navigation").start()
+        }.also { root.addView(it) }
         touchpad = TouchpadGestures(PointerGestures.slop(this), pointerListener)
         directTouchHold = DirectTouchHold(PointerGestures.slop(this), pointerListener, directTouchSink)
         touchSlop = PointerGestures.slop(this)
@@ -4728,12 +4734,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
 
     private fun updateDesktopKeyboardButton() {
         val button = desktopKeyboardButton ?: return
-        val show = desktopTextInput() && AgentGuest.desktopTextField && !pcKeyboardOpen &&
-            !(keyboard?.let { it.shown && (Build.VERSION.SDK_INT < 30 || it.imeShowing) } ?: false)
-        val visibility = if (show) View.VISIBLE else View.GONE
-        if (button.visibility == visibility) return
-        if (show) button.applyColors()
-        button.visibility = visibility
+        button.active(desktopTextInput())
+        button.bringToFront()
     }
 
     private fun keyboardCoversPad() =
