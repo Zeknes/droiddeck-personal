@@ -152,6 +152,8 @@ data class GpuInfo(
         private val PLATFORMS = mapOf(
             "msmnile" to 640, "kona" to 650, "lahaina" to 660, "taro" to 730, "cape" to 730,
             "kalama" to 740, "pineapple" to 750, "sun" to 830,
+            // This tablet (iQOO Pad Pro 8.8, SM8850) reports "canoe" and the guest kernel's kgsl name Adreno840v2.
+            "canoe" to 840,
         )
 
         internal fun platformModel(

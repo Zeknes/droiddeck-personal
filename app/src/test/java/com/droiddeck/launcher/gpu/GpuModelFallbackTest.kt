@@ -25,11 +25,13 @@ class GpuModelFallbackTest {
     }
 
     @Test fun aDeviceCodenameGivesItsAdrenoWhenNoBoardIsReported() {
-        // A codename only maps where the chip behind it is certain; "canoe" is the device name this tablet
-        // reports, not a chip, so it maps to nothing and the GPU is named from its kernel/Vulkan name instead.
-        assertEquals(0, GpuInfo.platformModel("", "", "SM8850", "canoe"))
+        // This tablet: ro.board.platform is "canoe" (SM8850, qcom) and the guest kernel names the GPU
+        // Adreno840v2; "canoe" alone is a tablet's platform, so the kernel's own name is preferred where it is.
+        assertEquals(840, GpuInfo.platformModel("", "", "SM8850", "canoe"))
+        assertEquals(840, GpuInfo.platformModel("CANOE"))
         assertEquals(740, GpuInfo.platformModel("", "", "", "kalama"))
         assertEquals(740, GpuInfo.platformModel("KALAMA"))
+        assertEquals(0, GpuInfo.platformModel("", "", "", "qcom"))
     }
 
     @Test fun aKernelModelDoesNotNeedVulkanOrSocFallback() {

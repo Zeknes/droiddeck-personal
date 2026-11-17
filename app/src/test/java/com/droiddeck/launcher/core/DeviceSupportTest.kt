@@ -24,8 +24,9 @@ class DeviceSupportTest {
     }
 
     @Test fun aChipNamesItsGpuOnlyWhenThePlatformKnowsIt() {
-        // The chip's own board/codename ("canoe" is the ROG Phone 9 Pro's, whose GPU is the Adreno 830).
-        assertEquals("Adreno (TM) 830", DeviceSupport.gpuName("SM8850", "canoe", null, platformModel = 830))
+        // This tablet's own fields: board "canoe", SM8850, qcom; the kernel says Adreno840v2 and the table agrees.
+        assertEquals(840, com.droiddeck.launcher.gpu.GpuInfo.platformModel("canoe", "", "SM8850", "qcom"))
+        assertEquals((840 to "kernel"), com.droiddeck.launcher.gpu.GpuInfo.modelFromNames("Adreno840v2", { null }, { 840 }))
         // SM8850 alone maps to no Adreno in the platform table, so nothing here invents one.
         assertEquals(0, com.droiddeck.launcher.gpu.GpuInfo.platformModel("", "", "SM8850", "qcom"))
     }
