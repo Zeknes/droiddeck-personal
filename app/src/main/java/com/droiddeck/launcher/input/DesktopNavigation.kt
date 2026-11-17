@@ -63,7 +63,7 @@ internal object NavigationHaptics {
 
 class DesktopNavigation(context: Context, private val action: (String) -> Unit) : FrameLayout(context) {
     private val prefs = context.getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
-    private val bar = LinearLayout(context)
+    internal val bar = LinearLayout(context)
     private val idle = Runnable { collapse() }
     private var enabled = false
     private var held = false
@@ -78,14 +78,20 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         click()
     }
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
-    val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") { collapse(true) }
+    val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") {
+        // The button's own tap hides the bar under the pointer, so it always collapses and then keeps itself reachable.
+        collapse(woke = true)
+    }
     val homeButton = icon("home", "Plasma desktop") { invoke("home") }
 
     init {
         clipChildren = false
         isFocusable = false
         visibility = GONE
-        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.LEFT)
+        // A FrameLayout sizes itself to the largest child, and only the child it shows decides that size: the hidden
+        // handle alone measured the capsule 120x120 and left the bar and every button at 0,0-0,0. It carries both
+        // states, so it is as wide as the bar's five buttons and as tall as one, and onMeasure keeps it there.
+        layoutParams = LayoutParams(dp(48) * 5, dp(48), Gravity.TOP or Gravity.LEFT)
         wakeHandle.layoutParams = LayoutParams(dp(48), dp(48))
         bar.orientation = LinearLayout.HORIZONTAL
         bar.gravity = Gravity.CENTER
@@ -145,10 +151,38 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
+    /** Both states of the capsule share one frame: the bar's five buttons while it shows, the handle while it is
+     * collapsed. A frame left to its children would be measured from the one child that is not GONE, so the hidden
+     * bar would never give the showing one its width. */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val showing = if (collapsed) wakeHandle else bar
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child.visibility == GONE) continue
+            child.measure(
+                MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec).takeIf { MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.UNSPECIFIED } ?: (dp(48) * bar.childCount), MeasureSpec.AT_MOST),
+                MeasureSpec.makeMeasureSpec(dp(48), MeasureSpec.AT_MOST),
+            )
+        }
+        setMeasuredDimension(
+            resolveSize(showing.measuredWidth, widthMeasureSpec),
+            resolveSize(showing.measuredHeight, heightMeasureSpec),
+        )
+    }
+
+    private fun requestParentLayout() {
+        var host: android.view.ViewParent? = parent
+        while (host is View && host.id == NO_ID && host.parent is View) host = host.parent
+        (host as? View)?.requestLayout()
+    }
+
     fun active(on: Boolean) {
         if (enabled == on) return
         enabled = on
         visibility = if (on) VISIBLE else GONE
+        // The host arranges its children by this view's own frame, and nothing else marks that frame stale when the
+        // capsule changes size or goes away.
+        requestParentLayout()
         if (on) {
             // A session starts with the capsule; a handle saved by a collapse is restored at its side.
             val side = prefs.getString("edge", null)
@@ -176,8 +210,8 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         if (enabled && !held && !prefs.getBoolean("pinned", false)) postDelayed(idle, 6000)
     }
 
-    private fun collapse(manual: Boolean = false) {
-        if (!enabled || (!manual && (held || prefs.getBoolean("pinned", false)))) return
+    private fun collapse(woke: Boolean = false) {
+        if (!enabled || (!woke && (held || prefs.getBoolean("pinned", false)))) return
         collapsed = true
         bar.visibility = GONE
         wakeHandle.visibility = VISIBLE
@@ -315,6 +349,8 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         init {
             contentDescription = label; isClickable = true
             val size = (48 * resources.displayMetrics.density).toInt()
+            // The bar is a LinearLayout: a FrameLayout.LayoutParams (what `layoutParams` holds in a FrameLayout)
+            // loses its width when the row lays it out, and the row then collapses onto its first button.
             layoutParams = LinearLayout.LayoutParams(size, size)
             setOnClickListener { click() }
         }

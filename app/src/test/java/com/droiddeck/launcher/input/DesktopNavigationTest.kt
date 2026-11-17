@@ -9,6 +9,7 @@ import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -181,5 +182,122 @@ class DesktopNavigationTest {
         assertTrue(navigation.homeButton.layoutParams.width >= (48 * activity.resources.displayMetrics.density).toInt())
         navigation.active(false)
         assertEquals(View.GONE, navigation.visibility)
+    }
+
+    private fun session(activate: (DesktopNavigation) -> Unit = { it.active(true) }): Pair<DesktopNavigation, FrameLayout> {
+        val activity = activity()
+        val host = FrameLayout(activity)
+        val navigation = DesktopNavigation(activity) {}
+        host.addView(navigation)
+        activity.setContentView(host)
+        relayout(host, 800)
+        activate(navigation)
+        ShadowLooper.idleMainLooper()
+        relayout(host, 800)
+        return navigation to host
+    }
+
+    private fun relayout(host: FrameLayout, sizeDp: Int) {
+        val size = (sizeDp * host.resources.displayMetrics.density).toInt()
+        host.measure(
+            View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
+        )
+        host.layout(0, 0, size, size)
+    }
+
+    @Test fun theCapsuleIsAsWideAsItsBarAndItsButtonsAreTouchTargets() {
+        // On the tablet the capsule measured 120x120 with every button at 0,0-0,0: 120 is one hidden handle, so the
+        // capsule was sized by its hidden child and the bar never got a frame to draw or hit-test.
+        val activity = activity()
+        val navigation = DesktopNavigation(activity) {}
+        val density = activity.resources.displayMetrics.density
+        val target = (48 * density).toInt()
+        var declared = 0
+        for (i in 0 until navigation.bar.childCount) {
+            val child = navigation.bar.getChildAt(i)
+            declared += child.declaredWidth()
+            assertEquals("button $i keeps a 48 dp target", target, child.declaredWidth())
+            assertEquals(target, child.declaredHeight())
+            assertTrue(child.isClickable)
+        }
+        assertEquals("the five buttons and the handle beside them", 6 * target, declared + navigation.wakeHandle.declaredWidth())
+        // The bar is laid out at the size of its five buttons, which a hidden sibling used to deny it.
+        navigation.bar.measure(
+            View.MeasureSpec.makeMeasureSpec(6 * target, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(target, View.MeasureSpec.AT_MOST),
+        )
+        assertEquals("the bar is every button's 48 dp", 5 * target, navigation.bar.measuredWidth)
+        assertEquals(target, navigation.bar.getChildAt(4).measuredWidth)
+    }
+
+    // A view's touch target is what it was declared with, which an unspecified measure leaves to the parent.
+    private fun View.declaredWidth(): Int = when (val lp = layoutParams) {
+        null -> 0
+        else -> if (lp.width > 0) lp.width else measuredWidth
+    }
+
+    private fun View.declaredHeight(): Int = when (val lp = layoutParams) {
+        null -> 0
+        else -> if (lp.height > 0) lp.height else measuredHeight
+    }
+
+    @Test fun theCapsuleKeepsItsFrameWhenAFullLayoutPullIsApplied() {
+        // aapt sends FORCE_LAYOUT down to every view for pull-to-refresh; a layout from the stale measure is what emptied the bar
+        val (navigation, host) = session()
+        val width = navigation.width
+        navigation.bar.forceLayout()
+        navigation.forceLayout()
+        host.layout(0, 0, host.width, host.height)
+        assertEquals(width, navigation.width)
+        assertEquals(width, navigation.bar.width)
+        assertTrue(navigation.bar.getChildAt(0).width >= (48 * navigation.resources.displayMetrics.density).toInt())
+    }
+
+    @Test fun theGripTapCollapsesEvenWhileTheCapsuleIsPinnedOpen() {
+        // Pinned keeps the idle timer from folding the bar; the grip is the user asking for it, and its own tap must not be swallowed.
+        val prefs = Robolectric.buildActivity(Activity::class.java).setup().get().getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("pinned", true).commit()
+        try {
+            val (navigation, _) = session()
+            navigation.gripButton.performClick()
+            ShadowLooper.idleMainLooper()
+            assertTrue("the grip tap collapses a pinned capsule", navigation.collapsed)
+            assertEquals(View.VISIBLE, navigation.wakeHandle.visibility)
+            navigation.wakeHandle.performClick()
+            ShadowLooper.idleMainLooper()
+            assertFalse("the wake handle brings it back", navigation.collapsed)
+            navigation.gripButton.performClick()
+            ShadowLooper.idleMainLooper()
+            assertTrue(navigation.collapsed)
+        } finally {
+            prefs.edit().clear().commit()
+        }
+    }
+
+    @Test fun theCollapsedHandleLandsOnTheNearestSideWithItsHeightKept() {
+        // A collapsed handle is kept at the side it was left on, and its height survives the session it was left in.
+        // The first frame a view is measured at is not the screen, so the side is read from where the handle is,
+        // relative to the width it was saved against.
+        for (collapsedOnLeft in listOf(true, false)) {
+            val (navigation, host) = session()
+            val saved = host.context.getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
+            saved.edit().clear().commit()
+            val width = navigation.width
+            navigation.x = if (collapsedOnLeft) 0f else (host.width - width).toFloat()
+            navigation.y = 300f
+            navigation.gripButton.performClick()
+            ShadowLooper.idleMainLooper()
+            assertTrue(navigation.collapsed)
+            assertEquals("the handle keeps the height it was dragged to", 300, saved.getInt("top", -1))
+            assertEquals("and the side it was left on", if (collapsedOnLeft) "left" else "right", saved.getString("edge", null))
+            navigation.active(false)
+            navigation.active(true)
+            ShadowLooper.idleMainLooper()
+            assertEquals("a restored session keeps that side", if (collapsedOnLeft) "left" else "right", saved.getString("edge", null))
+            assertTrue(navigation.collapsed)
+            assertEquals(View.VISIBLE, navigation.wakeHandle.visibility)
+            assertEquals(View.GONE, navigation.bar.visibility)
+        }
     }
 }
