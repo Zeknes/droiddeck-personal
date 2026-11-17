@@ -43,6 +43,23 @@ class DesktopNavigationTest(unittest.TestCase):
             with self.assertRaises(module.AgentError):
                 module.handle(Path('/tmp'), {'kind': 'desktop-navigation', 'action': 'kill'})
 
+    def test_home_uses_the_mobile_home_screen_instead_of_toggling_show_desktop(self):
+        harness = '''
+import json, runpy, sys
+m = runpy.run_path(sys.argv[1])
+m['Path'].iterdir = lambda self: iter(())
+calls = []
+m['subprocess'].call = lambda command, env: calls.append(command) or 0
+sys.argv = ['droiddeck-desktop-navigate', 'home']
+m['main']()
+print(json.dumps(calls))
+'''
+        run = subprocess.run([os.sys.executable, '-c', harness, str(BIN / 'droiddeck-desktop-navigate')],
+                             capture_output=True, text=True, timeout=10)
+        self.assertEqual(0, run.returncode, run.stderr)
+        self.assertEqual([['qdbus6', 'org.kde.plasmashell', '/Mobile',
+                           'org.kde.plasmashell.openHomeScreen']], json.loads(run.stdout))
+
     def shell(self, gpu, argv=('-p', 'org.kde.plasma.mobileshell'), conf=''):
         with tempfile.TemporaryDirectory() as home:
             if conf:

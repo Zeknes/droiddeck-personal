@@ -21,6 +21,9 @@ def main():
             break
         except (OSError,ValueError,UnicodeError):
             continue
+    if sys.argv[1] == 'home':
+        return subprocess.call(['qdbus6', 'org.kde.plasmashell', '/Mobile',
+                                'org.kde.plasmashell.openHomeScreen'], env=env)
     return subprocess.call(['qdbus6','org.kde.kglobalaccel','/component/kwin',
                             'org.kde.kglobalaccel.Component.invokeShortcut',actions[sys.argv[1]]],env=env)
 
