@@ -76,6 +76,70 @@ class DesktopChromiumAppsTest(unittest.TestCase):
         with patch.dict(os.environ, {'DROIDDECK_GPU_NAME': 'Adreno (TM) 740'}):
             self.assertIsNone(self.gpu['wrap'](self.entry('systemsettings', categories='Settings;')))
 
+    def test_settings_entry_migration_is_idempotent_and_preserves_user_entries(self):
+        from unittest.mock import patch
+        system = self.root / 'applications'
+        user = self.root / 'user-applications'
+        system.mkdir()
+        user.mkdir()
+        for name in ('systemsettings', 'plasma-settings'):
+            (system / (name + '.desktop')).write_text(self.entry(name + ' --test %u', categories='Settings;'))
+        custom = self.entry('custom-settings')
+        (system / 'custom.desktop').write_text(self.entry('systemsettings'))
+        (user / 'custom.desktop').write_text(custom)
+        self.gpu.update(SYSTEM_DIR=str(system), LOCAL_DIR='', FLATPAK_DIR='', USER_DIR=str(user))
+        with patch.dict(os.environ, {'DROIDDECK_GPU_NAME': 'Adreno (TM) 840'}):
+            self.gpu['main']()
+            first = {p.name: p.read_bytes() for p in user.iterdir()}
+            self.gpu['main']()
+            self.assertEqual(first, {p.name: p.read_bytes() for p in user.iterdir()})
+            for name in ('systemsettings', 'plasma-settings'):
+                self.assertEqual(['/usr/local/bin/droiddeck-settings /usr/bin/' + name + ' --test %u'],
+                                 self.exec_lines((user / (name + '.desktop')).read_text()))
+        self.assertEqual(custom, (user / 'custom.desktop').read_text())
+        with patch.dict(os.environ, {'DROIDDECK_GPU_NAME': 'Adreno (TM) 740'}):
+            self.gpu['main']()
+        self.assertEqual(['custom.desktop'], [p.name for p in user.iterdir()])
+
+    def test_settings_wrapper_scopes_environment_and_preserves_arguments(self):
+        import runpy
+        from unittest.mock import patch
+        wrapper = SCRIPT.parent.parent / 'overlay/usr/local/bin/droiddeck-settings'
+        main = runpy.run_path(str(wrapper))['main']
+        inherited = {'DROIDDECK_GPU_NAME': 'Adreno (TM) 840', 'GALLIUM_DRIVER': 'zink',
+                     'MESA_LOADER_DRIVER_OVERRIDE': 'zink', 'LIBGL_KOPPER_DRI2': 'true',
+                     'mesa_glthread': 'true', 'WAYLAND_DISPLAY': 'wayland-0', 'UNCHANGED': 'yes'}
+        for program in ('systemsettings', 'plasma-settings'):
+            argv = ['/usr/bin/' + program, '-x', 'all', 'argument with spaces']
+            with self.subTest(program=program), patch.dict(os.environ, inherited, clear=True), \
+                    patch('sys.argv', [str(wrapper)] + argv), patch('os.execve') as execute:
+                main()
+                target, args, env = execute.call_args.args
+                self.assertEqual(argv[0], target)
+                self.assertEqual(argv, args)
+                self.assertEqual('rhi', env['QT_QUICK_BACKEND'])
+                self.assertEqual('opengl', env['QSG_RHI_BACKEND'])
+                self.assertEqual('software', env['QT_OPENGL'])
+                self.assertEqual('1', env['LIBGL_ALWAYS_SOFTWARE'])
+                self.assertEqual('llvmpipe', env['GALLIUM_DRIVER'])
+                self.assertEqual('basic', env['QSG_RENDER_LOOP'])
+                for key in ('MESA_LOADER_DRIVER_OVERRIDE', 'LIBGL_KOPPER_DRI2', 'mesa_glthread'):
+                    self.assertNotIn(key, env)
+                self.assertEqual('yes', env['UNCHANGED'])
+                self.assertEqual('wayland-0', env['WAYLAND_DISPLAY'])
+                self.assertEqual(inherited, dict(os.environ))
+        for gpu in ('Adreno (TM) 740', 'Mali-G720', ''):
+            env = dict(inherited, DROIDDECK_GPU_NAME=gpu)
+            with self.subTest(gpu=gpu), patch.dict(os.environ, env, clear=True), \
+                    patch('sys.argv', [str(wrapper), '/usr/bin/systemsettings']), patch('os.execve') as execute:
+                main()
+                self.assertEqual(env, execute.call_args.args[2])
+        for argv in ([], ['/usr/bin/dolphin']):
+            with patch('sys.argv', [str(wrapper)] + argv), patch('os.execve') as execute:
+                self.assertEqual(64, main())
+                execute.assert_not_called()
+        self.assertTrue(wrapper.stat().st_mode & 0o111)
+
     def test_other_apps_are_left_alone(self):
         self.assertIsNone(self.gpu["wrap"](self.entry("%s %%F" % self.plain)))
         self.assertIsNone(self.gpu["wrap"](self.entry("missing-program %F")))
