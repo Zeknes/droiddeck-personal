@@ -100,6 +100,14 @@ class DesktopNavigationTest(unittest.TestCase):
             self.assertEqual(0o644, path.stat().st_mode & 0o777)
             self.assertNotIn('SceneGraphBackend=software', path.read_text())
 
+    def test_the_sessions_argument_less_start_is_the_mobile_shell(self):
+        # KDE clears the command line of what it starts, so plasma_session launches the wrapper with no
+        # arguments; that start must still get the shell's renderer.
+        command, env, conf = self.shell('Adreno (TM) 840', argv=())
+        self.assertEqual(command, ['/usr/bin/plasmashell', '-p', 'org.kde.plasma.mobileshell'])
+        self.assertEqual(env.get('QT_QUICK_BACKEND'), 'rhi')
+        self.assertIsNone(conf)
+
     def test_line_command_arguments_are_kept(self):
         command, _, _ = self.shell('Adreno (TM) 840', argv=('-n', '-p', 'org.kde.plasma.mobileshell'))
         self.assertEqual(command, ['/usr/bin/plasmashell', '-n', '-p', 'org.kde.plasma.mobileshell'])

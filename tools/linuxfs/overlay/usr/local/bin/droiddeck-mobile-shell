@@ -34,7 +34,10 @@ def qt_settings():
 
 
 def mobile_shell(argv):
-    """True for the Mobile shell's own command line, with its plugin named."""
+    """True for the Mobile shell's own start: KDE clears the session's command line, so plasma_session
+    starts this wrapper with no arguments at all, and the other shells name their plugin."""
+    if not argv:
+        return True
     index = 0
     while index < len(argv):
         argument = argv[index]
@@ -55,6 +58,10 @@ def main():
         if option in rest:
             rest[rest.index(option) + 1] = PLUGIN
     command = [SHELL, *[a for a in argv if a in NO_RESPAWN], *rest]
+    # Only this process's own plugin-less start names the shell: plasmashell's default with no argument is
+    # another shell, so that start is given the plugin explicitly.
+    if not any(a in ('-p', '--shell-plugin') for a in argv):
+        command += ['-p', PLUGIN]
     env = session()
     # The desktop session hands every Qt program its GPU driver; the shell keeps that and chooses only
     # its renderer. A software scene graph is what left ttys (the clock's date) as its only painted text.
