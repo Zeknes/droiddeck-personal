@@ -261,6 +261,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     private var touchRoute: com.droiddeck.launcher.input.TouchRouter.Route? = null
     private var keyboard: KeyboardHost? = null
     private var desktopKeyboardButton: com.droiddeck.launcher.input.DesktopNavigation? = null
+    private val desktopNavigationRefresh = object : Runnable {
+        override fun run() {
+            updateDesktopKeyboardButton()
+            if (resumed) uiHandler.postDelayed(this, 500)
+        }
+    }
     private var lastUserPressMs = 0L
     private var pressDownX = 0f
     private var pressDownY = 0f
@@ -994,7 +1000,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
             }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.gameTextField, AgentGuest.gameProgram) { onGameTextField(AgentGuest.gameTextField) }
             androidx.compose.runtime.LaunchedEffect(wowChat.request) { placeWowChat() }
-            androidx.compose.runtime.LaunchedEffect(pipUi, pcKeyboardOpen) { updateDesktopKeyboardButton() }
+            androidx.compose.runtime.LaunchedEffect(pipUi, pcKeyboardOpen, SessionState.running, SessionState.mode, SessionState.firstFrameSeen) { updateDesktopKeyboardButton() }
             val keyboardRequestsSeen = androidx.compose.runtime.remember { intArrayOf(AgentGuest.keyboardRequests) }
             androidx.compose.runtime.LaunchedEffect(AgentGuest.keyboardRequests) {
                 if (AgentGuest.keyboardRequests != keyboardRequestsSeen[0]) {
@@ -4980,6 +4986,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
         onScreenControls?.reload()
         controllerSettings = ControllerPrefs.read(this)
         resumed = true
+        uiHandler.removeCallbacks(desktopNavigationRefresh)
+        uiHandler.post(desktopNavigationRefresh)
         updateDesktopKeyboardButton()
         com.droiddeck.launcher.input.HomeButtonShortcuts.attach(this,
             enabled = {
@@ -5003,6 +5011,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback, com.droidde
     }
 
     override fun onPause() {
+        uiHandler.removeCallbacks(desktopNavigationRefresh)
         com.droiddeck.launcher.input.SystemKeyCapture.detach(this)
         com.droiddeck.launcher.input.HomeButtonShortcuts.detach(this)
         if (runtimeRemovalBlocked) { super.onPause(); return }
