@@ -25,12 +25,11 @@ class GpuModelFallbackTest {
     }
 
     @Test fun aDeviceCodenameGivesItsAdrenoWhenNoBoardIsReported() {
-        // ROG Phone 9 Pro: ro.board.platform is "canoe", Build.HARDWARE is the device codename "canoe".
-        assertEquals(830, GpuInfo.platformModel("", "", "SM8850", "canoe"))
-        assertEquals(830, GpuInfo.platformModel("unknown", "", "", "CANOE"))
-        assertEquals(830, GpuInfo.platformModel("canoe-row"))
-        assertEquals(0, GpuInfo.platformModel("", "", "SM8850", "qcom"))
+        // A codename only maps where the chip behind it is certain; "canoe" is the device name this tablet
+        // reports, not a chip, so it maps to nothing and the GPU is named from its kernel/Vulkan name instead.
+        assertEquals(0, GpuInfo.platformModel("", "", "SM8850", "canoe"))
         assertEquals(740, GpuInfo.platformModel("", "", "", "kalama"))
+        assertEquals(740, GpuInfo.platformModel("KALAMA"))
     }
 
     @Test fun aKernelModelDoesNotNeedVulkanOrSocFallback() {

@@ -13,20 +13,27 @@ class DeviceSupportTest {
         assertFalse(DeviceSupport.graphicsAvailable(adreno = false, powerVrReady = false))
     }
 
-    @Test fun gpuNameCarriesTheAdrenoModelTheShellRulesMatch() {
-        // ROG Phone 9 Pro reports SOC_MODEL SM8850 and HARDWARE qcom; only the GL renderer names the Adreno model.
-        assertEquals("Adreno (TM) 840",
-            DeviceSupport.gpuName("SM8850", "qcom", "Qualcomm, Adreno (TM) 840, OpenGL ES 3.2 V@0842.44.3", "This GPU"))
-        // Where the platform knows the chip's GPU (ROG Phone 9 Pro: platform "canoe" is the Adreno 830), that names it too.
-        assertEquals("Adreno (TM) 830", DeviceSupport.gpuName("SM8850", "canoe", null, "This GPU", platformModel = 830))
-        // A kernel name ("Adreno830v2") is the same label the shell rules read for the model.
-        assertEquals("Adreno (TM) 830", DeviceSupport.gpuName("SM8850", "canoe", "Adreno830v2", "This GPU"))
+    @Test fun theKernelNameIdentifiesTheGpuBeforeAnyGuess() {
+        // kgsl's own name: "Adreno850v2" is the 850, and the shell's Adreno 840 rule then sees an 850.
+        assertEquals("Adreno (TM) 850", DeviceSupport.gpuName("SM8975", "qcom", "Adreno850v2"))
+        assertEquals("Adreno (TM) 840", DeviceSupport.gpuName("SM8850", "qcom", "Adreno (TM) 840"))
+        // The Vulkan name, when the guest's driver has already reported one, ranks below the kernel and the chip.
+        assertEquals("Adreno (TM) 830", DeviceSupport.gpuName("SM8850", "qcom", null, vulkanName = "Adreno (TM) 830"))
+        assertEquals("Adreno (TM) 840", DeviceSupport.gpuName("SM8850", "qcom", "Adreno840v2",
+            vulkanName = "Adreno (TM) 830"))
     }
 
-    @Test fun gpuNameFallsBackToTheSoCWhenNoRendererIsAvailable() {
-        assertEquals("SM8850 (qcom)", DeviceSupport.gpuName("SM8850", "qcom", null, "This GPU"))
-        assertEquals("SM8850 (qcom)", DeviceSupport.gpuName("SM8850", "qcom", "  ", "This GPU"))
-        assertEquals("qcom", DeviceSupport.gpuName(null, "qcom", null, "This GPU"))
-        assertEquals("This GPU", DeviceSupport.gpuName(android.os.Build.UNKNOWN, "", null, "This GPU"))
+    @Test fun aChipNamesItsGpuOnlyWhenThePlatformKnowsIt() {
+        // The chip's own board/codename ("canoe" is the ROG Phone 9 Pro's, whose GPU is the Adreno 830).
+        assertEquals("Adreno (TM) 830", DeviceSupport.gpuName("SM8850", "canoe", null, platformModel = 830))
+        // SM8850 alone maps to no Adreno in the platform table, so nothing here invents one.
+        assertEquals(0, com.droiddeck.launcher.gpu.GpuInfo.platformModel("", "", "SM8850", "qcom"))
+    }
+
+    @Test fun anUnnamedGpuKeepsItsSocInsteadOfAGuess() {
+        assertEquals("SM8850 (qcom)", DeviceSupport.gpuName("SM8850", "qcom", null))
+        assertEquals("SM8850 (qcom)", DeviceSupport.gpuName("SM8850", "qcom", ""))
+        assertEquals("qcom", DeviceSupport.gpuName(null, "qcom", null))
+        assertEquals("this GPU", DeviceSupport.gpuName(android.os.Build.UNKNOWN, "", null))
     }
 }

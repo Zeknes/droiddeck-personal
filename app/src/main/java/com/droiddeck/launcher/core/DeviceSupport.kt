@@ -44,26 +44,34 @@ object DeviceSupport {
 
     fun gpuName(context: Context): String = gpuName(
         if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeIf { it.isNotBlank() && it != Build.UNKNOWN } else null,
-        Build.HARDWARE, gpuRenderer(), context.getString(R.string.gpu_this_gpu), GpuInfo.platformModel(hardware = Build.HARDWARE),
+        Build.HARDWARE, gpuRenderer(), platformModel(), vulkanName(), context.getString(R.string.gpu_this_gpu),
     )
 
-    internal fun gpuName(soc: String?, hardware: String, glRenderer: String?, fallback: String, platformModel: Int = 0): String {
-        // The Mobile shell and KWin rules key off the Adreno model, which neither SOC_MODEL ("SM8850") nor
-        // HARDWARE ("qcom") carries; the GL name or the chip's known model does.
-        val parts = glRenderer?.split(',')?.map { it.trim() }.orEmpty()
-        // The GL name ("Qualcomm, Adreno (TM) 840, ...") or the kernel's ("Adreno830v2") both read as one label.
-        val model = GpuInfo.threeDigits(parts.firstOrNull { it.startsWith("Adreno") }.orEmpty()).takeIf { it > 0 }
+    /**
+     * The GPU name the guest's shell rules read ("Adreno (TM) 840"), or the SoC when nothing names the GPU.
+     * Only what this process can read identifies the GPU: the kernel's kgsl name, the model the chip's board
+     * or codename is known by, and the Vulkan name when the guest's driver has already reported it. A GL call
+     * is not one of them, because this process has no GL context.
+     */
+    internal fun gpuName(soc: String?, hardware: String, kgslName: String?, platformModel: Int = 0,
+                         vulkanName: String? = null, fallback: String = "this GPU"): String {
+        val model = GpuInfo.threeDigits(kgslName.orEmpty()).takeIf { it > 0 }
             ?: platformModel.takeIf { it > 0 }
-        if (model != null) return "Adreno (TM) $model"
+            ?: vulkanModel(vulkanName)
+        if (model > 0) return "Adreno (TM) $model"
         val known = soc?.takeUnless { it.isBlank() || it == Build.UNKNOWN }
         return if (known == null) hardware.ifBlank { fallback } else "$known (${hardware.ifBlank { fallback }})"
     }
 
-    // This process has no GL context and glGetString without one aborts it, so the GL name comes from the
-    // kernel (kgsl) or from the platform the chip and its codename are known by instead.
+    internal fun vulkanModel(vulkanName: String?): Int = GpuInfo.threeDigits(vulkanName.orEmpty())
+
     private fun gpuRenderer(): String? = runCatching {
         File("/sys/class/kgsl/kgsl-3d0/gpu_model").takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
     }.getOrNull()
+
+    private fun platformModel(): Int = runCatching { GpuInfo.platformModel(hardware = Build.HARDWARE) }.getOrDefault(0)
+
+    private fun vulkanName(): String? = runCatching { com.droiddeck.launcher.gpu.VulkanInfo.cachedOrNull()?.get("device") }.getOrNull()
 
     fun lowLatencyWifiSafe(): Boolean = Build.VERSION.SDK_INT < 31 || Build.SOC_MODEL != "CQ8725S"
 }

@@ -152,8 +152,6 @@ data class GpuInfo(
         private val PLATFORMS = mapOf(
             "msmnile" to 640, "kona" to 650, "lahaina" to 660, "taro" to 730, "cape" to 730,
             "kalama" to 740, "pineapple" to 750, "sun" to 830,
-            // ROG Phone 9 Pro reports Android's Build.HARDWARE as its device codename, not a Qualcomm board.
-            "canoe" to 830, "canoe-row" to 830,
         )
 
         internal fun platformModel(
