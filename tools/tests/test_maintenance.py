@@ -15,6 +15,14 @@ class MaintenanceTest(unittest.TestCase):
             module['start']()
             run.assert_not_called()
 
+    def test_daemon_start_uses_absolute_executable_for_openssh_reexec(self):
+        module=runpy.run_path(str(SCRIPT))
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,HOME=tmp):
+            config=Path(tmp)/'.config/droiddeck';config.mkdir(parents=True);(config/'sshd_config').touch()
+            with patch('shutil.which',return_value='/usr/sbin/sshd'), patch('subprocess.run') as run, patch.dict(module['start'].__globals__,listening=lambda port:False):
+                module['start']()
+            self.assertTrue(all(call.args[0][0]=='/usr/sbin/sshd' for call in run.call_args_list))
+
     def test_private_key_is_rejected_before_writes(self):
         module=runpy.run_path(str(SCRIPT))
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ,HOME=tmp):

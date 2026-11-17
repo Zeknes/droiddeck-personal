@@ -24,10 +24,11 @@ def listening(port):
 def start():
     home, config, state = paths()
     target=config/'sshd_config'
-    if target.exists() and shutil.which('sshd') and not listening(2226):
+    executable=shutil.which('sshd')
+    if target.exists() and executable and not listening(2226):
         state.mkdir(parents=True,exist_ok=True)
-        subprocess.run(['sshd','-t','-f',str(target)],check=True)
-        subprocess.run(['sshd','-f',str(target),'-E',str(state/'sshd.log')],check=True)
+        subprocess.run([executable,'-t','-f',str(target)],check=True)
+        subprocess.run([executable,'-f',str(target),'-E',str(state/'sshd.log')],check=True)
 
 
 def configure(key):
