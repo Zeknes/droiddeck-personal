@@ -1,40 +1,83 @@
 #!/usr/bin/env python3
-"""The Mobile shell draws through llvmpipe: the shell's Zink surfaces crashed (double free) after a few minutes.
-Adreno 840 also crashed while rasterising the shell with QPainter, so it gets no paint device on the GPU.
-No switch falls back to the configured GPU path: llvmpipe is the backend, not a fallback."""
+"""Plasma Shell"""
+_IMPORT_LOCK = __import__('threading').RLock()
 import os
 import subprocess
 import sys
 
-SOFTWARE = {'QT_QUICK_BACKEND': 'software', 'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe'}
-DROPPED = ('MESA_LOADER_DRIVER_OVERRIDE', 'QT_ENABLE_GLYPH_CACHE_WORKAROUND')
-SETTING = 'SceneGraphBackend=software'
+SHELL = '/usr/bin/plasmashell'
+PLUGIN = 'org.kde.plasma.mobileshell'
+SHELL_OPTIONS = ['-p', '--shell-plugin', '--feedback', '-h', '--help', '--help-all', '-v', '--version',
+                 '--author', '--license', '-n', '--no-respawn']
+# Every command line argument, so the shell's own options are the only ones it accepts.
+ALLOWED = SHELL_OPTIONS + [PLUGIN]
+# Shells that must not respawn after a crash, so a dying renderer is visible instead of being restarted.
+NO_RESPAWN = ['-n', '--no-respawn']
 
 
 def gpu_path_crashes():
-    """Prefer a blank paint device over the two known Adreno 840 crashes: the Zink surfaces and QPainter."""
+    """Adreno 840 aborted the Mobile shell's scene graph both on Zink (double free) and under QPainter, so on
+    that GPU the shell draws through the OpenGL RHI's software device: an RHI renderer, not the software
+    scene graph backend that leaves the drawer's grid and the quick settings labels unpainted."""
     name = os.environ.get('DROIDDECK_GPU_NAME', '')
     return 'Adreno' in name and '840' in name
 
 
+def session():
+    """The environment the shell was started with. Anything this process inherited from the desktop
+    session is kept, it is only the renderer that the caller decides."""
+    return dict(os.environ)
+
+
+def qt_settings():
+    return os.path.join(os.environ.get('HOME', '/root'), '.config', 'QtProject.conf')
+
+
+def mobile_shell(argv):
+    """True for the Mobile shell's own command line, with its plugin named."""
+    index = 0
+    while index < len(argv):
+        argument = argv[index]
+        if argument in ('-p', '--shell-plugin'):
+            return index + 1 < len(argv) and argv[index + 1] == PLUGIN
+        if argument not in SHELL_OPTIONS:
+            return False
+        index += 1
+    return False
+
+
 def main():
-    command = ['/usr/bin/plasmashell', *sys.argv[1:]]
-    env = dict(os.environ)
-    env.update(SOFTWARE)
-    for key in DROPPED:
+    argv = sys.argv[1:]
+    if not mobile_shell(argv):
+        return subprocess.call([SHELL, *argv], env=dict(session()))
+    rest = [a for a in argv if a not in NO_RESPAWN]
+    for option in ('-p', '--shell-plugin'):
+        if option in rest:
+            rest[rest.index(option) + 1] = PLUGIN
+    command = [SHELL, *[a for a in argv if a in NO_RESPAWN], *rest]
+    env = session()
+    # The desktop session hands every Qt program its GPU driver; the shell keeps that and chooses only
+    # its renderer. A software scene graph is what left ttys (the clock's date) as its only painted text.
+    for key in ('QT_QUICK_BACKEND', 'LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'MESA_LOADER_DRIVER_OVERRIDE',
+                'QT_ENABLE_GLYPH_CACHE_WORKAROUND'):
         env.pop(key, None)
+    env.update(QT_QUICK_BACKEND='rhi', QSG_RHI_BACKEND='opengl')
+    # The Adreno 840 crash reports so far are one report per shell start, which the basic loop gives.
+    env['QT_OPENGL'] = 'software'
+    env['QSG_RENDER_LOOP'] = 'basic'
     if gpu_path_crashes():
-        # The shell reads Plasma's QtQuick renderer settings from this shared QtProject.conf.
-        conf = os.path.join(os.environ.get('HOME', '/root'), '.config', 'QtProject.conf')
+        # QtProject.conf outranks QT_QUICK_BACKEND, and on Adreno 840 it still holds the software scene
+        # graph an earlier release wrote there; drop that key so the RHI backend is the one in use.
+        conf = qt_settings()
         try:
             with open(conf, encoding='utf-8') as handle:
-                configured = SETTING in handle.read()
+                lines = handle.read().splitlines()
         except OSError:
-            configured = False
-        if not configured:
-            os.makedirs(os.path.dirname(conf), exist_ok=True)
-            with open(conf, 'a', encoding='utf-8') as handle:
-                handle.write(f'[QtQuickRendererSettings]\n{SETTING}\n')
+            lines = []
+        kept = [line for line in lines if not line.strip().startswith('SceneGraphBackend=')]
+        if kept != lines:
+            with open(conf, 'w', encoding='utf-8') as handle:
+                handle.write(''.join(line + '\n' for line in kept))
     return subprocess.call(command, env=env)
 
 

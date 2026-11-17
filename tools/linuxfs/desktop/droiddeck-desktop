@@ -10,7 +10,14 @@ export SHELL=/bin/bash
 export MOZ_DISABLE_CONTENT_SANDBOX=1 MOZ_DISABLE_GMP_SANDBOX=1 MOZ_DISABLE_RDD_SANDBOX=1
 export MOZ_DISABLE_SOCKET_PROCESS_SANDBOX=1 MOZ_DISABLE_UTILITY_SANDBOX=1
 export MOZ_SHM_NO_SEALS=1
-export KWIN_COMPOSE=Q QT_QUICK_BACKEND=software LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+# The SESSION's own scenery is KWin (QPainter) and the Mobile shell (its wrapper sets its own renderer);
+# e10s keeps Firefox away from this process's Qt/software-GL environment.
+export MOZ_FORCE_DISABLE_E10S=1
+# Inherited by every Qt program in the session, so KWin's compositing OpenGL context (KWIN_COMPOSE=O2)
+# and all Qt Quick apps fall back to llvmpipe. Unset it here; the KWin rule below re-adds the software
+# GL KWin needs while it composites with Qt Quick.
+export KWIN_COMPOSE=Q
+unset QT_QUICK_BACKEND LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER
 export KWIN_USE_OVERLAYS=0
 [ -e /etc/mpv/mpv.conf ] || { mkdir -p /etc/mpv && echo gpu-sw=yes >/etc/mpv/mpv.conf; } 2>/dev/null
 for conf in client client-rt; do
@@ -138,10 +145,20 @@ if [ "$compositor" = opengl ]; then
     done
   fi
   mkdir -p /run/droiddeck/kwin
-  printf '#!/bin/sh\nGALLIUM_THREAD=0 exec /usr/bin/kwin_wayland "$@"\n' > /run/droiddeck/kwin/kwin_wayland
+  printf '#!/bin/sh\nGALLIUM_THREAD=0 export GALLIUM_DRIVER=zink; exec /usr/bin/kwin_wayland "$@"\n' > /run/droiddeck/kwin/kwin_wayland
+  chmod 755 /run/droiddeck/kwin/kwin_wayland
+  export PATH=/run/droiddeck/kwin:$PATH
+else
+  # KWin still composites with Qt Quick (KWIN_COMPOSE=Q): its own paint device is llvmpipe, scoped here,
+  # while Qt Quick apps and every other Qt program get GALLIUM_DRIVER=zink from the session instead of
+  # inheriting the software GL that a session-wide LIBGL_ALWAYS_SOFTWARE used to give them.
+  mkdir -p /run/droiddeck/kwin
+  printf '#!/bin/sh\nGALLIUM_THREAD=0 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe QT_QUICK_BACKEND=software\nexport LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER QT_QUICK_BACKEND\nexec /usr/bin/kwin_wayland "$@"\n' > /run/droiddeck/kwin/kwin_wayland
   chmod 755 /run/droiddeck/kwin/kwin_wayland
   export PATH=/run/droiddeck/kwin:$PATH
 fi
+export GALLIUM_DRIVER=zink MESA_DISK_CACHE_DATABASE=1
+
 mkdir -p /run/droiddeck/mobile-shell
 printf '#!/bin/sh\nexec /usr/local/bin/droiddeck-mobile-shell "$@"\n' > /run/droiddeck/mobile-shell/plasmashell
 chmod 755 /run/droiddeck/mobile-shell/plasmashell

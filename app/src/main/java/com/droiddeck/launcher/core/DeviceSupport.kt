@@ -41,9 +41,18 @@ object DeviceSupport {
     fun canDraw(context: Context): Boolean = graphicsAvailable() || openDriverActive(context) || vkBridge(context) ||
         com.droiddeck.launcher.session.VenusComponent.wanted(context)
 
-    fun gpuName(context: Context): String {
+    fun gpuName(context: Context, glRenderer: String? = null): String {
         val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.takeIf { it.isNotBlank() && it != Build.UNKNOWN } else null
-        return soc?.let { "$it (${Build.HARDWARE})" } ?: Build.HARDWARE.ifBlank { context.getString(R.string.gpu_this_gpu) }
+        return gpuName(soc, Build.HARDWARE, glRenderer, context.getString(R.string.gpu_this_gpu))
+    }
+
+    internal fun gpuName(soc: String?, hardware: String, glRenderer: String?, fallback: String): String {
+        // The Mobile shell and KWin rules key off the Adreno model, which neither SOC_MODEL ("SM8850") nor
+        // HARDWARE ("qcom") carries; the renderer "Qualcomm, Adreno (TM) 840, OpenGL ES ..." does.
+        val renderer = glRenderer?.split(',')?.map { it.trim() }?.firstOrNull { it.startsWith("Adreno") }.orEmpty()
+        if (renderer.isNotEmpty()) return renderer
+        val known = soc?.takeUnless { it.isBlank() || it == Build.UNKNOWN }
+        return if (known == null) hardware.ifBlank { fallback } else "$known (${hardware.ifBlank { fallback }})"
     }
 
     fun lowLatencyWifiSafe(): Boolean = Build.VERSION.SDK_INT < 31 || Build.SOC_MODEL != "CQ8725S"

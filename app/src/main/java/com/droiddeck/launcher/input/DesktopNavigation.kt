@@ -8,6 +8,10 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.provider.Settings
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -18,6 +22,43 @@ import android.widget.LinearLayout
 
 internal object NavigationPlacement {
     fun clamp(value: Float, available: Float) = value.coerceIn(0f, available.coerceAtLeast(0f))
+}
+
+/** One light tap per press. The view's own feedback request follows the system setting and the window's
+ * feedback flags, and when that request does not reach the platform (no attached window, or the flag that
+ * enables feedback is withheld) the vibrator plays the same effect the platform would have. */
+internal object NavigationHaptics {
+    /** Overrides the system haptic setting for the fallback; null reads it (Android keeps it readable without a permission). */
+    internal var systemSetting: Boolean? = null
+
+    /** The feedback request that is made for a tap; false when the platform refused it. */
+    internal var request: (View) -> Boolean = { it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
+
+    fun tap(view: View): Boolean {
+        if (request(view)) return true
+        return fallback(view.context)
+    }
+
+    // Android keeps this setting readable without a permission; it defaults to on.
+    private fun enabled(context: Context): Boolean = systemSetting
+        ?: (Settings.System.getInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1) != 0)
+
+    private fun fallback(context: Context): Boolean {
+        if (!enabled(context)) return false
+        val vibrator = if (Build.VERSION.SDK_INT >= 31) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        if (vibrator == null || !vibrator.hasVibrator()) return false
+        return vibrate(vibrator, VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+    }
+
+    /** The vibrator's own request, so a device or service that refuses it does not count as a tap's haptic. */
+    internal var vibrate: (Vibrator, VibrationEffect) -> Boolean = { vibrator, effect ->
+        vibrator.vibrate(effect)
+        true
+    }
 }
 
 class DesktopNavigation(context: Context, private val action: (String) -> Unit) : FrameLayout(context) {
@@ -32,11 +73,8 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
     private var safeBottom = 0
     var collapsed = false
         private set
-    var hapticClicks = 0
-        private set
     private fun icon(name: String, label: String, click: () -> Unit) = Icon(context, name, label) {
-        hapticClicks++
-        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        NavigationHaptics.tap(this)
         click()
     }
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
@@ -79,14 +117,21 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.rawX - downX; val dy = event.rawY - downY
-                        if (kotlin.math.abs(dx) + kotlin.math.abs(dy) > dp(8)) {
+                        if (!moving && kotlin.math.abs(dx) + kotlin.math.abs(dy) > dp(8)) {
                             moving = true; removeCallbacks(options)
+                            // A collapsed handle only has to leave its resting position once, then it follows the finger.
+                            if (collapsed) parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                        if (moving) {
                             x = startX + dx; y = startY + dy; clamp()
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         removeCallbacks(options)
-                        if (moving) savePosition() else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
+                        if (moving) {
+                            savePosition()
+                            if (collapsed) snapToEdge()
+                        } else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
                         held = false; scheduleIdle()
                     }
                 }
@@ -95,7 +140,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         }
         gripButton.setOnTouchListener(dragListener())
         wakeHandle.setOnTouchListener(dragListener())
-        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clamp() }
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> if (!collapsed) clamp() }
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -104,7 +149,21 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         if (enabled == on) return
         enabled = on
         visibility = if (on) VISIBLE else GONE
-        if (on) { expand(); post { restorePosition() } } else removeCallbacks(idle)
+        if (on) {
+            // A session starts with the capsule; a handle saved by a collapse is restored at its side.
+            val side = prefs.getString("edge", null)
+            if (side == "left" || side == "right") {
+                collapsed = true
+                bar.visibility = GONE
+                wakeHandle.visibility = VISIBLE
+                requestLayout()
+                post { restorePosition() }
+            } else {
+                expand()
+            }
+        } else {
+            removeCallbacks(idle)
+        }
     }
 
     private fun invoke(name: String) {
@@ -119,24 +178,32 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
 
     private fun collapse(manual: Boolean = false) {
         if (!enabled || (!manual && (held || prefs.getBoolean("pinned", false)))) return
-        // The handle's own frame is where it is left; the next restore puts it back there without a jump.
-        if (isShown) {
-            val host = parent as? View
-            val hx = (host?.width ?: 0) - wakeHandle.width - safeLeft - safeRight
-            val hy = (host?.height ?: 0) - wakeHandle.height - safeTop - safeBottom
-            prefs.edit().putFloat("x", ((x - safeLeft) / hx.coerceAtLeast(1)).coerceIn(0f, 1f))
-                .putFloat("y", ((y - safeTop) / hy.coerceAtLeast(1)).coerceIn(0f, 1f))
-                .putInt("left", (x - safeLeft).toInt()).putInt("top", (y - safeTop).toInt())
-                .putInt("width", wakeHandle.width).putInt("height", wakeHandle.height).apply()
-        }
         collapsed = true
         bar.visibility = GONE
         wakeHandle.visibility = VISIBLE
         requestLayout()
-        post { restorePosition() }
+        // The handle wakes at the nearest side, at the height it was left at.
+        post { snapToEdge() }
+    }
+
+    /** Ends a collapsed placement at the nearest side, keeping the vertical position the user chose.
+     * The frame follows x and y on the host's next layout pass. */
+    internal fun snapToEdge() {
+        if (!collapsed) return
+        val host = parent as? View ?: return
+        val handleWidth = wakeHandle.width.takeIf { it > 0 } ?: width
+        toEdge(host, handleWidth)
+        clamp()
+        savePosition()
+    }
+
+    private fun toEdge(host: View, handleWidth: Int) {
+        x = if (x - safeLeft + handleWidth / 2f < (host.width - safeLeft - safeRight) / 2f) safeLeft.toFloat()
+            else (host.width - safeRight - handleWidth).coerceAtLeast(safeLeft).toFloat()
     }
 
     private fun expand() {
+        if (collapsed) prefs.edit().remove("edge").apply()
         collapsed = false
         bar.visibility = VISIBLE
         wakeHandle.visibility = GONE
@@ -149,15 +216,23 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         val host = parent as? View ?: return
         val availableX = (host.width - width - safeLeft - safeRight).coerceAtLeast(0)
         val availableY = (host.height - height - safeTop - safeBottom).coerceAtLeast(0)
-        val left = prefs.getInt("left", Int.MIN_VALUE)
+        val edge = prefs.getString("edge", null)
         val top = prefs.getInt("top", Int.MIN_VALUE)
-        if (left != Int.MIN_VALUE && top != Int.MIN_VALUE) {
-            // Stored against the frame that was saved, which is wider than the handle: keep the north-east corner it was left at.
-            x = (safeLeft + left - prefs.getInt("width", width)).toFloat()
-            y = (safeTop + top).toFloat()
+        if (edge != null && top != Int.MIN_VALUE) {
+            // The wake handle keeps the side it was left at and its own vertical position, also when the
+            // screen is rotated or the IME changes the safe area after it was saved.
+            x = if (edge == "right") (safeLeft + availableX).toFloat() else safeLeft.toFloat()
+            y = safeTop + NavigationPlacement.clamp(top.toFloat(), availableY.toFloat())
         } else {
-            x = safeLeft + availableX * prefs.getFloat("x", 1f)
-            y = safeTop + availableY * prefs.getFloat("y", 0.8f)
+            val left = prefs.getInt("left", Int.MIN_VALUE)
+            if (left != Int.MIN_VALUE && top != Int.MIN_VALUE) {
+                // Stored against the frame that was saved, which is wider than the handle: keep the north-east corner it was left at.
+                x = (safeLeft + left - prefs.getInt("width", width)).toFloat()
+                y = safeTop + NavigationPlacement.clamp(top.toFloat(), availableY.toFloat())
+            } else {
+                x = safeLeft + availableX * prefs.getFloat("x", 1f)
+                y = safeTop + availableY * prefs.getFloat("y", 0.8f)
+            }
         }
         clamp()
     }
@@ -166,10 +241,12 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         val host = parent as? View ?: return
         val dx = (host.width - storedWidth - safeLeft - safeRight).coerceAtLeast(1)
         val dy = (host.height - storedHeight - safeTop - safeBottom).coerceAtLeast(1)
-        prefs.edit().putFloat("x", ((x - safeLeft) / dx).coerceIn(0f, 1f))
+        val edit = prefs.edit().putFloat("x", ((x - safeLeft) / dx).coerceIn(0f, 1f))
             .putFloat("y", ((y - safeTop) / dy).coerceIn(0f, 1f))
             .putInt("left", (x - safeLeft + frameWidth).toInt()).putInt("top", (y - safeTop).toInt())
-            .putInt("width", storedWidth).putInt("height", storedHeight).apply()
+            .putInt("width", storedWidth).putInt("height", storedHeight)
+        if (collapsed) edit.putString("edge", if (x - safeLeft + width / 2f < (host.width - safeLeft - safeRight) / 2f) "left" else "right")
+        edit.apply()
     }
 
     private fun clamp() {

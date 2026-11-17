@@ -1,48 +1,89 @@
 from pathlib import Path
 import importlib.machinery
 import importlib.util
+import json
 import os
-import runpy
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
-BIN=Path(__file__).resolve().parents[1]/'linuxfs/overlay/usr/local/bin'
+BIN = Path(__file__).resolve().parents[1] / 'linuxfs/overlay/usr/local/bin'
+WRAPPER = BIN / 'droiddeck-mobile-shell'
+SESSION = {
+    'WAYLAND_DISPLAY': 'wayland-1', 'XDG_RUNTIME_DIR': '/run/droiddeck',
+    'QT_QUICK_BACKEND': 'software', 'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe',
+    'MESA_LOADER_DRIVER_OVERRIDE': 'zink', 'QT_ENABLE_GLYPH_CACHE_WORKAROUND': '1', 'KEEP': 'yes',
+}
+# Runs the real wrapper the way the desktop does, in a fresh interpreter with the recorded plasmashell call.
+HARNESS = '''
+import ast, json, runpy, sys
+calls = []
+def call(command, env=None):
+    calls.append((command, env))
+    return 0
+path, argv = sys.argv[1], ast.literal_eval(sys.argv[2])
+wrapper = runpy.run_path(path)
+sys.argv = ['droiddeck-mobile-shell'] + argv
+sys.modules['subprocess'].call = call
+rc = wrapper['main']()
+sys.stdout.write(json.dumps({'rc': rc, 'calls': calls}))
+'''
 
 
 class DesktopNavigationTest(unittest.TestCase):
     def test_guest_actions_are_allowlisted_and_do_not_execute_arbitrary_commands(self):
-        loader=importlib.machinery.SourceFileLoader('nav_agent',str(BIN/'droiddeck-agent'))
-        spec=importlib.util.spec_from_loader(loader.name,loader);module=importlib.util.module_from_spec(spec);loader.exec_module(module)
-        with patch.object(module.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'','')) as run:
-            self.assertEqual({'action':'home'},module.handle(Path('/tmp'),{'kind':'desktop-navigation','action':'home'}))
-            self.assertEqual(['/usr/local/bin/droiddeck-desktop-navigate','home'],run.call_args.args[0])
-            with self.assertRaises(module.AgentError):module.handle(Path('/tmp'),{'kind':'desktop-navigation','action':'kill'})
+        loader = importlib.machinery.SourceFileLoader('nav_agent', str(BIN / 'droiddeck-agent'))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        with patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')) as run:
+            self.assertEqual({'action': 'home'}, module.handle(Path('/tmp'), {'kind': 'desktop-navigation', 'action': 'home'}))
+            self.assertEqual(['/usr/local/bin/droiddeck-desktop-navigate', 'home'], run.call_args.args[0])
+            with self.assertRaises(module.AgentError):
+                module.handle(Path('/tmp'), {'kind': 'desktop-navigation', 'action': 'kill'})
 
-    def test_shell_uses_software_qt_only_without_changing_global_driver(self):
-        module=runpy.run_path(str(BIN/'droiddeck-mobile-shell'))
-        with patch('subprocess.call',return_value=0) as call, patch('sys.argv',['droiddeck-mobile-shell','-p','org.kde.plasma.mobileshell']),patch.dict(os.environ,{'GALLIUM_DRIVER':'zink','MESA_LOADER_DRIVER_OVERRIDE':'zink'}):
-            self.assertEqual(0,module['main']())
-            self.assertEqual('software',call.call_args.kwargs['env']['QT_QUICK_BACKEND'])
-            self.assertEqual('llvmpipe',call.call_args.kwargs['env']['GALLIUM_DRIVER'])
-            self.assertNotIn('MESA_LOADER_DRIVER_OVERRIDE',call.call_args.kwargs['env'])
-            self.assertEqual('zink',os.environ['GALLIUM_DRIVER'])
+    def shell(self, gpu, argv=('-p', 'org.kde.plasma.mobileshell'), conf=''):
+        with tempfile.TemporaryDirectory() as home:
+            if conf:
+                path = Path(home) / '.config/QtProject.conf'
+                path.parent.mkdir(parents=True)
+                path.write_text(conf)
+            env = {'HOME': home, 'DROIDDECK_GPU_NAME': gpu, **SESSION}
+            run = subprocess.run([os.sys.executable, '-c', HARNESS, str(WRAPPER), repr(list(argv))],
+                                 env=env, capture_output=True, text=True, timeout=60)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            result = json.loads(run.stdout)
+            qt = Path(home) / '.config/QtProject.conf'
+            self.assertEqual(len(result['calls']), 1)
+            return result['calls'][0][0], result['calls'][0][1] or {}, qt.read_text() if qt.exists() else None
 
-    def shell(self, gpu):
-        module=runpy.run_path(str(BIN/'droiddeck-mobile-shell'))
-        with tempfile.TemporaryDirectory() as home, patch('subprocess.call',return_value=0) as call,\
-                patch('sys.argv',['droiddeck-mobile-shell']), patch.dict(os.environ,{'HOME':home,'DROIDDECK_GPU_NAME':gpu},clear=True):
-            module['main']()
-            conf=Path(home)/'.config/QtProject.conf'
-            return call.call_args.kwargs['env'], conf.read_text() if conf.exists() else None
+    def test_the_shell_draws_with_the_software_opengl_rhi_instead_of_a_software_scene_graph(self):
+        command, env, _ = self.shell('Adreno (TM) 840')
+        self.assertEqual(command[:3], ['/usr/bin/plasmashell', '-p', 'org.kde.plasma.mobileshell'])
+        self.assertEqual(env.get('QT_QUICK_BACKEND'), 'rhi')
+        self.assertEqual((env.get('QSG_RHI_BACKEND'), env.get('QT_OPENGL')), ('opengl', 'software'))
+        self.assertEqual(env.get('KEEP'), 'yes')
 
-    def test_adreno_840_shell_has_no_paint_device_on_the_gpu(self):
-        env,conf=self.shell('Adreno (TM) 840')
-        self.assertIn('SceneGraphBackend=software',conf)
-        self.assertNotIn('QT_OPENGL',env)
+    def test_the_software_scene_graph_setting_is_taken_out_for_the_shell(self):
+        setting = '[QtQuickRendererSettings]\nSceneGraphBackend=software\n'
+        _, _, conf = self.shell('Adreno (TM) 840', conf=setting + '[Other]\nKey=1\n')
+        self.assertNotIn('SceneGraphBackend=software', conf)
+        self.assertIn('[Other]\nKey=1', conf)
+        _, _, conf = self.shell('Adreno (TM) 740', conf=setting)
+        self.assertIn('SceneGraphBackend=software', conf)
 
-    def test_other_gpus_keep_the_shell_on_its_configured_backend(self):
-        env,conf=self.shell('Adreno (TM) 740')
-        self.assertIsNone(conf)
-        self.assertNotIn('QT_OPENGL',env)
+    def test_only_the_mobile_shell_gets_its_renderer(self):
+        _, env, _ = self.shell('Adreno (TM) 840')
+        self.assertEqual(env.get('QT_QUICK_BACKEND'), 'rhi')
+        _, env, _ = self.shell('Adreno (TM) 840', argv=('--feedback', '-p', 'org.kde.plasma.mobileshell'))
+        self.assertEqual(env.get('QT_QUICK_BACKEND'), 'rhi')
+        # A second shell would share the session's DBus and Wayland display and take KWin down again.
+        for argv in (('-p', 'org.kde.plasma.desktop'), ('--replace', '-p', 'org.kde.plasma.mobileshell'), ('-d',)):
+            _, env, _ = self.shell('Adreno (TM) 840', argv=argv)
+            self.assertEqual(env.get('QT_QUICK_BACKEND'), 'software')
+            self.assertNotIn('QT_OPENGL', env)
+
+    def test_line_command_arguments_are_kept(self):
+        command, _, _ = self.shell('Adreno (TM) 840', argv=('-n', '-p', 'org.kde.plasma.mobileshell'))
+        self.assertEqual(command, ['/usr/bin/plasmashell', '-n', '-p', 'org.kde.plasma.mobileshell'])
