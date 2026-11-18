@@ -266,6 +266,36 @@ class DesktopNavigationTest {
         host.layout(0, 0, size, size)
     }
 
+    @Test fun everyCapsuleTapRequestsTheMaximumAmplitude() {
+        // The request as the platform is handed it, not a callback: every control and the handle build one one-shot of
+        // 40 ms at amplitude 255, and none asks for the system default (-1) that leaves strength to the setting.
+        val built = mutableListOf<Pair<Long, Int>>()
+        val activity = activity()
+        val original = tapEffect
+        tapEffect = { duration, amplitude ->
+            built += duration to amplitude
+            original(duration, amplitude)
+        }
+        try {
+            val navigation = DesktopNavigation(activity) {}
+            activity.setContentView(navigation)
+            navigation.active(true)
+            for (name in listOf("Show or hide keyboard", "Back in desktop", "Plasma desktop", "Desktop windows")) {
+                val button = navigation.bar.children.first { it.contentDescription == name }
+                press(button); release(button)
+            }
+            press(navigation.gripButton); release(navigation.gripButton)
+            assertTrue(navigation.collapsed)
+            press(navigation.wakeHandle); release(navigation.wakeHandle)
+            assertEquals("one per control, the handle included", 6, vibrations.size)
+            assertEquals("the request each one is built from", List(6) { TAP_MS to MAX_AMPLITUDE }, built)
+            assertTrue("the default amplitude (-1) is never asked for", built.none { it.second == VibrationEffect.DEFAULT_AMPLITUDE })
+            assertTrue("the amplitude is the maximum one-shot amplitude", built.all { it.second == 255 })
+        } finally {
+            tapEffect = original
+        }
+    }
+
     @Test fun theKeyboardSitsAtThePhysicalLeftEndAndTheGripAtTheRightOnEitherSide() {
         for (rtl in listOf(false, true)) {
             val (navigation, host) = session()

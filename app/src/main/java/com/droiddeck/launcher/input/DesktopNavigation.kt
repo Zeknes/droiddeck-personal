@@ -73,11 +73,19 @@ internal object NavigationHaptics {
     }
 }
 
-/** What every tap on the desktop controls plays: the effect the system's own launcher buttons use for a press,
- * 25 ms at the default amplitude. A tap's CLICK is drawn at an amplitude that cannot be felt on this tablet, and
- * the viewer then reports that finished effect as what is playing, so a request is no proof of a felt haptic. */
+/** What every tap on the desktop controls plays: one 40 ms one-shot at amplitude 255, the strongest an app can
+ * ask for. DEFAULT_AMPLITUDE (-1) leaves the strength to the system's touch setting; this request names it. A
+ * device without amplitude control runs at its own strength, and the observer's scale can still attenuate it, so
+ * the request is not a measurement of what a hand receives. */
 internal val NavigationHaptics.TAP: VibrationEffect
-    get() = VibrationEffect.createOneShot(25L, VibrationEffect.DEFAULT_AMPLITUDE)
+    get() = tapEffect(TAP_MS, MAX_AMPLITUDE)
+
+/** The one-shot an effect for a tap is built from. */
+internal var tapEffect: (durationMs: Long, amplitude: Int) -> VibrationEffect =
+    { durationMs, amplitude -> VibrationEffect.createOneShot(durationMs, amplitude) }
+
+internal const val TAP_MS = 40L
+internal const val MAX_AMPLITUDE = 255
 
 private const val TAP_GRACE_MS = 1_000L
 
