@@ -59,6 +59,9 @@ find "$XDG_RUNTIME_DIR" -mindepth 1 -maxdepth 1 ! -name 'wayland-0*' ! -name 'ke
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
 mkdir -p /tmp/.X11-unix /tmp/.ICE-unix && chmod 1777 /tmp/.X11-unix /tmp/.ICE-unix 2>/dev/null
 export BL_DESKTOP=1
+if [ -f /usr/share/applications/org.kubuntu.driver-manager.desktop ] && [ -x /usr/bin/apt-get ]; then
+  /usr/local/bin/droiddeck-driver-manager-deps &
+fi
 python3 /usr/local/bin/droiddeck-maintenance --install-menu 2>&1 | sed 's/^/[maintenance] /'
 python3 /usr/local/bin/droiddeck-desktop-programs 2>&1 | sed 's/^/[programs] /'
 # startplasma applies this file over the session environment, and keeps what an earlier session wrote.
