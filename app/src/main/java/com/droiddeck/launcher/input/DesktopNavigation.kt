@@ -24,19 +24,34 @@ internal object NavigationPlacement {
     fun clamp(value: Float, available: Float) = value.coerceIn(0f, available.coerceAtLeast(0f))
 }
 
-/** One light tap per press. The view's own feedback request follows the system setting and the window's
- * feedback flags, and when that request does not reach the platform (no attached window, or the flag that
- * enables feedback is withheld) the vibrator plays the same effect the platform would have. */
+/** The vibrator behind a tap. [tap] is the request a view makes for itself, which follows the system setting
+ * and the window's feedback flags; [playTap] is what a tap on the desktop controls runs. */
 internal object NavigationHaptics {
-    /** Overrides the system haptic setting for the fallback; null reads it (Android keeps it readable without a permission). */
+    /** Overrides the system haptic setting; null reads it (Android keeps it readable without a permission). */
     internal var systemSetting: Boolean? = null
 
     /** The feedback request that is made for a tap; false when the platform refused it. */
     internal var request: (View) -> Boolean = { it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
 
+    internal val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+
+    /** The vibrator's own request, so a device or service that refuses it does not count as a tap's haptic. */
+    internal var vibrate: (Vibrator, VibrationEffect) -> Boolean = { vibrator, effect ->
+        vibrator.vibrate(effect)
+        true
+    }
+
     fun tap(view: View): Boolean {
         if (request(view)) return true
         return fallback(view.context)
+    }
+
+
+    fun playTap(context: Context) {
+        if (!enabled(context)) return
+        val vibrator = vibrator(context) ?: return
+        if (!vibrator.hasVibrator()) return
+        vibrate(vibrator, TAP)
     }
 
     // Android keeps this setting readable without a permission; it defaults to on.
@@ -45,21 +60,23 @@ internal object NavigationHaptics {
 
     private fun fallback(context: Context): Boolean {
         if (!enabled(context)) return false
-        val vibrator = if (Build.VERSION.SDK_INT >= 31) {
-            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
-        if (vibrator == null || !vibrator.hasVibrator()) return false
-        return vibrate(vibrator, VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+        val vibrator = vibrator(context) ?: return false
+        if (!vibrator.hasVibrator()) return false
+        return vibrate(vibrator, effect)
     }
 
-    /** The vibrator's own request, so a device or service that refuses it does not count as a tap's haptic. */
-    internal var vibrate: (Vibrator, VibrationEffect) -> Boolean = { vibrator, effect ->
-        vibrator.vibrate(effect)
-        true
+    private fun vibrator(context: Context): Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
+        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 }
+
+/** What every tap on the desktop controls plays: the effect the system's own launcher buttons use for a press,
+ * 25 ms at the default amplitude. A tap's CLICK is drawn at an amplitude that cannot be felt on this tablet, and
+ * the viewer then reports that finished effect as what is playing, so a request is no proof of a felt haptic. */
+internal val NavigationHaptics.TAP: VibrationEffect
+    get() = VibrationEffect.createOneShot(25L, VibrationEffect.DEFAULT_AMPLITUDE)
 
 class DesktopNavigation(context: Context, private val action: (String) -> Unit) : FrameLayout(context) {
     private val prefs = context.getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
@@ -74,7 +91,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
     var collapsed = false
         private set
     private fun icon(name: String, label: String, click: () -> Unit) = Icon(context, name, label) {
-        NavigationHaptics.tap(this)
+        NavigationHaptics.playTap(context)
         click()
     }
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
@@ -131,7 +148,9 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                         if (moving) {
                             savePosition()
                             if (collapsed) snapToEdge()
-                        } else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
+                        } else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) {
+                            view.performClick()
+                        }
                         held = false; scheduleIdle()
                     }
                 }

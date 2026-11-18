@@ -10,6 +10,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import androidx.core.view.children
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -34,6 +35,7 @@ class DesktopNavigationTest {
     private var platformAccepts = true
 
     @Before fun watchThePlatform() {
+        requests.clear(); vibrations.clear(); platformAccepts = true
         NavigationHaptics.request = { view ->
             requests += HapticFeedbackConstants.VIRTUAL_KEY
             platformAccepts && view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -53,6 +55,24 @@ class DesktopNavigationTest {
     }
 
     private fun activity() = Robolectric.buildActivity(Activity::class.java).setup().get()
+
+    private fun tap(navigation: DesktopNavigation, name: String): VibrationEffect {
+        val button = navigation.bar.children.first { it.contentDescription == name }
+        button.performClick()
+        return vibrations.last()
+    }
+
+    @Test fun eachBarButtonAndTheHandlePlayTheTapEffect() {
+        val activity = activity()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        assertEquals(5, navigation.bar.childCount)
+        for (name in listOf("Back in desktop", "Plasma desktop", "Desktop windows", "Show or hide keyboard")) tap(navigation, name)
+        tap(navigation, "Collapse controls; drag to move; long press for options")
+        navigation.wakeHandle.performClick()
+        assertEquals(List(6) { NavigationHaptics.TAP }, vibrations)
+    }
 
     private fun vibrator(activity: Activity): Vibrator =
         if (Build.VERSION.SDK_INT >= 31) activity.getSystemService(VibratorManager::class.java).defaultVibrator
@@ -80,7 +100,7 @@ class DesktopNavigationTest {
         assertEquals(listOf("home"), actions)
     }
 
-    @Test fun everyTapRequestsOneLightHapticAndNothingElse() {
+    @Test fun everyTapVibratesTheClickAndTheHandleStillOpensAndCloses() {
         val activity = activity()
         val navigation = DesktopNavigation(activity) {}
         activity.setContentView(navigation)
@@ -90,21 +110,29 @@ class DesktopNavigationTest {
         assertTrue(navigation.collapsed)
         navigation.wakeHandle.performClick()
         assertFalse(navigation.collapsed)
-        assertEquals(List(3) { HapticFeedbackConstants.VIRTUAL_KEY }, requests)
-        assertTrue("the platform took the request, so no second vibration", vibrations.isEmpty())
-        assertFalse(shadowOf(vibrator(activity)).isVibrating)
+        assertTrue(requests.isEmpty())
+        assertEquals(List(3) { NavigationHaptics.TAP }, vibrations)
     }
 
-    @Test fun aTapWhoseRequestThePlatformDropsVibratesOnceInstead() {
+    @Test fun aTapDoesNotRelyOnTheWindowDrawingAFeedbackEffect() {
         val activity = activity()
         val navigation = DesktopNavigation(activity) {}
         activity.setContentView(navigation)
         navigation.active(true)
-        platformAccepts = false
-        navigation.homeButton.performClick()
-        assertEquals(1, requests.size)
-        assertEquals(1, vibrations.size)
-        assertEquals(1, vibrations.size)
+        navigation.gripButton.performClick()
+        navigation.wakeHandle.performClick()
+        assertTrue(requests.isEmpty())
+        assertEquals(List(2) { NavigationHaptics.TAP }, vibrations)
+    }
+
+    @Test fun noHapticIsRequestedWhileTheCapsuleIsDragged() {
+        val activity = activity()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        drag(navigation.gripButton, 60f, 90f)
+        assertTrue(requests.isEmpty())
+        assertTrue(vibrations.isEmpty())
     }
 
     @Test fun theFallbackFollowsTheSystemHapticSetting() {
@@ -119,13 +147,17 @@ class DesktopNavigationTest {
         assertTrue(vibrations.isEmpty())
     }
 
-    @Test fun noHapticIsRequestedWhileTheCapsuleIsDragged() {
+    @Test fun theTapVibrationFollowsTheSystemHapticSettingAndNeedsAVibrator() {
         val activity = activity()
-        val navigation = DesktopNavigation(activity) {}
-        activity.setContentView(navigation)
-        navigation.active(true)
-        drag(navigation.gripButton, 60f, 90f)
-        assertEquals(0, requests.size)
+        NavigationHaptics.systemSetting = false
+        NavigationHaptics.playTap(activity)
+        assertTrue(vibrations.isEmpty())
+        NavigationHaptics.systemSetting = true
+        NavigationHaptics.playTap(activity)
+        assertEquals(listOf(NavigationHaptics.TAP), vibrations)
+        vibrations.clear()
+        shadowOf(vibrator(activity)).setHasVibrator(false)
+        NavigationHaptics.playTap(activity)
         assertTrue(vibrations.isEmpty())
     }
 
