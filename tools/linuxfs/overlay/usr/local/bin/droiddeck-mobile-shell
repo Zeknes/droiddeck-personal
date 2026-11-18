@@ -66,7 +66,7 @@ def main():
     # The desktop session hands every Qt program its GPU driver; the shell keeps that and chooses only
     # its renderer. A software scene graph is what left ttys (the clock's date) as its only painted text.
     for key in ('QT_QUICK_BACKEND', 'LIBGL_ALWAYS_SOFTWARE', 'GALLIUM_DRIVER', 'MESA_LOADER_DRIVER_OVERRIDE',
-                'QT_ENABLE_GLYPH_CACHE_WORKAROUND'):
+                'QT_ENABLE_GLYPH_CACHE_WORKAROUND', 'DROIDDECK_GLTHREAD'):
         env.pop(key, None)
     env.update(QT_QUICK_BACKEND='rhi', QSG_RHI_BACKEND='opengl')
     # The Adreno 840 crash reports so far are one report per shell start, which the basic loop gives.

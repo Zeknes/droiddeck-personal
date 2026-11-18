@@ -14,6 +14,7 @@ SESSION = {
     'WAYLAND_DISPLAY': 'wayland-1', 'XDG_RUNTIME_DIR': '/run/droiddeck',
     'QT_QUICK_BACKEND': 'software', 'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe',
     'MESA_LOADER_DRIVER_OVERRIDE': 'zink', 'QT_ENABLE_GLYPH_CACHE_WORKAROUND': '1', 'KEEP': 'yes',
+    'DROIDDECK_GLTHREAD': 'true',
 }
 # Runs the real wrapper the way the desktop does, in a fresh interpreter with the recorded plasmashell call.
 HARNESS = '''
@@ -98,6 +99,8 @@ print(json.dumps(calls))
         self.assertEqual(env.get('QT_QUICK_BACKEND'), 'rhi')
         self.assertEqual((env.get('QSG_RHI_BACKEND'), env.get('QT_OPENGL')), ('opengl', 'software'))
         self.assertEqual(env.get('KEEP'), 'yes')
+        # Mesa's GL threading hands the shell's paint to helper threads; the shell's own loop is single.
+        self.assertNotIn('DROIDDECK_GLTHREAD', env)
 
     def test_the_software_scene_graph_setting_is_taken_out_for_the_shell(self):
         setting = '[QtQuickRendererSettings]\nSceneGraphBackend=software\n'
