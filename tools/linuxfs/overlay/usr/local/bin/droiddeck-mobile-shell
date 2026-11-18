@@ -72,7 +72,17 @@ def main():
     # The Adreno 840 crash reports so far are one report per shell start, which the basic loop gives.
     env['QT_OPENGL'] = 'software'
     env['QSG_RENDER_LOOP'] = 'basic'
+    shell_cpus = env.pop('DROIDDECK_SHELL_CPUS', '')
     if gpu_path_crashes():
+        if shell_cpus:
+            try:
+                cpus = set()
+                for part in shell_cpus.split(','):
+                    first, _, last = part.partition('-')
+                    cpus.update(range(int(first), int(last or first) + 1))
+                os.sched_setaffinity(0, cpus)
+            except (ValueError, OSError):
+                pass
         # QtProject.conf outranks QT_QUICK_BACKEND, and on Adreno 840 it still holds the software scene
         # graph an earlier release wrote there; drop that key so the RHI backend is the one in use.
         conf = qt_settings()

@@ -26,8 +26,10 @@ path, argv = sys.argv[1], ast.literal_eval(sys.argv[2])
 wrapper = runpy.run_path(path)
 sys.argv = ['droiddeck-mobile-shell'] + argv
 sys.modules['subprocess'].call = call
+affinity = []
+wrapper['os'].sched_setaffinity = lambda pid, cpus: affinity.append([pid, sorted(cpus)])
 rc = wrapper['main']()
-sys.stdout.write(json.dumps({'rc': rc, 'calls': calls}))
+sys.stdout.write(json.dumps({'rc': rc, 'calls': calls, 'affinity': affinity}))
 '''
 
 
@@ -65,20 +67,30 @@ print(json.dumps(calls))
                          'org.kde.kglobalaccel.Component.invokeShortcut', 'Mobile Task Switcher'], home] if active else [home]
             self.assertEqual(expected, json.loads(run.stdout))
 
-    def shell(self, gpu, argv=('-p', 'org.kde.plasma.mobileshell'), conf=''):
+    def shell(self, gpu, argv=('-p', 'org.kde.plasma.mobileshell'), conf='', cpus='', affinity=None):
         with tempfile.TemporaryDirectory() as home:
             if conf:
                 path = Path(home) / '.config/QtProject.conf'
                 path.parent.mkdir(parents=True)
                 path.write_text(conf)
-            env = {'HOME': home, 'DROIDDECK_GPU_NAME': gpu, **SESSION}
+            env = {'HOME': home, 'DROIDDECK_GPU_NAME': gpu, 'DROIDDECK_SHELL_CPUS': cpus, **SESSION}
             run = subprocess.run([os.sys.executable, '-c', HARNESS, str(WRAPPER), repr(list(argv))],
                                  env=env, capture_output=True, text=True, timeout=60)
             self.assertEqual(run.returncode, 0, run.stderr)
             result = json.loads(run.stdout)
             qt = Path(home) / '.config/QtProject.conf'
             self.assertEqual(len(result['calls']), 1)
+            if affinity is not None:
+                self.assertEqual(affinity, result['affinity'])
             return result['calls'][0][0], result['calls'][0][1] or {}, qt.read_text() if qt.exists() else None
+
+    def test_adreno_840_mobile_shell_recovers_the_inherited_cpu_set(self):
+        _, env, _ = self.shell('Adreno (TM) 840', argv=(), cpus='0-3,6-7', affinity=[[0, [0, 1, 2, 3, 6, 7]]])
+        self.assertEqual('basic', env['QSG_RENDER_LOOP'])
+        self.assertNotIn('DROIDDECK_SHELL_CPUS', env)
+        self.shell('Adreno (TM) 740', cpus='0-3,6-7', affinity=[])
+        self.shell('Adreno (TM) 840', argv=('-p', 'org.kde.plasma.desktop'), cpus='0-3,6-7', affinity=[])
+        self.shell('Adreno (TM) 840', cpus='broken', affinity=[])
 
     def test_the_shell_draws_with_the_software_opengl_rhi_instead_of_a_software_scene_graph(self):
         command, env, _ = self.shell('Adreno (TM) 840')
