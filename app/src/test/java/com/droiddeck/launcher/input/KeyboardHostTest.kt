@@ -51,5 +51,10 @@ class KeyboardHostTest {
         assertFalse(host.shown)
     }
 
+    @Test fun manualKeyboardRequestsAreExplicitWithoutForcingTheSystemSetting() {
+        org.junit.Assert.assertEquals(0, host.showFlags(explicit = true))
+        org.junit.Assert.assertEquals(InputMethodManager.SHOW_IMPLICIT, host.showFlags(explicit = false))
+    }
+
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 }

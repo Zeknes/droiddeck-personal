@@ -79,19 +79,21 @@ class KeyboardHost(
         return true
     }
 
-    fun toggle() = if (shown && imeVisible()) hide() else show()
+    fun toggle() = if (shown && imeVisible()) hide() else show(explicit = true)
 
     private fun imeVisible() = Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
         rootWindowInsets?.isVisible(WindowInsets.Type.ime()) != false
 
-    fun show() {
+    fun show(explicit: Boolean = false) {
         shown = true
         isFocusable = true
         isFocusableInTouchMode = true
         requestFocus()
         imm.restartInput(this)
-        imm.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+        imm.showSoftInput(this, showFlags(explicit))
     }
+
+    internal fun showFlags(explicit: Boolean) = if (explicit) 0 else InputMethodManager.SHOW_IMPLICIT
 
     fun hide() {
         shown = false
