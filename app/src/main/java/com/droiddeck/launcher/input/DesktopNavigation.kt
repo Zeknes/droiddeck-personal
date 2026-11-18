@@ -123,6 +123,7 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
     val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") { collapse(manual = true) }
     val homeButton get() = bar.getChildAt(2) as Icon
+    val keyboardButton get() = bar.getChildAt(0) as Icon
 
     init {
         clipChildren = false
@@ -132,11 +133,14 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         wakeHandle.layoutParams = LayoutParams(dp(48), dp(48))
         bar.orientation = LinearLayout.HORIZONTAL
         bar.gravity = Gravity.CENTER
-        bar.addView(gripButton)
+        // The keyboard keeps the physical left end and the grip the physical right end on either docked side and in
+        // either reading direction; back, home and overview keep their own sequence in between.
+        bar.layoutDirection = LAYOUT_DIRECTION_LTR
+        bar.addView(barIcon("keyboard", "Show or hide keyboard") { invoke("keyboard") })
         bar.addView(barIcon("back", "Back in desktop") { invoke("back") })
         bar.addView(barIcon("home", "Plasma desktop") { invoke("home") })
         bar.addView(barIcon("overview", "Desktop windows") { invoke("overview") })
-        bar.addView(barIcon("keyboard", "Show or hide keyboard") { invoke("keyboard") })
+        bar.addView(gripButton)
         addView(bar)
         addView(wakeHandle)
         wakeHandle.visibility = GONE

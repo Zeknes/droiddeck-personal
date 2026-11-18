@@ -266,6 +266,42 @@ class DesktopNavigationTest {
         host.layout(0, 0, size, size)
     }
 
+    @Test fun theKeyboardSitsAtThePhysicalLeftEndAndTheGripAtTheRightOnEitherSide() {
+        for (rtl in listOf(false, true)) {
+            val (navigation, host) = session()
+            for (edge in listOf("left", "right")) {
+                activity().getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE).edit()
+                    .putString("edge", edge).apply()
+                if (rtl) navigation.layoutDirection = View.LAYOUT_DIRECTION_RTL else navigation.layoutDirection = View.LAYOUT_DIRECTION_LTR
+                navigation.active(false)
+                navigation.active(true)
+                press(navigation.wakeHandle); release(navigation.wakeHandle)
+                relayout(host, 800)
+                val keyboard = navigation.keyboardButton
+                val grip = navigation.gripButton
+                assertEquals("keyboard is the leftmost button", 0, keyboard.left)
+                assertTrue("grip is at the right end", grip.left > navigation.homeButton.left)
+                assertTrue(navigation.bar.width - (grip.left + grip.width) <= navigation.bar.paddingRight)
+                assertEquals("collapse control sits right of the keyboard", true, grip.left > keyboard.right)
+            }
+            navigation.active(false)
+        }
+    }
+
+    @Test fun theInnerSequenceOfBackHomeAndOverviewIsUnchanged() {
+        val (navigation, host) = session()
+        relayout(host, 800)
+        val order = (0 until navigation.bar.childCount).map { (navigation.bar.getChildAt(it) as View).contentDescription }
+        assertEquals(listOf("Show or hide keyboard", "Back in desktop", "Plasma desktop", "Desktop windows",
+            "Collapse controls; drag to move; long press for options"), order)
+        val back = navigation.bar.getChildAt(1) as View
+        val overview = navigation.bar.getChildAt(3) as View
+        assertTrue("back follows the keyboard", back.left >= navigation.keyboardButton.right)
+        assertTrue("home follows back", navigation.homeButton.left >= back.right)
+        assertTrue("overview follows home", overview.left >= navigation.homeButton.right)
+        assertTrue("the grip closes the row", navigation.gripButton.left >= overview.right)
+    }
+
     @Test fun theCapsuleIsAsWideAsItsBarAndItsButtonsAreTouchTargets() {
         // On the tablet the capsule measured 120x120 with every button at 0,0-0,0: 120 is one hidden handle, so the
         // capsule was sized by its hidden child and the bar never got a frame to draw or hit-test.
