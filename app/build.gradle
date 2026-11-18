@@ -131,8 +131,8 @@ android {
         applicationId "com.zeknes.droiddeck.pure"
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 38
-        versionName "0.7.9"
+        versionCode 39
+        versionName "0.7.10"
         buildConfigField "String", "BUILD_LABEL", "\"${escapedBuildLabel}\""
         buildConfigField "String", "SOURCE_COMMIT", "\"${sourceCommit}\""
         buildConfigField "int", "PR_NUMBER", "${prNumber}"

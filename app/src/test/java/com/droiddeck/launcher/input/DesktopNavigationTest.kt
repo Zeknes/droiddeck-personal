@@ -56,9 +56,11 @@ class DesktopNavigationTest {
 
     private fun activity() = Robolectric.buildActivity(Activity::class.java).setup().get()
 
+    /** A tap is a finger arriving and leaving on the same button: the effect plays on arrival. */
     private fun tap(navigation: DesktopNavigation, name: String): VibrationEffect {
         val button = navigation.bar.children.first { it.contentDescription == name }
-        button.performClick()
+        press(button)
+        release(button)
         return vibrations.last()
     }
 
@@ -70,8 +72,43 @@ class DesktopNavigationTest {
         assertEquals(5, navigation.bar.childCount)
         for (name in listOf("Back in desktop", "Plasma desktop", "Desktop windows", "Show or hide keyboard")) tap(navigation, name)
         tap(navigation, "Collapse controls; drag to move; long press for options")
-        navigation.wakeHandle.performClick()
+        press(navigation.wakeHandle)
+        release(navigation.wakeHandle)
         assertEquals(List(6) { NavigationHaptics.TAP }, vibrations)
+    }
+
+    @Test fun anArrivingFingerPlaysTheTapEffectThatReleasingItPlays() {
+        // The reported miss: pressing the handle or a button without lifting the finger in the same instant. A drag
+        // that never happens must feel exactly like a tap, and the release must not add a second one.
+        val activity = activity()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        for (target in listOf(navigation.homeButton, navigation.gripButton, navigation.wakeHandle)) {
+            vibrations.clear()
+            press(target)
+            assertEquals("one tap on touch-down of ${target.contentDescription}", listOf(NavigationHaptics.TAP), vibrations)
+            release(target)
+            assertEquals("the release adds nothing", listOf(NavigationHaptics.TAP), vibrations)
+        }
+        assertFalse(navigation.collapsed)
+    }
+
+    @Test fun aDragPlaysTheTapEffectOnceWhenItBecomesADrag() {
+        val activity = activity()
+        val navigation = DesktopNavigation(activity) {}
+        activity.setContentView(navigation)
+        navigation.active(true)
+        drag(navigation.gripButton, 60f, 90f)
+        assertEquals("a drag is one touch, played once", listOf(NavigationHaptics.TAP), vibrations)
+    }
+
+    private fun press(view: View) {
+        view.dispatchTouchEvent(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 10f, 10f, 0))
+    }
+
+    private fun release(view: View) {
+        view.dispatchTouchEvent(MotionEvent.obtain(0, 100, MotionEvent.ACTION_UP, 10f, 10f, 0))
     }
 
     private fun vibrator(activity: Activity): Vibrator =
@@ -105,10 +142,10 @@ class DesktopNavigationTest {
         val navigation = DesktopNavigation(activity) {}
         activity.setContentView(navigation)
         navigation.active(true)
-        navigation.homeButton.performClick()
-        navigation.gripButton.performClick()
+        press(navigation.homeButton); release(navigation.homeButton)
+        press(navigation.gripButton); release(navigation.gripButton)
         assertTrue(navigation.collapsed)
-        navigation.wakeHandle.performClick()
+        press(navigation.wakeHandle); release(navigation.wakeHandle)
         assertFalse(navigation.collapsed)
         assertTrue(requests.isEmpty())
         assertEquals(List(3) { NavigationHaptics.TAP }, vibrations)
@@ -119,20 +156,10 @@ class DesktopNavigationTest {
         val navigation = DesktopNavigation(activity) {}
         activity.setContentView(navigation)
         navigation.active(true)
-        navigation.gripButton.performClick()
-        navigation.wakeHandle.performClick()
+        press(navigation.gripButton); release(navigation.gripButton)
+        press(navigation.wakeHandle); release(navigation.wakeHandle)
         assertTrue(requests.isEmpty())
         assertEquals(List(2) { NavigationHaptics.TAP }, vibrations)
-    }
-
-    @Test fun noHapticIsRequestedWhileTheCapsuleIsDragged() {
-        val activity = activity()
-        val navigation = DesktopNavigation(activity) {}
-        activity.setContentView(navigation)
-        navigation.active(true)
-        drag(navigation.gripButton, 60f, 90f)
-        assertTrue(requests.isEmpty())
-        assertTrue(vibrations.isEmpty())
     }
 
     @Test fun theFallbackFollowsTheSystemHapticSetting() {
@@ -331,14 +358,14 @@ class DesktopNavigationTest {
         prefs.edit().putBoolean("pinned", true).commit()
         try {
             val (navigation, _) = session()
-            navigation.gripButton.performClick()
+            press(navigation.gripButton); release(navigation.gripButton)
             ShadowLooper.idleMainLooper()
             assertTrue("the grip tap collapses a pinned capsule", navigation.collapsed)
             assertEquals(View.VISIBLE, navigation.wakeHandle.visibility)
-            navigation.wakeHandle.performClick()
+            press(navigation.wakeHandle); release(navigation.wakeHandle)
             ShadowLooper.idleMainLooper()
             assertFalse("the wake handle brings it back", navigation.collapsed)
-            navigation.gripButton.performClick()
+            press(navigation.gripButton); release(navigation.gripButton)
             ShadowLooper.idleMainLooper()
             assertTrue(navigation.collapsed)
         } finally {

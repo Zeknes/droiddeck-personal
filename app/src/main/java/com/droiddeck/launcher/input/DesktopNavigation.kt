@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -78,6 +79,8 @@ internal object NavigationHaptics {
 internal val NavigationHaptics.TAP: VibrationEffect
     get() = VibrationEffect.createOneShot(25L, VibrationEffect.DEFAULT_AMPLITUDE)
 
+private const val TAP_GRACE_MS = 1_000L
+
 class DesktopNavigation(context: Context, private val action: (String) -> Unit) : FrameLayout(context) {
     private val prefs = context.getSharedPreferences("desktop-navigation", Context.MODE_PRIVATE)
     internal val bar = LinearLayout(context)
@@ -90,13 +93,36 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
     private var safeBottom = 0
     var collapsed = false
         private set
-    private fun icon(name: String, label: String, click: () -> Unit) = Icon(context, name, label) {
-        NavigationHaptics.playTap(context)
-        click()
+    // The haptic belongs to the finger arriving, not to a release that may never come (a slow press, a drag, or a
+    // stroke the window system takes away), so every button plays it in its own touch listener, and a touch that
+    // does not become a drag closes its action where every consumer already listens.
+    private fun icon(name: String, label: String, click: () -> Unit) = Icon(context, name, label, click)
+    private fun clickEffect() = NavigationHaptics.playTap(context)
+
+    /** One tap per touch: played where the finger lands. The release that follows adds nothing. */
+    private fun touched() {
+        clickEffect()
     }
+
+    /** The release of a touch that did not become a drag: closes the action once, the way a click would. */
+    private fun released(view: View) {
+        // A press the window system had already taken away (the button's own long-press detection) and returned to
+        // has still played its arrival haptic; its click is the long press or nothing, never a second tap.
+        val owned = view === pressed
+        pressed = null
+        if (owned) view.performClick()
+    }
+
+    /** The stroke became a drag or was taken away: its release must not also click. */
+    private fun touchedCancelled() {
+        pressed = null
+    }
+
+    private var pressed: View? = null
+
     val wakeHandle = icon("wake", "Show desktop controls; drag to move") { expand() }
     val gripButton = icon("grip", "Collapse controls; drag to move; long press for options") { collapse(manual = true) }
-    val homeButton = icon("home", "Plasma desktop") { invoke("home") }
+    val homeButton get() = bar.getChildAt(2) as Icon
 
     init {
         clipChildren = false
@@ -107,10 +133,10 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         bar.orientation = LinearLayout.HORIZONTAL
         bar.gravity = Gravity.CENTER
         bar.addView(gripButton)
-        bar.addView(icon("back", "Back in desktop") { invoke("back") })
-        bar.addView(homeButton)
-        bar.addView(icon("overview", "Desktop windows") { invoke("overview") })
-        bar.addView(icon("keyboard", "Show or hide keyboard") { invoke("keyboard") })
+        bar.addView(barIcon("back", "Back in desktop") { invoke("back") })
+        bar.addView(barIcon("home", "Plasma desktop") { invoke("home") })
+        bar.addView(barIcon("overview", "Desktop windows") { invoke("overview") })
+        bar.addView(barIcon("keyboard", "Show or hide keyboard") { invoke("keyboard") })
         addView(bar)
         addView(wakeHandle)
         wakeHandle.visibility = GONE
@@ -130,6 +156,8 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                         removeCallbacks(idle)
                         downX = event.rawX; downY = event.rawY; startX = x; startY = y
                         moving = false; longPress = false
+                        pressed = view
+                        touched()
                         postDelayed(options, 600)
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -148,8 +176,11 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
                         if (moving) {
                             savePosition()
                             if (collapsed) snapToEdge()
+                            touchedCancelled()
                         } else if (!longPress && event.actionMasked == MotionEvent.ACTION_UP) {
-                            view.performClick()
+                            released(view)
+                        } else {
+                            touchedCancelled()
                         }
                         held = false; scheduleIdle()
                     }
@@ -159,6 +190,30 @@ class DesktopNavigation(context: Context, private val action: (String) -> Unit) 
         }
         gripButton.setOnTouchListener(dragListener())
         wakeHandle.setOnTouchListener(dragListener())
+    }
+
+    // A bar button feels the finger arriving, and its release closes the action unless the touch became a drag
+    // or was taken away by the window system.
+    private fun barIcon(name: String, label: String, click: () -> Unit) = icon(name, label, click).apply {
+        setOnTouchListener(barListener())
+    }
+    private fun barListener() = object : OnTouchListener {
+        var downX = 0f
+        var downY = 0f
+        var moving = false
+        override fun onTouch(view: View, event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX; downY = event.rawY; moving = false
+                    pressed = view
+                    touched()
+                }
+                MotionEvent.ACTION_MOVE -> if (kotlin.math.abs(event.rawX - downX) + kotlin.math.abs(event.rawY - downY) > dp(8)) moving = true
+                MotionEvent.ACTION_UP -> if (moving) touchedCancelled() else released(view)
+                MotionEvent.ACTION_CANCEL -> touchedCancelled()
+            }
+            return true
+        }
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
