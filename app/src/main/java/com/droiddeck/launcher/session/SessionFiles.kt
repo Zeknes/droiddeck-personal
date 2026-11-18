@@ -259,7 +259,10 @@ object SessionFiles {
             }
         }
         val all = (if (DesktopCatalog.desktopInstalled(root)) files + DESKTOP_FILES else files) + optional
-        val ledger = StageLedger(File(root, STAGED_LEDGER), apkIdentity(context))
+        // DesktopPack.install extracts the pack over these paths after this staging, so the pack's copies are what the
+        // ledger is written against at the end of the staging below; they stay current only while the pack is not.
+        val fromPack = DesktopCatalog.desktopFromPack(root)
+        val ledger = StageLedger(File(root, STAGED_LEDGER), apkIdentity(context), fromPack)
         for ((asset, relative) in all) {
             val target = File(root, relative)
             if (ledger.current(relative, target)) continue
@@ -421,25 +424,38 @@ object SessionFiles {
         return "${apk.path} ${apk.length()} ${apk.lastModified()}"
     }
 
-    private class StageLedger(private val file: File, private val identity: String) {
+    /** The ledger of staged files as the session staging uses it, for the unit test that guards the pack case. */
+    internal fun ledgerForTest(file: File, identity: String, fromPack: Boolean = false) = StageLedger(file, identity, fromPack) as StageLedgerContract
+
+    internal interface StageLedgerContract {
+        fun current(relative: String, target: File): Boolean
+        fun staged(relative: String, target: File)
+        fun save()
+    }
+
+    private class StageLedger(private val file: File, private val identity: String, private val fromPack: Boolean) : StageLedgerContract {
         private val before: Map<String, String> = FileUtils.readString(file)?.lines()
             ?.takeIf { it.firstOrNull() == identity }
             ?.drop(1)?.mapNotNull { line -> line.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] } }?.toMap()
             .orEmpty()
         private val after = LinkedHashMap<String, String>()
 
-        fun current(relative: String, target: File): Boolean {
+        override fun current(relative: String, target: File): Boolean {
             val mark = mark(target) ?: return false
             if (before[relative] != mark) return false
             after[relative] = mark
             return true
         }
 
-        fun staged(relative: String, target: File) {
+        override fun staged(relative: String, target: File) {
             mark(target)?.let { after[relative] = it }
         }
 
-        fun save() {
+        override fun save() {
+            if (fromPack) {
+                // The pack overwrote these files after they were marked; the next session stages them again.
+                before.keys.forEach { after.remove(it) }
+            }
             if (after == before) return
             val text = (listOf(identity) + after.map { (relative, mark) -> "$relative\t$mark" }).joinToString("\n")
             val staged = File(file.parentFile, file.name + ".staged")
